@@ -49,8 +49,9 @@
 .planning-row {
   display: grid;
   grid-template-columns: var(--planning-columns);
-  /* one 1.5rem lane per stacked bar + free space below to click/drag in */
-  grid-template-rows: repeat(var(--lanes, 1), 1.5rem) minmax(1rem, auto);
+  /* One 1.5rem lane per stacked bar, with equal flexible space above and
+     below, so the bars are centred vertically and there is room to click. */
+  grid-template-rows: minmax(.5rem, 1fr) repeat(var(--lanes, 1), 1.5rem) minmax(.5rem, 1fr);
   border-bottom: 1px solid var(--bs-border-color);
   padding: 0;
 }
@@ -72,7 +73,7 @@
 /* One bar per run of consecutive planned days, in the employee's colour. */
 .planning-chip {
   position: relative; z-index: 2;
-  margin: .2rem .2rem 0; padding: 0 .45rem;
+  margin: .1rem .2rem; padding: 0 .45rem;
   border-radius: .6rem;
   font-size: .75rem; line-height: 1.3rem; text-decoration: none;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -96,6 +97,8 @@
 .planning-chip.drag-ghost { opacity: .9; z-index: 4; pointer-events: none; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); outline: 2px dashed rgba(0, 0, 0, .45); }
 .planning-grid.dragging, .planning-grid.dragging * { cursor: grabbing !important; }
 .planning-grid.resizing, .planning-grid.resizing * { cursor: ew-resize !important; }
+/* Project page: planning of other projects / absences in grey (not draggable). */
+.planning-chip.muted { background-color: #ced4da; color: #495057; cursor: pointer; box-shadow: none; }
 /* Absences: same colour, striped, so they stand out from project work. */
 .planning-chip.absence {
   background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .28) 0 6px, transparent 6px 12px);

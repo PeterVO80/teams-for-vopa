@@ -75,6 +75,7 @@ def edit_assignment(assignment_id: int | None = None):
     * ``?user=3``                              - the team member
     * ``?start=2026-11-16&end=2026-11-18``     - a range selected by dragging
     * ``?day=2026-11-16``                      - a single clicked day
+    * ``?project=5``                           - the project (project page)
     """
     assignment = db.get_or_404(Assignment, assignment_id) if assignment_id else None
     form = AssignmentForm(obj=assignment)
@@ -86,6 +87,7 @@ def edit_assignment(assignment_id: int | None = None):
             form.project_id.data = assignment.project_id or 0
         else:
             form.user_id.data = int_arg("user")
+            form.project_id.data = int_arg("project") or 0  # planned from a project page
             start = _date_arg("start") or _date_arg("day")
             end = _date_arg("end") or start
             if start and end and end < start:  # dragged from right to left

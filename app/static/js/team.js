@@ -48,6 +48,7 @@
       start: first.dataset.day,
       end: selection.cells[to].dataset.day,
     });
+    if (grid.dataset.project) params.set("project", grid.dataset.project);  // project page
     selection = null;  // keep the highlight visible until the popup closes
     window.ModalForm.open(`${grid.dataset.newUrl}?${params}`);
   }
@@ -161,7 +162,7 @@
     const ghost = drag.ghost;
     if (ghost.parentElement !== row) {
       row.appendChild(ghost);
-      ghost.style.gridRow = "1";
+      ghost.style.gridRow = "2";  // first lane (row 1 is the spacing above the bars)
       ghost.style.backgroundColor = row.dataset.color;
       ghost.style.color = row.dataset.textColor;
     }

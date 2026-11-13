@@ -1,12 +1,15 @@
 """Projects: list, create/edit and a detail page tying all modules together."""
 
+from datetime import date, timedelta
+
 import sqlalchemy as sa
-from flask import flash, redirect, render_template, request, url_for
+from flask import current_app, flash, redirect, render_template, request, url_for
 from markupsafe import Markup
 
 from ..extensions import db
 from ..forms import ProjectForm, none_if_zero
 from ..models import (
+    Assignment,
     Note,
     Project,
     ProjectStatus,
@@ -18,6 +21,7 @@ from ..models import (
 )
 from ..services import stock as stock_svc
 from ..services.material import project_material
+from ..services.workload import build_overview, monday_of
 from ..services.numbering import insert_with_unique_number
 from . import protected_blueprint
 
@@ -64,6 +68,20 @@ def detail(project_id: int):
     wiki_count = db.session.scalar(sa.select(sa.func.count(WikiPage.id)).filter_by(project_id=project.id))
     # Ordered vs. delivered material, grouped per article (services/material.py).
     material = project_material(project.id)
+
+    # Planning tab: the team board focused on this project (?planning_start=,
+    # ?planning_weeks=), plus every planning entry of the project.
+    try:
+        planning_start = monday_of(date.fromisoformat(request.args["planning_start"]))
+    except (KeyError, ValueError):
+        planning_start = monday_of(date.today())
+    planning_weeks = min(max(request.args.get("planning_weeks", 4, type=int), 1), 12)
+    planning_days, planning_rows = build_overview(planning_start, planning_weeks)
+    # Team members planned on this project in the period first, then the others.
+    planning_rows.sort(key=lambda r: not any(s.assignment.project_id == project.id for s in r.segments))
+    project_assignments = db.session.scalars(
+        sa.select(Assignment).filter_by(project_id=project.id).order_by(Assignment.start_date)
+    ).all()
     stock_usage = stock_svc.project_usage(project.id)
 
     # Task count per status for the progress summary.
@@ -78,6 +96,14 @@ def detail(project_id: int):
         notes=notes,
         wiki_roots=wiki_roots,
         material=material,
+        planning_days=planning_days,
+        planning_rows=planning_rows,
+        planning_start=planning_start,
+        planning_weeks=planning_weeks,
+        planning_prev=planning_start - timedelta(weeks=planning_weeks),
+        planning_next=planning_start + timedelta(weeks=planning_weeks),
+        project_assignments=project_assignments,
+        workday_hours=current_app.config["WORKDAY_HOURS"],
         stock_usage=stock_usage,
         wiki_count=wiki_count,
         status_counts=status_counts,

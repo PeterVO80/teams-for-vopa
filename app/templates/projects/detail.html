@@ -39,6 +39,7 @@
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-orders">Bestellingen ({{ orders|length }})</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-material">Materiaal ({{ material.open_rows }} open)</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-notes">Notities ({{ notes|length }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-planning">Planning ({{ project_assignments|length }})</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-wiki">Wiki ({{ wiki_count }})</button></li>
 </ul>
 <div class="tab-content card border-top-0 rounded-top-0">
@@ -108,6 +109,54 @@
       {% endfor %}
     </div>
   </div>
+  <div class="tab-pane fade p-3" id="tab-planning">
+    {# Same board as the team overview, focused on this project (team/_board.html). #}
+    {% set nav = {'project_id': project.id, 'planning_weeks': planning_weeks} %}
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <div class="btn-group btn-group-sm">
+        <a class="btn btn-outline-secondary" href="{{ url_for('projects.detail', planning_start=planning_prev.isoformat(), **nav) }}#planning"><i class="bi bi-chevron-left"></i></a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('projects.detail', **nav) }}#planning">Vandaag</a>
+        {% if project.start_date %}<a class="btn btn-outline-secondary" href="{{ url_for('projects.detail', planning_start=project.start_date.isoformat(), **nav) }}#planning" title="Naar de startdatum van het project">Projectstart</a>{% endif %}
+        <a class="btn btn-outline-secondary" href="{{ url_for('projects.detail', planning_start=planning_next.isoformat(), **nav) }}#planning"><i class="bi bi-chevron-right"></i></a>
+      </div>
+      <span class="fw-semibold small">{{ planning_days[0]|date }} – {{ planning_days[-1]|date }}</span>
+      <div class="btn-group btn-group-sm ms-auto">
+        {% for w in (2, 4, 8, 12) %}
+        <a class="btn {{ 'btn-secondary' if planning_weeks == w else 'btn-outline-secondary' }}" href="{{ url_for('projects.detail', project_id=project.id, planning_start=planning_start.isoformat(), planning_weeks=w) }}#planning">{{ w }} w</a>
+        {% endfor %}
+      </div>
+      <button class="btn btn-sm btn-primary" data-modal-url="{{ url_for('team.edit_assignment', project=project.id) }}"><i class="bi bi-plus-lg"></i> Inplannen</button>
+    </div>
+    {% with days = planning_days, rows = planning_rows, focus_project = project %}{% include "team/_board.html" %}{% endwith %}
+
+    <h2 class="h6 mt-4">Alle planning voor dit project</h2>
+    {% set ns = namespace(days=0, hours=0) %}
+    <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Medewerker</th><th>Van</th><th>Tot en met</th><th class="text-end">Dagen</th><th class="text-end">u/dag</th><th class="text-end">Uren</th><th>Opmerking</th><th></th></tr></thead>
+      <tbody>
+      {% for a in project_assignments %}
+        {% set ns.days = ns.days + a.planned_days %}{% set ns.hours = ns.hours + a.planned_days * a.hours_per_day %}
+        <tr class="{{ 'text-body-tertiary' if a.end_date < today() }}">
+          <td>{{ avatar(a.user) }} {{ a.user.full_name }}</td>
+          <td>{{ a.start_date|date }}</td>
+          <td>{{ a.end_date|date }}{% if a.include_weekends %} <span class="badge text-bg-light border">+ weekend</span>{% endif %}</td>
+          <td class="text-end">{{ a.planned_days }}</td>
+          <td class="text-end">{{ a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') }}</td>
+          <td class="text-end">{{ (a.planned_days * a.hours_per_day)|round(1)|string|replace('.0', '')|replace('.', ',') }}</td>
+          <td class="small">{{ a.note or '' }}</td>
+          <td class="text-end"><button class="btn btn-sm btn-outline-secondary" data-modal-url="{{ url_for('team.edit_assignment', assignment_id=a.id) }}" title="Bewerken"><i class="bi bi-pencil"></i></button></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="8" class="text-body-secondary small">Nog niemand ingepland op dit project. Klik of sleep hierboven in de rij van een medewerker om in te plannen.</td></tr>
+      {% endfor %}
+      </tbody>
+      {% if project_assignments %}
+      <tfoot><tr><th colspan="3">Totaal</th><th class="text-end">{{ ns.days }}</th><th></th><th class="text-end">{{ ns.hours|round(1)|string|replace('.0', '')|replace('.', ',') }}</th><th colspan="2"></th></tr></tfoot>
+      {% endif %}
+    </table>
+    </div>
+  </div>
   <div class="tab-pane fade" id="tab-wiki">
     <div class="p-2 d-flex gap-2">
       <a class="btn btn-sm btn-primary" href="{{ url_for('wiki.create', project=project.id) }}"><i class="bi bi-plus-lg"></i> Wikipagina</a>
@@ -119,4 +168,21 @@
     </div>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/team.js') }}"></script>
+<script>
+  // Open the tab named in the URL (#planning, #material, ...), e.g. after
+  // navigating weeks or after a change on the planning board reloads the page,
+  // and keep the hash in sync when the user switches tabs.
+  (function () {
+    const name = window.location.hash.slice(1);
+    const button = name && document.querySelector(`[data-bs-target="#tab-${name}"]`);
+    if (button) bootstrap.Tab.getOrCreateInstance(button).show();
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach((b) => b.addEventListener("shown.bs.tab", () => {
+      history.replaceState(null, "", `#${b.dataset.bsTarget.replace("#tab-", "")}`);
+    }));
+  })();
+</script>
+
 {% endblock %}

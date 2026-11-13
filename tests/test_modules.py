@@ -638,3 +638,31 @@ def test_board_renders_handles_and_reschedule_url(client):
     html = client.get("/team/").get_data(as_text=True)
     assert 'class="bar-handle start"' in html and 'class="bar-handle end"' in html
     assert "/reschedule" in html and "data-assignment=" in html
+
+
+# ------------------------------------------------- planning tab on the project page
+def test_project_planning_tab(client):
+    from datetime import date, timedelta
+    from app.models import Project
+
+    project = db.session.scalar(sa.select(Project).filter_by(name="Waterzuivering SCADA"))
+    monday = date.today() - timedelta(days=date.today().weekday())
+    html = client.get(f"/projects/{project.id}?planning_start={monday.isoformat()}").get_data(as_text=True)
+    board = html.split('id="tab-planning"', 1)[1]
+    assert f'data-project="{project.id}"' in board                 # new planning is pre-filled
+    assert "Aquafin - Waterzuivering SCADA" in board
+    # Planning of the other project (Verpakkingslijn L3) is shown muted and is not draggable.
+    muted = board.split("planning-chip", )[1:]
+    assert any("muted" in m.split(">", 1)[0] and "data-assignment" not in m.split(">", 1)[0] for m in muted)
+    # People planned on this project come first: Els (4h on this project) before Jan.
+    assert board.index("Els Janssens") < board.index("Jan Peeters")
+    # List with totals: Els 5 days x 4h + Lies 5 days x 8h = 60h.
+    assert "Alle planning voor dit project" in board and "<th class=\"text-end\">60</th>" in board
+
+
+def test_planning_popup_prefills_project(client):
+    from app.models import Project
+    project = db.session.scalar(sa.select(Project).filter_by(name="Waterzuivering SCADA"))
+    html = client.get(f"/team/assignments/new?user=2&day=2026-11-16&project={project.id}",
+                      headers={"X-Modal": "1"}).get_data(as_text=True)
+    assert f'<option selected value="{project.id}">' in html
