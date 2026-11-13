@@ -68,6 +68,18 @@
     {% for seg in row.segments %}
     {% set a = seg.assignment %}
     {% set muted = focus_project and a.project_id != focus_project.id %}
+    {% set hours = a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') %}
+    {# Content of the instant tooltip (static/js/team.js). The values are
+       escaped here; forceescape below escapes the whole HTML once more for
+       the attribute, the browser undoes that when reading it. #}
+    {% set tooltip %}
+      <div class="fw-semibold">{{ a.label }}</div>
+      {% if a.project %}<div class="opacity-75">{{ a.project.code }}</div>{% endif %}
+      <div><i class="bi bi-person"></i> {{ row.user.full_name }}</div>
+      <div><i class="bi bi-calendar-range"></i> {{ a.start_date|date }} – {{ a.end_date|date }}</div>
+      <div><i class="bi bi-clock"></i> {{ hours }} u/dag · {{ a.planned_days }} dag{{ 'en' if a.planned_days != 1 }}{% if a.include_weekends %} · incl. weekend{% endif %}</div>
+      {% if a.note %}<div class="mt-1 fst-italic">{{ a.note }}</div>{% endif %}
+    {% endset %}
     {# data-* attributes are used by static/js/team.js to resize and move bars;
        muted bars (other planning on the project page) are not draggable. #}
     <a class="planning-chip {{ 'absence' if a.kind.is_absence }} {{ 'muted' if muted }} {{ 'continues-before' if seg.continues_before }} {{ 'continues-after' if seg.continues_after }}"
@@ -77,7 +89,8 @@
        {% if not muted %}data-assignment="{{ a.id }}" data-start="{{ a.start_date.isoformat() }}" data-end="{{ a.end_date.isoformat() }}"
        data-first="{{ seg.first }}" data-last="{{ seg.last }}"
        data-reschedule-url="{{ url_for('team.reschedule_assignment', assignment_id=a.id) }}"{% endif %}
-       title="{{ a.label }}{% if a.project %} ({{ a.project.code }}){% endif %}&#10;{{ a.start_date|date }} – {{ a.end_date|date }} · {{ a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') }}u/dag{% if a.include_weekends %} · incl. weekend{% endif %}{% if a.note and not a.kind.is_absence %}&#10;{{ a.note }}{% endif %}">
+       data-tooltip-html="{{ tooltip|forceescape }}"
+       title="{{ a.label }}{% if a.project %} ({{ a.project.code }}){% endif %}&#10;{{ a.start_date|date }} – {{ a.end_date|date }} · {{ hours }}u/dag{% if a.include_weekends %} · incl. weekend{% endif %}{% if a.note and not a.kind.is_absence %}&#10;{{ a.note }}{% endif %}">
       {%- if a.kind.is_absence %}<i class="bi bi-{{ {'leave': 'sun', 'sick': 'thermometer-half', 'training': 'mortarboard'}[a.kind.value] }}"></i> {% endif -%}
       {{ a.label }}{% if a.hours_per_day < workday_hours %} <span class="opacity-75">· {{ a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') }}u</span>{% endif %}
       {%- if not muted and seg.is_first and not seg.continues_before %}<span class="bar-handle start" title="Sleep om de startdatum te wijzigen"></span>{% endif %}

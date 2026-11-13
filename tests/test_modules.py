@@ -704,3 +704,11 @@ def test_project_tab_month_view(client):
 def test_day_columns_have_a_maximum_width(client):
     html = client.get("/team/?view=weeks&weeks=1").get_data(as_text=True)
     assert "minmax(2.8rem, 7rem)" in html and "1fr" not in html.split("--planning-columns", 1)[1].split(";", 1)[0]
+
+
+def test_bars_carry_instant_tooltip_content(client):
+    html = client.get("/team/").get_data(as_text=True)
+    # HTML content is escaped inside the attribute (no broken quotes / injection).
+    assert 'data-tooltip-html="' in html
+    attr = html.split('data-tooltip-html="', 1)[1].split('"', 1)[0]
+    assert "&lt;div class=&#34;fw-semibold&#34;&gt;" in attr and "<" not in attr

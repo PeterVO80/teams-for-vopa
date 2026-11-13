@@ -18,6 +18,9 @@
  *    Moving less than a few pixels counts as a click: that still opens the
  *    edit popup.
  *
+ *    Hovering a bar shows its details immediately (Bootstrap tooltip without
+ *    delay instead of the browser's slow native title tooltip).
+ *
  * 3. Behaviour of the planning form (popup and full page)
  *    - the project selector is only shown for type "Project";
  *    - moving the start date past the end date moves the end date along;
@@ -120,6 +123,8 @@
   function startDrag() {
     drag.active = true;
     const { bar } = drag;
+    hideTooltips();
+    document.body.classList.add("planning-dragging");  // no tooltips while dragging
     drag.originalColumn = bar.style.gridColumn;
     if (drag.mode === "move") {
       drag.ghost = bar.cloneNode(true);
@@ -178,6 +183,7 @@
     const d = drag;
     drag = null;
     grid.classList.remove("dragging", "resizing");
+    document.body.classList.remove("planning-dragging");
     if (!d || !d.active) return;
     suppressClick = true;
     setTimeout(() => { suppressClick = false; }, 0);
@@ -209,7 +215,30 @@
     window.location.reload();  // redraw bars, lanes and load colours
   }
 
+  // Instant tooltips with the full description of a bar.
+  function hideTooltips() {
+    document.querySelectorAll(".planning-chip[data-tooltip-html]")
+      .forEach((el) => bootstrap.Tooltip.getInstance(el)?.hide());
+  }
+
   if (grid) {
+    // All boards on the page (the project page has one per tab content).
+    document.querySelectorAll(".planning-chip[data-tooltip-html]").forEach((el) => {
+      new bootstrap.Tooltip(el, {
+        title: el.dataset.tooltipHtml,
+        html: true,               // sanitised by Bootstrap's allow-list
+        delay: { show: 0, hide: 0 },
+        animation: false,
+        placement: "top",
+        container: "body",
+        customClass: "planning-tooltip",
+      });
+    });
+    // A click opens the edit popup: close the tooltip.
+    document.addEventListener("click", (event) => {
+      if (event.target.closest(".planning-chip")) hideTooltips();
+    });
+
     grid.addEventListener("pointerdown", (event) => {
       const bar = event.target.closest(".planning-chip[data-assignment]");
       if (!bar || event.button !== 0 || bar.classList.contains("drag-ghost")) return;
