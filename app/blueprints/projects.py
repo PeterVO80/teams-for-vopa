@@ -16,6 +16,7 @@ from ..models import (
     User,
     WikiPage,
 )
+from ..services.material import project_material
 from ..services.numbering import insert_with_unique_number
 from . import protected_blueprint
 
@@ -60,6 +61,8 @@ def detail(project_id: int):
         sa.select(WikiPage).filter_by(project_id=project.id, parent_id=None).order_by(WikiPage.title)
     ).all()
     wiki_count = db.session.scalar(sa.select(sa.func.count(WikiPage.id)).filter_by(project_id=project.id))
+    # Ordered vs. delivered material, grouped per article (services/material.py).
+    material = project_material(project.id)
 
     # Task count per status for the progress summary.
     status_counts = {s: 0 for s in TaskStatus}
@@ -72,6 +75,7 @@ def detail(project_id: int):
         orders=orders,
         notes=notes,
         wiki_roots=wiki_roots,
+        material=material,
         wiki_count=wiki_count,
         status_counts=status_counts,
     )

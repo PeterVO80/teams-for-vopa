@@ -7,7 +7,7 @@ from flask import current_app, flash, jsonify, redirect, render_template, reques
 
 from ..extensions import db
 from ..forms import ArticleForm, ImportForm
-from ..models import Article
+from ..models import Article, PurchaseOrder, PurchaseOrderLine
 from ..services import excel
 from . import protected_blueprint
 
@@ -77,9 +77,21 @@ def edit(article_id: int | None = None):
             db.session.commit()
             flash(f"Artikel {article.article_number} opgeslagen.", "success")
             return redirect(url_for("articles.index"))
+    # Where has this article been ordered? (newest first)
+    order_lines = []
+    if article:
+        order_lines = db.session.scalars(
+            sa.select(PurchaseOrderLine)
+            .join(PurchaseOrder)
+            .where(PurchaseOrderLine.article_id == article.id)
+            .order_by(PurchaseOrder.id.desc())
+            .limit(100)
+        ).all()
     return render_template(
-        "form_page.html",
+        "articles/edit.html",
         form=form,
+        article=article,
+        order_lines=order_lines,
         title="Artikel bewerken" if article else "Nieuw artikel",
         cancel_url=url_for("articles.index"),
     )
@@ -89,8 +101,6 @@ def edit(article_id: int | None = None):
 def delete(article_id: int):
     """Delete an article, or deactivate it when it is used on an order."""
     article = db.get_or_404(Article, article_id)
-    from ..models import PurchaseOrderLine
-
     in_use = db.session.scalar(sa.select(sa.func.count(PurchaseOrderLine.id)).filter_by(article_id=article.id))
     if in_use:
         article.active = False

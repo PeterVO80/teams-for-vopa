@@ -4,12 +4,12 @@ from datetime import date
 from io import BytesIO
 
 import sqlalchemy as sa
-from flask import flash, redirect, render_template, request, send_file, url_for
+from flask import flash, jsonify, redirect, render_template, request, send_file, url_for
 from flask_login import current_user
 from openpyxl import Workbook
 
 from ..extensions import db
-from ..forms import OrderLineForm, PurchaseOrderForm, ReceiptForm, none_if_zero
+from ..forms import AddArticleToOrderForm, OrderLineForm, PurchaseOrderForm, ReceiptForm, none_if_zero
 from ..models import (
     Article,
     GoodsReceipt,
@@ -18,8 +18,9 @@ from ..models import (
     PurchaseOrder,
     PurchaseOrderLine,
 )
+from ..services.material import export_material, project_material
 from ..services.numbering import next_number
-from ..utils import int_arg, next_url
+from ..utils import int_arg, is_modal_request, next_url
 from . import protected_blueprint
 
 bp = protected_blueprint("purchasing", __name__)
@@ -183,6 +184,114 @@ def delete_line(line_id: int):
         db.session.commit()
         flash("Lijn verwijderd.", "success")
     return redirect(url_for("purchasing.detail", order_id=order.id))
+
+
+@bp.route("/lines/<int:line_id>/edit", methods=["GET", "POST"])
+def edit_line(line_id: int):
+    """Edit an order line in a popup, e.g. to link a free-text line to an article."""
+    line = db.get_or_404(PurchaseOrderLine, line_id)
+    # The prefix keeps the field ids unique next to the "add line" form.
+    form = OrderLineForm(obj=line, prefix="edit")
+    if not form.is_submitted():
+        form.article_id.data = line.article_id or ""
+
+    if form.validate_on_submit():
+        article = db.session.get(Article, int(form.article_id.data)) if form.article_id.data else None
+        line.article = article
+        line.description = form.description.data
+        line.quantity = form.quantity.data
+        line.unit = form.unit.data
+        line.unit_price = form.unit_price.data
+        line.order.refresh_status()
+        db.session.commit()
+        flash("Lijn bijgewerkt.", "success")
+        if is_modal_request():
+            return jsonify(ok=True)
+        return redirect(url_for("purchasing.detail", order_id=line.order_id))
+
+    status = 422 if form.errors else 200
+    return render_template("purchasing/_line_modal.html", form=form, line=line), status
+
+
+def _open_order_choices(project_id: int | None = None) -> list[tuple[int, str]]:
+    """Orders that can still receive lines (draft, ordered, partially delivered)."""
+    query = sa.select(PurchaseOrder).where(
+        PurchaseOrder.status.in_([OrderStatus.DRAFT, OrderStatus.ORDERED, OrderStatus.PARTIAL])
+    )
+    if project_id:
+        query = query.where(PurchaseOrder.project_id == project_id)
+    orders = db.session.scalars(query.order_by(PurchaseOrder.id.desc()))
+    return [
+        (o.id, f"{o.number} · {o.supplier} · {o.project.code if o.project else 'geen project'} ({o.status.label})")
+        for o in orders
+    ]
+
+
+@bp.route("/add-article/<int:article_id>", methods=["GET", "POST"])
+def add_article(article_id: int):
+    """Popup: put an article from the article database on an open order.
+
+    When the order already has a line for this article (same unit), its
+    quantity is increased instead of adding a duplicate line.
+    """
+    article = db.get_or_404(Article, article_id)
+    form = AddArticleToOrderForm()
+    form.order_id.choices = [(0, "- kies een bestelling -")] + _open_order_choices()
+    if not form.is_submitted():
+        form.unit_price.data = article.unit_price
+        form.order_id.data = int_arg("order") or 0
+
+    if form.validate_on_submit():
+        order = db.session.get(PurchaseOrder, form.order_id.data)
+        existing = next((l for l in order.lines if l.article_id == article.id and l.unit == article.unit), None)
+        if existing:
+            existing.quantity += form.quantity.data
+            message = f"Aantal van {article.article_number} op {order.number} verhoogd naar {existing.quantity.normalize():f}."
+        else:
+            order.lines.append(PurchaseOrderLine(
+                article=article,
+                description=article.description,
+                quantity=form.quantity.data,
+                unit=article.unit,
+                unit_price=form.unit_price.data,
+            ))
+            message = f"{article.article_number} toegevoegd aan {order.number}."
+        order.refresh_status()
+        db.session.commit()
+        flash(message, "success")
+        if is_modal_request():
+            return jsonify(ok=True)
+        return redirect(url_for("purchasing.detail", order_id=order.id))
+
+    status = 422 if form.errors else 200
+    return render_template("purchasing/_add_article_modal.html", form=form, article=article), status
+
+
+# ---------------------------------------------------------------- material
+@bp.route("/material")
+def material():
+    """Material overview per project: ordered vs. delivered, per article."""
+    project_id = int_arg("project")
+    project = db.session.get(Project, project_id) if project_id else None
+    overview = project_material(project.id, only_open=bool(request.args.get("open"))) if project else None
+    return render_template(
+        "purchasing/material.html",
+        project=project,
+        overview=overview,
+        projects=Project.open_choices(include_empty=False),
+    )
+
+
+@bp.route("/material/<int:project_id>.xlsx")
+def material_export(project_id: int):
+    project = db.get_or_404(Project, project_id)
+    overview = project_material(project.id, only_open=bool(request.args.get("open")))
+    return send_file(
+        export_material(project, overview),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=f"materiaal_{project.code.replace('/', '-')}_{date.today():%Y%m%d}.xlsx",
+    )
 
 
 # ---------------------------------------------------------------- receipts

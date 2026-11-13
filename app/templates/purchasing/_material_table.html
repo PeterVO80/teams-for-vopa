@@ -1,0 +1,46 @@
+{# Material overview of one project (services/material.py).
+   Expects: `project`, `overview` (MaterialOverview). #}
+{% set colors = {'draft': 'secondary', 'ordered': 'primary', 'partial': 'warning', 'delivered': 'success'} %}
+<div class="d-flex flex-wrap align-items-center gap-3 mb-2 small">
+  <span><strong>{{ overview.rows|length }}</strong> materialen</span>
+  <span><strong>{{ overview.open_rows }}</strong> nog te bestellen of te leveren</span>
+  <span class="d-flex align-items-center gap-2">geleverd
+    <span class="progress" style="width: 120px; height: 8px"><span class="progress-bar bg-success" style="width: {{ overview.progress }}%"></span></span>
+    {{ overview.progress }}%</span>
+  <span>waarde <strong>{{ overview.total_amount|money }}</strong></span>
+  <span class="ms-auto d-flex gap-2">
+    <a class="btn btn-sm btn-outline-success" href="{{ url_for('purchasing.material_export', project_id=project.id) }}"><i class="bi bi-file-earmark-excel"></i> Excel</a>
+    <a class="btn btn-sm btn-primary" href="{{ url_for('purchasing.edit', project=project.id) }}"><i class="bi bi-plus-lg"></i> Bestelling</a>
+  </span>
+</div>
+<div class="table-responsive">
+<table class="table table-sm table-hover align-middle mb-0">
+  <thead>
+    <tr>
+      <th>Artikel</th><th>Omschrijving</th>
+      <th class="text-end" title="Op conceptbestellingen, nog niet besteld">Concept</th>
+      <th class="text-end">Besteld</th><th class="text-end">Geleverd</th><th class="text-end">Open</th>
+      <th>Status</th><th>Verwacht</th><th>Bestellingen</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in overview.rows %}
+    <tr>
+      <td class="text-nowrap small">
+        {% if row.article %}{{ row.article.article_number }}{% else %}<span class="text-body-secondary" title="Vrije lijn, niet gekoppeld aan de artikeldatabank">vrij</span>{% endif %}
+      </td>
+      <td>{{ row.description }}{% if row.article and row.article.manufacturer_ref %}<br><small class="text-body-secondary">{{ row.article.manufacturer_ref }}</small>{% endif %}</td>
+      <td class="text-end text-nowrap text-body-secondary">{{ row.qty_draft|qty if row.qty_draft else '' }}</td>
+      <td class="text-end text-nowrap">{{ row.qty_ordered|qty }} {{ row.unit }}</td>
+      <td class="text-end text-nowrap">{{ row.qty_received|qty }}</td>
+      <td class="text-end text-nowrap fw-semibold">{{ row.qty_outstanding|qty if row.qty_outstanding else '' }}</td>
+      <td><span class="badge text-bg-{{ colors[row.status] }}">{{ row.status_label }}</span></td>
+      <td class="small text-nowrap {{ 'text-danger fw-semibold' if row.is_overdue }}">{{ row.expected_date|date }}</td>
+      <td class="small">{% for o in row.orders %}<a href="{{ url_for('purchasing.detail', order_id=o.id) }}">{{ o.number }}</a>{{ ', ' if not loop.last }}{% endfor %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="9" class="text-body-secondary">Nog geen materiaal besteld voor dit project.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>

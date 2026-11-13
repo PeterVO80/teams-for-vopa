@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_field, order_status_badge %}
+{% block page_actions %}
+{% if article and article.active %}
+<button class="btn btn-outline-primary" data-modal-url="{{ url_for('purchasing.add_article', article_id=article.id) }}"><i class="bi bi-cart-plus"></i> Aan bestelling toevoegen</button>
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-xl-6">
+    <div class="card"><div class="card-body">
+      <form method="post" novalidate>
+        {% for field in form %}{{ render_field(field) }}{% endfor %}
+        <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg"></i> Opslaan</button>
+        <a class="btn btn-link" href="{{ cancel_url }}">Annuleren</a>
+      </form>
+    </div></div>
+  </div>
+  {% if article %}
+  <div class="col-xl-6">
+    <div class="card">
+      <div class="card-header fw-semibold">Bestelhistoriek</div>
+      <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Bestelling</th><th>Project</th><th class="text-end">Aantal</th><th class="text-end">Geleverd</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for line in order_lines %}
+          <tr>
+            <td><a href="{{ url_for('purchasing.detail', order_id=line.order.id) }}">{{ line.order.number }}</a><br><small class="text-body-secondary">{{ line.order.order_date|date }}</small></td>
+            <td>{% if line.order.project %}<a href="{{ url_for('projects.detail', project_id=line.order.project.id) }}">{{ line.order.project.code }}</a>{% endif %}</td>
+            <td class="text-end text-nowrap">{{ line.quantity|qty }} {{ line.unit }}</td>
+            <td class="text-end text-nowrap">{{ line.quantity_received|qty }}</td>
+            <td>{{ order_status_badge(line.order.status) }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="text-body-secondary">Nog nooit besteld.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

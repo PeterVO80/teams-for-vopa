@@ -1,0 +1,32 @@
+{# Popup: put an article on an open order (blueprints/purchasing.py: add_article). #}
+{% from "_macros.html" import render_field %}
+<div class="modal-header">
+  <h1 class="modal-title fs-5">Aan bestelling toevoegen</h1>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Sluiten"></button>
+</div>
+<form method="post" action="{{ url_for('purchasing.add_article', article_id=article.id) }}" data-modal-form novalidate>
+  <div class="modal-body">
+    {{ form.hidden_tag() }}
+    <div class="alert alert-light border small">
+      <strong>{{ article.article_number }}</strong> · {{ article.description }}
+      {% if article.manufacturer_ref %}<br><span class="text-body-secondary">{{ article.manufacturer }} {{ article.manufacturer_ref }}</span>{% endif %}
+    </div>
+    {% if form.order_id.choices|length > 1 %}
+      {{ render_field(form.order_id) }}
+      <div class="row">
+        {{ render_field(form.quantity, class_="col-md-6") }}
+        {{ render_field(form.unit_price, class_="col-md-6") }}
+      </div>
+      <div class="form-text">Staat dit artikel al op de bestelling, dan wordt het aantal verhoogd.</div>
+    {% else %}
+      <p class="mb-0">Er zijn geen open bestellingen. <a href="{{ url_for('purchasing.edit') }}">Maak eerst een bestelling aan.</a></p>
+    {% endif %}
+  </div>
+  <div class="modal-footer">
+    <a class="btn btn-link me-auto" href="{{ url_for('purchasing.edit') }}">Nieuwe bestelling</a>
+    <button type="button" class="btn btn-link" data-bs-dismiss="modal">Annuleren</button>
+    {% if form.order_id.choices|length > 1 %}
+    <button type="submit" class="btn btn-primary"><i class="bi bi-cart-plus"></i> Toevoegen</button>
+    {% endif %}
+  </div>
+</form>

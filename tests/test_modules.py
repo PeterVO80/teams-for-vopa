@@ -428,3 +428,108 @@ def test_moving_page_to_project_wiki_moves_sub_pages(client):
     db.session.refresh(root)
     assert root.project_id == project.id and root.slug.startswith("prj-")
     assert all(child.project_id == project.id for child in root.children)
+
+
+# --------------------------------------------- material follow-up per project
+def _article(number):
+    return db.session.scalar(sa.select(Article).filter_by(article_number=number))
+
+
+def _material_setup():
+    """Demo order PO-..-0101 (ordered: 2x A-1001, 1x A-1002) + extra orders for the same project."""
+    from app.models import PurchaseOrderLine
+
+    order = db.session.scalar(sa.select(PurchaseOrder))
+    project = order.project
+    plc, sensor = _article("A-1001"), _article("A-1003") or _article("A-3001")
+    second = PurchaseOrder(number="PO-T-2", project=project, supplier="Rexel", status=OrderStatus.ORDERED)
+    second.lines.append(PurchaseOrderLine(article=plc, description=plc.description, quantity=Decimal(3),
+                                          unit="st", unit_price=Decimal(385)))
+    second.lines.append(PurchaseOrderLine(description="Montageplaat op maat", quantity=Decimal(1), unit="st"))
+    draft = PurchaseOrder(number="PO-T-3", project=project, supplier="ifm", status=OrderStatus.DRAFT)
+    draft.lines.append(PurchaseOrderLine(article=sensor, description=sensor.description, quantity=Decimal(10), unit="st"))
+    cancelled = PurchaseOrder(number="PO-T-4", project=project, supplier="X", status=OrderStatus.CANCELLED)
+    cancelled.lines.append(PurchaseOrderLine(article=plc, description="x", quantity=Decimal(99), unit="st"))
+    db.session.add_all([second, draft, cancelled])
+    db.session.commit()
+    return project, order, second
+
+
+def test_material_overview_groups_per_article(client):
+    from app.services.material import project_material
+
+    project, first, second = _material_setup()
+    # Receive 1 of the 2 PLCs on the first order.
+    plc_line = next(l for l in first.lines if l.article and l.article.article_number == "A-1001")
+    client.post(f"/purchasing/lines/{plc_line.id}/receive", data={"quantity": "1", "received_on": "2026-11-10"})
+
+    rows = {(r.article.article_number if r.article else r.description): r for r in project_material(project.id).rows}
+    plc = rows["A-1001"]
+    assert plc.qty_ordered == 5          # 2 + 3, the cancelled 99 is ignored
+    assert plc.qty_received == 1 and plc.qty_outstanding == 4
+    assert plc.status == "partial" and [o.number for o in plc.orders] == [first.number, "PO-T-2"]
+    assert rows["A-3001"].status == "draft" and rows["A-3001"].qty_draft == 10
+    assert rows["Montageplaat op maat"].article is None
+    # Draft materials are listed first: they still need to be ordered.
+    assert project_material(project.id).rows[0].status == "draft"
+
+
+def test_material_only_open_and_pages(client):
+    from app.services.material import project_material
+
+    project, first, _ = _material_setup()
+    client.post(f"/purchasing/{first.id}/receive-all")
+    statuses = {r.status for r in project_material(project.id, only_open=True).rows}
+    assert "delivered" not in statuses
+    assert "Materiaal (" in client.get(f"/projects/{project.id}").get_data(as_text=True)
+    html = client.get(f"/purchasing/material?project={project.id}").get_data(as_text=True)
+    assert "A-1001" in html and "Montageplaat op maat" in html
+    response = client.get(f"/purchasing/material/{project.id}.xlsx")
+    ws = load_workbook(BytesIO(response.data)).active
+    assert ws["A4"].value == "Artikelnummer" and ws.max_row >= 5
+
+
+def test_add_article_to_order_popup(client):
+    order = db.session.scalar(sa.select(PurchaseOrder))
+    article = _article("A-3001")
+    html = client.get(f"/purchasing/add-article/{article.id}", headers=MODAL).get_data(as_text=True)
+    assert order.number in html and "modal-header" in html
+
+    data = {"order_id": order.id, "quantity": "4", "unit_price": "48.20"}
+    assert client.post(f"/purchasing/add-article/{article.id}", headers=MODAL, data=data).get_json() == {"ok": True}
+    assert client.post(f"/purchasing/add-article/{article.id}", headers=MODAL, data=data).get_json() == {"ok": True}
+    db.session.refresh(order)
+    lines = [l for l in order.lines if l.article_id == article.id]
+    assert len(lines) == 1 and lines[0].quantity == 8   # second time: quantity increased
+
+    response = client.post(f"/purchasing/add-article/{article.id}", headers=MODAL, data={**data, "order_id": 0})
+    assert response.status_code == 422 and "Kies een bestelling" in response.get_data(as_text=True)
+
+
+def test_link_free_text_line_to_article_and_unlink(client):
+    from app.models import PurchaseOrderLine
+
+    order = db.session.scalar(sa.select(PurchaseOrder))
+    order.lines.append(PurchaseOrderLine(description="Sensor M12", quantity=Decimal(2), unit="st"))
+    db.session.commit()
+    line = order.lines[-1]
+    article = _article("A-3001")
+    form = {"edit-description": "Sensor M12 PNP", "edit-quantity": "2", "edit-unit": "st", "edit-unit_price": "48.20"}
+
+    html = client.get(f"/purchasing/lines/{line.id}/edit", headers=MODAL).get_data(as_text=True)
+    assert 'name="edit-article_id"' in html
+    response = client.post(f"/purchasing/lines/{line.id}/edit", headers=MODAL, data={**form, "edit-article_id": article.id})
+    assert response.get_json() == {"ok": True}
+    db.session.refresh(line)
+    assert line.article_id == article.id and line.description == "Sensor M12 PNP"
+
+    client.post(f"/purchasing/lines/{line.id}/edit", headers=MODAL, data={**form, "edit-article_id": ""})
+    db.session.refresh(line)
+    assert line.article_id is None
+
+
+def test_article_page_shows_order_history(client):
+    article = _article("A-1001")
+    html = client.get(f"/articles/{article.id}/edit").get_data(as_text=True)
+    order = db.session.scalar(sa.select(PurchaseOrder))
+    assert "Bestelhistoriek" in html and order.number in html

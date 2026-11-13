@@ -1,4 +1,5 @@
 <ul class="nav nav-tabs mb-3">
   <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'purchasing.index' }}" href="{{ url_for('purchasing.index') }}">Bestellingen</a></li>
   <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'purchasing.deliveries' }}" href="{{ url_for('purchasing.deliveries') }}">Openstaande leveringen</a></li>
+  <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'purchasing.material' }}" href="{{ url_for('purchasing.material') }}">Materiaal per project</a></li>
 </ul>

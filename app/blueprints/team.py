@@ -9,7 +9,7 @@ from ..extensions import db
 from ..forms import AssignmentForm, none_if_zero
 from ..models import Assignment, AssignmentKind, Project, User
 from ..services.workload import build_overview, monday_of
-from ..utils import int_arg, next_url
+from ..utils import int_arg, is_modal_request, next_url
 from . import protected_blueprint
 
 bp = protected_blueprint("team", __name__)
@@ -55,16 +55,6 @@ def assignments():
         users=User.active_choices(),
         user_id=user_id,
     )
-
-
-def _is_modal() -> bool:
-    """True when the request comes from the popup (``static/js/modal_form.js``).
-
-    The popup loads the form as an HTML *fragment* and submits it with
-    ``fetch()``; it marks those requests with an ``X-Modal: 1`` header. Without
-    that header the same URLs still work as normal full pages (fallback).
-    """
-    return request.headers.get("X-Modal") == "1"
 
 
 def _date_arg(name: str) -> date | None:
@@ -116,7 +106,7 @@ def edit_assignment(assignment_id: int | None = None):
         )
         db.session.commit()
         flash("Planning opgeslagen.", "success")
-        if _is_modal():
+        if is_modal_request():
             # The popup reloads the page, which then shows the flash message.
             return jsonify(ok=True)
         return redirect(next_url(url_for("team.overview", start=assignment.start_date.isoformat())))
@@ -127,7 +117,7 @@ def edit_assignment(assignment_id: int | None = None):
         action_url=url_for("team.edit_assignment", assignment_id=assignment.id) if assignment
         else url_for("team.edit_assignment"),
     )
-    if _is_modal():
+    if is_modal_request():
         # 422 tells the popup that the form contains validation errors.
         status = 422 if form.errors else 200
         return render_template("team/_assignment_modal.html", **context), status
@@ -143,6 +133,6 @@ def delete_assignment(assignment_id: int):
     db.session.delete(assignment)
     db.session.commit()
     flash("Planning verwijderd.", "success")
-    if _is_modal():
+    if is_modal_request():
         return jsonify(ok=True)
     return redirect(next_url(url_for("team.overview", start=start.isoformat())))

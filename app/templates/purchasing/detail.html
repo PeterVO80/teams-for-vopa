@@ -2,6 +2,15 @@
 {% from "_macros.html" import order_status_badge, post_button, render_field %}
 {% block title %}Bestelling {{ order.number }}{% endblock %}
 {% block heading %}{{ order.number }} {{ order_status_badge(order.status) }}{% endblock %}
+{% block page_header %}
+{% if order.project %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb mb-1">
+  <li class="breadcrumb-item"><a href="{{ url_for('projects.detail', project_id=order.project.id) }}">{{ order.project.code }}</a></li>
+  <li class="breadcrumb-item"><a href="{{ url_for('purchasing.material', project=order.project.id) }}">Materiaal</a></li>
+</ol></nav>
+{% endif %}
+{{ super() }}
+{% endblock %}
 {% block page_actions %}
   {% if order.status.value == 'draft' %}
     {{ post_button(url_for('purchasing.set_status', order_id=order.id, status='ordered'), 'Markeer als besteld', class_='btn btn-primary', icon='send') }}
@@ -43,7 +52,7 @@
   <tbody>
   {% for line in order.lines %}
     <tr class="{{ 'table-success' if line.is_complete }}">
-      <td class="text-nowrap small">{{ line.article.article_number if line.article else '' }}</td>
+      <td class="text-nowrap small">{% if line.article %}<i class="bi bi-link-45deg text-success" title="Gekoppeld aan de artikeldatabank"></i> {{ line.article.article_number }}{% else %}<span class="text-body-secondary" title="Vrije lijn">vrij</span>{% endif %}</td>
       <td>{{ line.description }}
         {% for r in line.receipts %}
         <div class="small text-body-secondary">
@@ -61,6 +70,8 @@
         {% if not line.is_complete and order.status.value != 'cancelled' %}
         <button class="btn btn-sm btn-success" data-bs-toggle="collapse" data-bs-target="#receive-{{ line.id }}" title="Ontvangst registreren"><i class="bi bi-box-arrow-in-down"></i></button>
         {% endif %}
+        <button class="btn btn-sm btn-outline-secondary" title="Lijn bewerken / artikel koppelen"
+                data-modal-url="{{ url_for('purchasing.edit_line', line_id=line.id) }}"><i class="bi bi-pencil"></i></button>
         {% if not line.receipts %}
         {{ post_button(url_for('purchasing.delete_line', line_id=line.id), '', icon='trash', confirm='Lijn verwijderen?') }}
         {% endif %}
@@ -89,12 +100,7 @@
 <div class="card"><div class="card-header fw-semibold">Lijn toevoegen</div><div class="card-body">
   <form method="post" action="{{ url_for('purchasing.add_line', order_id=order.id) }}" id="line-form" novalidate>
     {{ line_form.hidden_tag() }}
-    <div class="mb-3 position-relative">
-      <label class="form-label">Zoek in artikeldatabank</label>
-      <input class="form-control" id="article-search" autocomplete="off" placeholder="Typ artikelnummer, omschrijving of bestelcode..." data-url="{{ url_for('articles.search_json') }}">
-      <div class="list-group position-absolute w-100 shadow d-none" id="article-results" style="z-index: 1000"></div>
-      <div class="form-text">Of vul de omschrijving hieronder vrij in voor een eenmalig artikel.</div>
-    </div>
+    {% with linked = None %}{% include "purchasing/_article_picker.html" %}{% endwith %}
     <div class="row">
       {{ render_field(line_form.description, class_="col-md-6") }}
       {{ render_field(line_form.quantity, class_="col-md-2") }}
@@ -106,4 +112,4 @@
 </div></div>
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/order_lines.js') }}"></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/article_picker.js') }}"></script>{% endblock %}

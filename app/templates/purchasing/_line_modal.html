@@ -1,0 +1,25 @@
+{# Popup: edit an order line (blueprints/purchasing.py: edit_line). #}
+{% from "_macros.html" import render_field %}
+<div class="modal-header">
+  <h1 class="modal-title fs-5">Lijn bewerken · {{ line.order.number }}</h1>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Sluiten"></button>
+</div>
+<form method="post" action="{{ url_for('purchasing.edit_line', line_id=line.id) }}" data-modal-form novalidate>
+  <div class="modal-body">
+    {{ form.hidden_tag() }}
+    {% with linked = line.article %}{% include "purchasing/_article_picker.html" %}{% endwith %}
+    <div class="row">
+      {{ render_field(form.description, class_="col-12") }}
+      {{ render_field(form.quantity, class_="col-md-4") }}
+      {{ render_field(form.unit, class_="col-md-4") }}
+      {{ render_field(form.unit_price, class_="col-md-4") }}
+    </div>
+    {% if line.receipts %}
+    <div class="small text-body-secondary">Al ontvangen: {{ line.quantity_received|qty }} {{ line.unit }}.</div>
+    {% endif %}
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-link" data-bs-dismiss="modal">Annuleren</button>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Opslaan</button>
+  </div>
+</form>

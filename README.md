@@ -6,8 +6,8 @@ assignment is a **project**. All modules hang off that project:
 | Module | What it does |
 |---|---|
 | **Projects** | Automatic project code (`PRJ/2026/0001`, numbering restarts each year), project card with customer, project manager and timeline, plus an overview of the project's tasks, orders and notes. |
-| **Purchasing** | Purchase orders per project/supplier, order lines pulled from the article database, **delivery tracking per line** (partial deliveries, delivery notes, who received it). Order status updates automatically. A list of all outstanding deliveries. Excel export per order. |
-| **Articles** | Article database with search and filters. **Excel import/export** (round trip: export → edit in Excel → import). |
+| **Purchasing** | Purchase orders per project/supplier. Order lines are **linked to the article database** (search on the order, "add to order" from the article list, or link a free-text line afterwards). **Delivery tracking per line** (partial deliveries, delivery notes, who received it); order status updates automatically. **Material overview per project**: per article, what is in draft, ordered, delivered and still outstanding across all the project's orders (project tab + page + Excel export). List of all outstanding deliveries, Excel export per order. |
+| **Articles** | Article database with search and filters, order history per article. **Excel import/export** (round trip: export → edit in Excel → import). |
 | **Punch list** | Kanban board with *New · In progress · On hold · Done · Cancelled*. Drag & drop, filters per project/team member, priority, deadline and estimate. |
 | **Team overview** | Planning grid (people × days, weekends included) with load per day and period, absences (leave, sick, training), and open tasks per person. Plan by clicking a day or click-and-dragging over several days; the form opens in a popup. Weekend days are only planned when "Weekenddagen inplannen" is ticked. |
 | **Notes** | Markdown notes with a WYSIWYG editor, **tags** (e.g. *Status meeting*, *Customer feedback*), optional project link, search and pinning. |
@@ -175,6 +175,8 @@ app/
 │   ├── task.py  planning.py  knowledge.py (notes, tags, wiki)
 ├── services/              # business logic with no HTTP dependency
 │   ├── excel.py           #   article import/export
+│   ├── material.py        #   ordered vs. delivered per project and article
+│   ├── numbering.py       #   automatic numbers (PRJ/2026/0001, PO-2026-0001)
 │   ├── markdown_render.py #   Markdown → safe HTML, [[wiki links]]
 │   └── workload.py        #   team overview calculations
 ├── blueprints/            # one blueprint (URL prefix) per module
@@ -184,7 +186,7 @@ app/
 ├── templates/             # Jinja templates per module, base.html + _macros.html
 └── static/
     ├── css/app.css
-    ├── js/                # app.js, kanban.js, editor.js, order_lines.js
+    ├── js/                # app.js, modal_form.js, kanban.js, editor.js, team.js, wiki.js, article_picker.js
     └── vendor/            # Bootstrap, icons, SortableJS, Toast UI (see its README)
 migrations/                # Alembic migrations
 tests/                     # pytest: smoke tests for every page + business rules

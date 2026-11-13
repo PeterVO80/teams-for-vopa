@@ -143,6 +143,14 @@ class OrderLineForm(FlaskForm):
     unit_price = DecimalField("Eenheidsprijs (€)", places=2, validators=[Optional(), NumberRange(min=0)])
 
 
+class AddArticleToOrderForm(FlaskForm):
+    """Add one article from the article database to an open purchase order."""
+
+    order_id = SelectField("Bestelling", coerce=int, validators=[DataRequired(message="Kies een bestelling.")])
+    quantity = DecimalField("Aantal", places=2, validators=[DataRequired(), NumberRange(min=0.01)])
+    unit_price = DecimalField("Eenheidsprijs (€)", places=2, validators=[Optional(), NumberRange(min=0)])
+
+
 class ReceiptForm(FlaskForm):
     quantity = DecimalField("Ontvangen aantal", places=2, validators=[DataRequired(), NumberRange(min=0.01)])
     received_on = DateField("Ontvangen op", validators=[DataRequired()])

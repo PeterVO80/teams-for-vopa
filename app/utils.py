@@ -35,6 +35,18 @@ def next_url(default: str) -> str:
     return target if is_safe_redirect(target) else default
 
 
+def is_modal_request() -> bool:
+    """True when the request comes from the popup (``static/js/modal_form.js``).
+
+    The popup loads a form as an HTML *fragment* and submits it with
+    ``fetch()``; it marks those requests with an ``X-Modal: 1`` header. Views
+    then answer with a fragment (GET / validation errors, status 422) or JSON
+    ``{"ok": true}`` (saved). Without the header the same URLs can still serve
+    normal full pages.
+    """
+    return request.headers.get("X-Modal") == "1"
+
+
 def int_arg(name: str) -> int | None:
     """Read an optional integer query parameter (``?project=3``)."""
     return request.args.get(name, type=int) or None

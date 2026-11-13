@@ -1,0 +1,18 @@
+{# Article search box that links an order line to the article database.
+   Behaviour: static/js/article_picker.js. Works for every form that has the
+   fields article_id / description / unit / unit_price (with or without a
+   WTForms prefix). `linked` = the article the line is currently linked to. #}
+<div class="mb-3 position-relative" data-article-picker data-url="{{ url_for('articles.search_json') }}">
+  <label class="form-label">Artikel uit de artikeldatabank</label>
+  <input class="form-control" data-article-search autocomplete="off"
+         placeholder="Typ artikelnummer, omschrijving of bestelcode...">
+  <div class="list-group position-absolute w-100 shadow d-none" data-article-results style="z-index: 1060"></div>
+  <div class="form-text {{ 'd-none' if not linked }}" data-article-linked>
+    <i class="bi bi-link-45deg text-success"></i> Gekoppeld aan
+    <strong data-article-label>{{ linked.label if linked else '' }}</strong>
+    <button type="button" class="btn btn-link btn-sm p-0 align-baseline" data-article-unlink>ontkoppelen</button>
+  </div>
+  <div class="form-text {{ 'd-none' if linked }}" data-article-unlinked>
+    Niet gekoppeld: de lijn gebruikt de vrije omschrijving hieronder.
+  </div>
+</div>
