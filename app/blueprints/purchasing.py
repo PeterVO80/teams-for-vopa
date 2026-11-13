@@ -1,6 +1,7 @@
 """Purchasing: purchase orders, order lines and delivery follow-up."""
 
 from datetime import date
+from decimal import Decimal
 from io import BytesIO
 
 import sqlalchemy as sa
@@ -17,9 +18,11 @@ from ..models import (
     Project,
     PurchaseOrder,
     PurchaseOrderLine,
+    StockLocation,
 )
 from ..services.material import export_material, project_material
 from ..services.numbering import next_number
+from ..services.stock import receive_into_stock
 from ..utils import int_arg, is_modal_request, next_url
 from . import protected_blueprint
 
@@ -86,9 +89,11 @@ def edit(order_id: int | None = None):
     order = db.get_or_404(PurchaseOrder, order_id) if order_id else None
     form = PurchaseOrderForm(obj=order)
     form.project_id.choices = Project.open_choices()
+    form.stock_location_id.choices = StockLocation.choices(include_empty="- niet op stock (projectmateriaal) -")
     if not form.is_submitted():
         if order:
             form.project_id.data = order.project_id or 0
+            form.stock_location_id.data = order.stock_location_id or 0
         else:
             form.number.data = _next_order_number()
             form.project_id.data = int_arg("project") or 0
@@ -107,6 +112,7 @@ def edit(order_id: int | None = None):
                 db.session.add(order)
             form.populate_obj(order)
             order.project_id = none_if_zero(form.project_id.data)
+            order.stock_location_id = none_if_zero(form.stock_location_id.data)
             order.status = OrderStatus(form.status.data)
             if order.status == OrderStatus.ORDERED and not order.order_date:
                 order.order_date = date.today()
@@ -240,6 +246,8 @@ def add_article(article_id: int):
     if not form.is_submitted():
         form.unit_price.data = article.unit_price
         form.order_id.data = int_arg("order") or 0
+        if request.args.get("qty"):
+            form.quantity.data = request.args.get("qty", type=Decimal)
 
     if form.validate_on_submit():
         order = db.session.get(PurchaseOrder, form.order_id.data)
@@ -301,14 +309,14 @@ def receive(line_id: int):
     line = db.get_or_404(PurchaseOrderLine, line_id)
     form = ReceiptForm()
     if form.validate_on_submit():
-        line.receipts.append(
-            GoodsReceipt(
-                quantity=form.quantity.data,
-                received_on=form.received_on.data,
-                note=form.note.data or None,
-                received_by_id=current_user.id,
-            )
+        receipt = GoodsReceipt(
+            quantity=form.quantity.data,
+            received_on=form.received_on.data,
+            note=form.note.data or None,
+            received_by_id=current_user.id,
         )
+        line.receipts.append(receipt)
+        receive_into_stock(receipt)  # only for orders with a stock location
         if line.order.status == OrderStatus.DRAFT:  # receiving implies it was ordered
             line.order.status = OrderStatus.ORDERED
         line.order.refresh_status()
@@ -328,14 +336,14 @@ def receive_all(order_id: int):
     order = db.get_or_404(PurchaseOrder, order_id)
     for line in order.lines:
         if line.quantity_outstanding > 0:
-            line.receipts.append(
-                GoodsReceipt(
-                    quantity=line.quantity_outstanding,
-                    received_on=date.today(),
-                    note="Volledig ontvangen",
-                    received_by_id=current_user.id,
-                )
+            receipt = GoodsReceipt(
+                quantity=line.quantity_outstanding,
+                received_on=date.today(),
+                note="Volledig ontvangen",
+                received_by_id=current_user.id,
             )
+            line.receipts.append(receipt)
+            receive_into_stock(receipt)
     if order.status == OrderStatus.DRAFT:
         order.status = OrderStatus.ORDERED
     order.refresh_status()

@@ -10,6 +10,7 @@
       ('In uitvoering', stats.in_progress, 'play-circle', 'info', url_for('tasks.board')),
       ('Taken over deadline', stats.overdue_tasks, 'exclamation-triangle', 'danger', url_for('tasks.board')),
       ('Openstaande bestellingen', stats.open_orders, 'truck', 'warning', url_for('purchasing.deliveries')),
+      ('Onder minimumstock', stats.below_minimum, 'boxes', 'danger' if stats.below_minimum else 'secondary', url_for('stock.index', below=1)),
   ] %}
   <div class="col-6 col-md-4 col-xl">
     <a href="{{ link }}" class="card stat-card text-decoration-none h-100">

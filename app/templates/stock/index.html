@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination %}
+{% block title %}Stock{% endblock %}
+{% block page_actions %}
+<a class="btn btn-outline-success" href="{{ url_for('stock.export', **request.args) }}"><i class="bi bi-file-earmark-excel"></i> Excel</a>
+<button class="btn btn-primary" data-modal-url="{{ url_for('stock.move') }}"><i class="bi bi-arrow-left-right"></i> Stockbeweging</button>
+{% endblock %}
+{% block content %}
+{% include "stock/_tabs.html" %}
+{% if below_count %}
+<div class="alert alert-warning d-flex align-items-center py-2">
+  <i class="bi bi-exclamation-triangle me-2"></i>
+  <span class="me-auto">{{ below_count }} artikel(en) onder de minimumstock.</span>
+  {% if not filters.below_minimum %}<a class="btn btn-sm btn-warning" href="{{ url_for('stock.index', below=1) }}">Toon enkel deze</a>{% endif %}
+</div>
+{% endif %}
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-4"><input class="form-control" type="search" name="q" value="{{ filters.search }}" placeholder="Zoek op nummer, omschrijving, fabrikant..."></div>
+  <div class="col-md-2">
+    <select class="form-select" name="location" onchange="this.form.submit()">
+      <option value="">Alle locaties</option>
+      {% for loc in locations %}<option value="{{ loc.id }}" {{ 'selected' if filters.location_id == loc.id }}>{{ loc.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <select class="form-select" name="category" onchange="this.form.submit()">
+      <option value="">Alle categorieën</option>
+      {% for c in categories %}<option {{ 'selected' if filters.category == c }}>{{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2 d-flex align-items-center">
+    <div class="form-check"><input class="form-check-input" type="checkbox" name="below" value="1" id="below" {{ 'checked' if filters.below_minimum }} onchange="this.form.submit()">
+      <label class="form-check-label" for="below">Onder minimum</label></div>
+  </div>
+  <div class="col-md-2"><button class="btn btn-secondary w-100"><i class="bi bi-search"></i> Zoeken</button></div>
+</form>
+
+<div class="card"><div class="table-responsive">
+<table class="table table-sm table-hover align-middle mb-0">
+  <thead>
+    <tr>
+      <th>Artikel</th><th>Omschrijving</th>
+      {% for loc in locations %}<th class="text-end">{{ loc.name }}</th>{% endfor %}
+      <th class="text-end">Totaal</th><th class="text-end">Min.</th><th class="text-end">Waarde</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in rows %}
+    {% set a = row.article %}
+    <tr class="{{ 'table-warning' if row.below_minimum }}">
+      <td class="text-nowrap"><a href="{{ url_for('articles.edit', article_id=a.id) }}">{{ a.article_number }}</a></td>
+      <td>{{ a.description }}{% if a.manufacturer_ref %}<br><small class="text-body-secondary">{{ a.manufacturer }} {{ a.manufacturer_ref }}</small>{% endif %}</td>
+      {% for loc in locations %}<td class="text-end text-nowrap">{{ row.per_location.get(loc.id)|qty }}</td>{% endfor %}
+      <td class="text-end text-nowrap fw-semibold">{{ row.total|qty }} {{ a.unit }}</td>
+      <td class="text-end text-nowrap">{{ a.min_stock|qty }}</td>
+      <td class="text-end text-nowrap small">{{ row.value|money if a.unit_price else '' }}</td>
+      <td class="text-end text-nowrap">
+        {% if row.below_minimum %}
+        <button class="btn btn-sm btn-warning" title="Bijbestellen: {{ row.shortage|qty }} {{ a.unit }} tekort"
+                data-modal-url="{{ url_for('purchasing.add_article', article_id=a.id, qty=row.shortage) }}"><i class="bi bi-cart-plus"></i></button>
+        {% endif %}
+        <button class="btn btn-sm btn-outline-primary" title="Stockbeweging"
+                data-modal-url="{{ url_for('stock.move', article_id=a.id, location=filters.location_id) }}"><i class="bi bi-arrow-left-right"></i></button>
+        <a class="btn btn-sm btn-outline-secondary" title="Historiek" href="{{ url_for('stock.movements', article=a.id) }}"><i class="bi bi-clock-history"></i></a>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="{{ 6 + locations|length }}" class="text-body-secondary">
+      Geen artikelen gevonden. Zet een artikel op stock via de knop <em>Stockbeweging</em> op de artikelpagina,
+      of geef het een minimumstock.
+    </td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+<div class="d-flex align-items-center mt-2">
+  <small class="text-body-secondary me-auto">{{ page.total }} artikel(en)</small>
+  {{ pagination(page, 'stock.index') }}
+</div>
+{% endblock %}

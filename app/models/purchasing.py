@@ -45,9 +45,13 @@ class PurchaseOrder(TimestampMixin, db.Model):
     order_date: Mapped[date | None]
     expected_date: Mapped[date | None]
     notes: Mapped[str | None] = mapped_column(sa.Text)
+    #: When set, deliveries of article lines are put in stock on this location
+    #: automatically (replenishment orders). Empty = material for the project.
+    stock_location_id: Mapped[int | None] = mapped_column(sa.ForeignKey("stock_locations.id"))
     created_by_id: Mapped[int | None] = mapped_column(sa.ForeignKey("users.id"))
 
     project = relationship("Project")
+    stock_location = relationship("StockLocation")
     created_by = relationship("User")
     lines: Mapped[list["PurchaseOrderLine"]] = relationship(
         back_populates="order",
@@ -158,3 +162,8 @@ class GoodsReceipt(db.Model):
 
     line: Mapped[PurchaseOrderLine] = relationship(back_populates="receipts")
     received_by = relationship("User")
+    #: Stock movement(s) created by this delivery; removed with it when a
+    #: delivery is undone.
+    stock_movements = relationship(
+        "StockMovement", back_populates="goods_receipt", cascade="all, delete-orphan"
+    )

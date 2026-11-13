@@ -22,6 +22,9 @@ from .services.markdown_render import slugify
 from .models import (
     Article,
     Assignment,
+    MovementKind,
+    StockLocation,
+    StockMovement,
     AssignmentKind,
     Note,
     OrderStatus,
@@ -138,6 +141,21 @@ def _seed_demo_data() -> None:
                 supplier="Cebeo", category="Kabel", unit_price=Decimal("1.15")),
     ]
     db.session.add_all(articles)
+
+    # Stock: the migration creates "Magazijn"; the test database (create_all) does not.
+    warehouse = db.session.scalar(sa.select(StockLocation).filter_by(name="Magazijn"))
+    if warehouse is None:
+        warehouse = StockLocation(name="Magazijn", description="Hoofdmagazijn")
+        db.session.add(warehouse)
+    van = StockLocation(name="Bestelwagen Jan")
+    db.session.add(van)
+    db.session.flush()
+    articles[2].min_stock = Decimal(200)   # terminals: keep at least 200
+    articles[3].min_stock = Decimal(5)     # sensors
+    for article, location, qty in [(articles[2], warehouse, 150), (articles[2], van, 40),
+                                   (articles[3], warehouse, 8), (articles[4], warehouse, 500)]:
+        db.session.add(StockMovement(article=article, location=location, kind=MovementKind.RECEIPT,
+                                     quantity=Decimal(qty), user=team[0], note="Beginstock"))
 
     order = PurchaseOrder(number=f"PO-{today:%Y}-0101", project=p1, supplier="Rexel",
                           status=OrderStatus.ORDERED, order_date=today - timedelta(days=7),

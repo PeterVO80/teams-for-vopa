@@ -43,6 +43,7 @@
       <div class="progress mt-1" style="height: 8px"><div class="progress-bar bg-success" style="width: {{ order.delivery_progress }}%"></div></div>{{ order.delivery_progress }}%
     </div>
   </div>
+  {% if order.stock_location %}<div class="alert alert-info py-1 px-2 small mt-3 mb-0"><i class="bi bi-boxes"></i> Leveringen van gekoppelde artikels gaan automatisch op stock in <strong>{{ order.stock_location.name }}</strong>.</div>{% endif %}
   {% if order.notes %}<hr><div class="small">{{ order.notes }}</div>{% endif %}
 </div></div>
 

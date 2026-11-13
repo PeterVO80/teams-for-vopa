@@ -36,6 +36,9 @@ class Article(TimestampMixin, db.Model):
     #: (e.g. 0.3422 EUR/m), where rounding to cents would be inaccurate.
     unit_price: Mapped[Decimal | None] = mapped_column(sa.Numeric(12, 4))
     notes: Mapped[str | None] = mapped_column(sa.Text)
+    #: Reorder level: the article is flagged when total stock drops below it.
+    #: Leave empty for articles that are not kept in stock.
+    min_stock: Mapped[Decimal | None] = mapped_column(sa.Numeric(12, 2))
     #: Obsolete articles stay in the database for history but are hidden by default.
     active: Mapped[bool] = mapped_column(default=True)
 

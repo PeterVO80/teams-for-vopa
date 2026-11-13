@@ -26,6 +26,7 @@
   ('team.overview', 'people-fill', 'Team', 'team'),
   ('purchasing.index', 'cart3', 'Bestellingen', 'purchasing'),
   ('articles.index', 'box-seam', 'Artikelen', 'articles catalog'),
+  ('stock.index', 'boxes', 'Stock', 'stock'),
   ('notes.index', 'journal-text', 'Notities', 'notes'),
   ('wiki.index', 'book', 'Wiki', 'wiki'),
 ] %}
@@ -106,6 +107,7 @@
 <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script src="{{ url_for('static', filename='js/modal_form.js') }}"></script>
+<script src="{{ url_for('static', filename='js/stock.js') }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

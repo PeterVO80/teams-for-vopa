@@ -1,0 +1,43 @@
+{# Popup: register a stock movement (blueprints/stock.py: move).
+   Fields are shown/hidden per kind by static/js/stock.js. #}
+{% from "_macros.html" import render_field %}
+<div class="modal-header">
+  <h1 class="modal-title fs-5">Stockbeweging</h1>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Sluiten"></button>
+</div>
+<form method="post" action="{{ url_for('stock.move', article_id=article.id) if article else url_for('stock.move') }}" data-modal-form data-stock-form novalidate>
+  <div class="modal-body">
+    {{ form.hidden_tag() }}
+    {% if article %}
+      <input type="hidden" name="article_id" value="{{ article.id }}">
+      <div class="alert alert-light border small">
+        <strong>{{ article.article_number }}</strong> · {{ article.description }}<br>
+        <span class="text-body-secondary">Huidige stock:
+        {% for loc_id, qty in current.items() %}{{ locations[loc_id] }} {{ qty|qty }} {{ article.unit }}{{ ', ' if not loop.last }}{% else %}geen{% endfor %}</span>
+      </div>
+    {% else %}
+      {{ render_field(form.article_id) }}
+    {% endif %}
+    <div class="btn-group w-100 mb-3" role="group" aria-label="Soort beweging">
+      {% for value, label in form.kind.choices %}
+      <input type="radio" class="btn-check" name="kind" id="kind-{{ value }}" value="{{ value }}" {{ 'checked' if form.kind.data == value }}>
+      <label class="btn btn-outline-primary btn-sm" for="kind-{{ value }}">{{ label.split(' (')[0] }}</label>
+      {% endfor %}
+    </div>
+    <div class="row">
+      <div class="col-md-6">{{ render_field(form.location_id) }}</div>
+      <div class="col-md-6" data-show-for="transfer">{{ render_field(form.to_location_id) }}</div>
+      <div class="col-md-6">
+        {{ render_field(form.quantity) }}
+        <div class="form-text mt-n2 mb-3" data-show-for="count">Vul het aantal in dat je geteld hebt; het verschil met de stock wordt geboekt.</div>
+      </div>
+      <div class="col-md-6">{{ render_field(form.moved_on) }}</div>
+    </div>
+    <div data-show-for="issue receipt">{{ render_field(form.project_id) }}</div>
+    {{ render_field(form.note) }}
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-link" data-bs-dismiss="modal">Annuleren</button>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Boeken</button>
+  </div>
+</form>

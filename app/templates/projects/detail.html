@@ -78,6 +78,24 @@
   </div>
   <div class="tab-pane fade p-3" id="tab-material">
     {% with overview = material %}{% include "purchasing/_material_table.html" %}{% endwith %}
+    <div class="d-flex align-items-center mt-4 mb-2">
+      <h2 class="h6 mb-0 me-auto">Uit stock gebruikt</h2>
+      <button class="btn btn-sm btn-outline-primary" data-modal-url="{{ url_for('stock.move', project=project.id, kind='issue') }}"><i class="bi bi-box-arrow-right"></i> Uit stock nemen</button>
+    </div>
+    <table class="table table-sm align-middle mb-0">
+      <tbody>
+      {% for u in stock_usage %}
+        <tr>
+          <td class="text-nowrap small" style="width: 12rem">{{ u.article.article_number }}</td>
+          <td>{{ u.article.description }}</td>
+          <td class="text-end text-nowrap">{{ u.quantity|qty }} {{ u.article.unit }}</td>
+          <td class="text-end"><a class="small" href="{{ url_for('stock.movements', article=u.article.id, project=project.id) }}">historiek</a></td>
+        </tr>
+      {% else %}
+        <tr><td class="small text-body-secondary">Nog niets uit stock gehaald voor dit project.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
   </div>
   <div class="tab-pane fade" id="tab-notes">
     <div class="p-2"><a class="btn btn-sm btn-primary" href="{{ url_for('notes.edit', project=project.id) }}"><i class="bi bi-plus-lg"></i> Notitie</a></div>

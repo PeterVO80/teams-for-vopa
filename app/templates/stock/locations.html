@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_field %}
+{% block title %}Stocklocaties{% endblock %}
+{% block content %}
+{% include "stock/_tabs.html" %}
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card"><div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead><tr><th>Naam</th><th>Omschrijving</th><th>Actief</th><th class="text-end">Artikelen</th><th></th></tr></thead>
+      <tbody>
+      {% for loc in locations %}
+        {# The inputs belong to the form in the last cell via the `form` attribute
+           (a <form> cannot wrap table cells). #}
+        {% set fid = 'location-' ~ loc.id %}
+        <tr>
+          <td><input class="form-control form-control-sm" name="name" value="{{ loc.name }}" form="{{ fid }}"></td>
+          <td><input class="form-control form-control-sm" name="description" value="{{ loc.description or '' }}" form="{{ fid }}"></td>
+          <td><input class="form-check-input" type="checkbox" name="active" value="y" {{ 'checked' if loc.active }} form="{{ fid }}"></td>
+          <td class="text-end"><a href="{{ url_for('stock.index', location=loc.id) }}">{{ counts.get(loc.id, 0) }}</a></td>
+          <td class="text-end">
+            <form method="post" action="{{ url_for('stock.update_location', location_id=loc.id) }}" id="{{ fid }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-primary" title="Opslaan"><i class="bi bi-check-lg"></i></button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div></div>
+    <p class="small text-body-secondary mt-2">Een locatie kan niet verwijderd worden (de historiek blijft bewaard), maar wel op inactief gezet worden.</p>
+  </div>
+  <div class="col-lg-5">
+    <div class="card"><div class="card-header fw-semibold">Nieuwe locatie</div><div class="card-body">
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+        {{ render_field(form.name) }}
+        {{ render_field(form.description) }}
+        <button class="btn btn-primary"><i class="bi bi-plus-lg"></i> Toevoegen</button>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

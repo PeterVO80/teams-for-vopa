@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination %}
+{% block title %}Stockbewegingen{% endblock %}
+{% block content %}
+{% include "stock/_tabs.html" %}
+<form class="row g-2 mb-3" method="get">
+  {% if article %}
+  <div class="col-md-4 d-flex align-items-center">
+    <input type="hidden" name="article" value="{{ article.id }}">
+    <span class="badge text-bg-light border fs-6 fw-normal">{{ article.article_number }}</span>
+    <a class="ms-2 small" href="{{ url_for('stock.movements') }}">alle artikelen</a>
+  </div>
+  {% endif %}
+  <div class="col-md-3">
+    <select class="form-select" name="location" onchange="this.form.submit()">
+      <option value="">Alle locaties</option>
+      {% for loc in locations %}<option value="{{ loc.id }}" {{ 'selected' if location_id == loc.id }}>{{ loc.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <select class="form-select" name="project" onchange="this.form.submit()">
+      <option value="">Alle projecten</option>
+      {% for id, label in projects %}<option value="{{ id }}" {{ 'selected' if project_id == id }}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <select class="form-select" name="kind" onchange="this.form.submit()">
+      <option value="">Alle soorten</option>
+      {% for k in ['receipt', 'issue', 'transfer', 'count', 'correction'] %}<option value="{{ k }}" {{ 'selected' if kind == k }}>{{ {'receipt': 'Ontvangst', 'issue': 'Uitgifte', 'transfer': 'Verplaatsing', 'count': 'Inventaris', 'correction': 'Correctie'}[k] }}</option>{% endfor %}
+    </select>
+  </div>
+</form>
+<div class="card"><div class="table-responsive">
+<table class="table table-sm table-hover align-middle mb-0">
+  <thead><tr><th>Datum</th><th>Artikel</th><th>Locatie</th><th>Soort</th><th class="text-end">Aantal</th><th>Project</th><th>Door</th><th>Opmerking</th></tr></thead>
+  <tbody>
+  {% for m in page.items %}
+    <tr>
+      <td class="text-nowrap small">{{ m.moved_on|date }}</td>
+      <td><a href="{{ url_for('stock.movements', article=m.article.id) }}">{{ m.article.article_number }}</a><br><small class="text-body-secondary">{{ m.article.description }}</small></td>
+      <td>{{ m.location.name }}</td>
+      <td><span class="badge text-bg-{{ m.kind.css_class }}">{{ m.kind.label }}</span></td>
+      <td class="text-end text-nowrap fw-semibold {{ 'text-success' if m.quantity > 0 else 'text-danger' }}">{{ '+' if m.quantity > 0 }}{{ m.quantity|qty }} {{ m.article.unit }}</td>
+      <td class="small">{% if m.project %}<a href="{{ url_for('projects.detail', project_id=m.project.id) }}">{{ m.project.code }}</a>{% endif %}</td>
+      <td class="small">{{ m.user.full_name if m.user else '' }}</td>
+      <td class="small">{{ m.note or '' }}{% if m.goods_receipt %} <a href="{{ url_for('purchasing.detail', order_id=m.goods_receipt.line.order_id) }}"><i class="bi bi-truck"></i></a>{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="text-body-secondary">Nog geen stockbewegingen.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+<div class="mt-2">{{ pagination(page, 'stock.movements') }}</div>
+{% endblock %}

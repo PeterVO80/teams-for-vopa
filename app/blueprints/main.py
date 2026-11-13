@@ -17,6 +17,7 @@ from ..models import (
     Task,
     TaskStatus,
 )
+from ..services.stock import below_minimum_count
 from . import protected_blueprint
 
 bp = protected_blueprint("main", __name__)
@@ -58,6 +59,7 @@ def dashboard():
         "in_progress": db.session.scalar(
             sa.select(sa.func.count(Task.id)).where(Task.status == TaskStatus.IN_PROGRESS)
         ),
+        "below_minimum": below_minimum_count(),
         "open_orders": db.session.scalar(
             sa.select(sa.func.count(PurchaseOrder.id)).where(
                 PurchaseOrder.status.in_([OrderStatus.ORDERED, OrderStatus.PARTIAL])

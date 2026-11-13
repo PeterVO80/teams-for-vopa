@@ -1,0 +1,5 @@
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'stock.index' }}" href="{{ url_for('stock.index') }}">Overzicht</a></li>
+  <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'stock.movements' }}" href="{{ url_for('stock.movements') }}">Bewegingen</a></li>
+  <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'stock.locations' }}" href="{{ url_for('stock.locations') }}">Locaties</a></li>
+</ul>

@@ -132,6 +132,10 @@ class ArticleForm(FlaskForm):
     category = StringField("Categorie", validators=[Optional(), Length(max=120)])
     unit = StringField("Eenheid", default="st", validators=[DataRequired(), Length(max=20)])
     unit_price = PriceField()
+    min_stock = DecimalField(
+        "Minimumstock", places=None, validators=[Optional(), NumberRange(min=0)],
+        description="Laat leeg als dit artikel niet op stock gehouden wordt.",
+    )
     ean = StringField("EAN-code", validators=[Optional(), Length(max=20)])
     url = StringField("Link webshop", validators=[Optional(), Length(max=300)])
     notes = TextAreaField("Opmerkingen", validators=[Optional()])
@@ -178,6 +182,10 @@ class PurchaseOrderForm(FlaskForm):
     project_id = SelectField("Project", coerce=int)
     supplier = StringField("Leverancier", validators=[DataRequired(), Length(max=120)])
     status = SelectField("Status", choices=OrderStatus.choices(), default="draft")
+    stock_location_id = SelectField(
+        "Op stock leggen in", coerce=int,
+        description="Enkel voor stockaanvullingen: leveringen van gekoppelde artikels gaan dan automatisch op stock.",
+    )
     order_date = DateField("Besteldatum", validators=[Optional()])
     expected_date = DateField("Verwachte levering", validators=[Optional()])
     notes = TextAreaField("Opmerkingen", validators=[Optional()])
@@ -199,6 +207,30 @@ class AddArticleToOrderForm(FlaskForm):
     order_id = SelectField("Bestelling", coerce=int, validators=[DataRequired(message="Kies een bestelling.")])
     quantity = DecimalField("Aantal", places=2, validators=[DataRequired(), NumberRange(min=0.01)])
     unit_price = PriceField()
+
+
+class StockMovementForm(FlaskForm):
+    """One stock movement (popup in the stock module)."""
+
+    article_id = SelectField("Artikel", coerce=int, validators=[DataRequired(message="Kies een artikel.")])
+    kind = SelectField("Soort", choices=[
+        ("issue", "Uitgifte (uit stock nemen)"),
+        ("receipt", "Ontvangst (op stock leggen)"),
+        ("transfer", "Verplaatsen naar andere locatie"),
+        ("count", "Inventaris (geteld aantal invoeren)"),
+    ])
+    location_id = SelectField("Locatie", coerce=int, validators=[DataRequired(message="Kies een locatie.")])
+    to_location_id = SelectField("Naar locatie", coerce=int)
+    quantity = DecimalField("Aantal", places=None, validators=[DataRequired(), NumberRange(min=0)])
+    project_id = SelectField("Project", coerce=int)
+    moved_on = DateField("Datum", validators=[DataRequired()])
+    note = StringField("Opmerking", validators=[Optional(), Length(max=300)])
+
+
+class StockLocationForm(FlaskForm):
+    name = StringField("Naam", validators=[DataRequired(), Length(max=80)])
+    description = StringField("Omschrijving", validators=[Optional(), Length(max=200)])
+    active = BooleanField("Actief", default=True)
 
 
 class ReceiptForm(FlaskForm):

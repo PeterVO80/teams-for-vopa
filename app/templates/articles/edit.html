@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% from "_macros.html" import render_field, order_status_badge %}
 {% block page_actions %}
+{% if article %}
+<button class="btn btn-outline-primary" data-modal-url="{{ url_for('stock.move', article_id=article.id) }}"><i class="bi bi-arrow-left-right"></i> Stockbeweging</button>
+{% endif %}
 {% if article and article.active %}
 <button class="btn btn-outline-primary" data-modal-url="{{ url_for('purchasing.add_article', article_id=article.id) }}"><i class="bi bi-cart-plus"></i> Aan bestelling toevoegen</button>
 {% endif %}
@@ -18,6 +21,39 @@
   </div>
   {% if article %}
   <div class="col-xl-6">
+    <div class="card mb-3">
+      <div class="card-header d-flex align-items-center">
+        <span class="fw-semibold me-auto">Stock</span>
+        <a class="small" href="{{ url_for('stock.movements', article=article.id) }}">Alle bewegingen →</a>
+      </div>
+      <div class="card-body pb-2">
+        <div class="d-flex flex-wrap gap-3 mb-2">
+          {% for loc_id, qty in stock.items() %}
+          <div><div class="small text-body-secondary">{{ locations[loc_id] }}</div><div class="fs-5">{{ qty|qty }} {{ article.unit }}</div></div>
+          {% else %}
+          <div class="text-body-secondary small">Niet op stock.</div>
+          {% endfor %}
+          {% if article.min_stock is not none %}
+          {% set total = stock.values()|sum %}
+          <div class="ms-auto text-end"><div class="small text-body-secondary">Minimum</div>
+            <div class="fs-5 {{ 'text-danger' if total < article.min_stock }}">{{ article.min_stock|qty }}</div></div>
+          {% endif %}
+        </div>
+        {% if movements %}
+        <table class="table table-sm small mb-0">
+          {% for m in movements %}
+          <tr>
+            <td class="text-nowrap">{{ m.moved_on|date }}</td>
+            <td><span class="badge text-bg-{{ m.kind.css_class }}">{{ m.kind.label }}</span></td>
+            <td>{{ m.location.name }}</td>
+            <td class="text-end {{ 'text-success' if m.quantity > 0 else 'text-danger' }}">{{ '+' if m.quantity > 0 }}{{ m.quantity|qty }}</td>
+            <td>{{ m.project.code if m.project else '' }} {{ m.note or '' }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+        {% endif %}
+      </div>
+    </div>
     <div class="card">
       <div class="card-header fw-semibold">Bestelhistoriek</div>
       <div class="table-responsive">

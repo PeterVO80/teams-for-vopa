@@ -52,6 +52,25 @@ def index():
     )
 
 
+@bp.route("/supplier/<supplier>")
+def supplier(supplier: str):
+    """Shortcut used by the "Rexel-import" button on the article page.
+
+    Opens the most recent catalogue of that supplier, or the upload page when
+    no price list has been loaded yet.
+    """
+    catalog = db.session.scalar(
+        sa.select(SupplierCatalog)
+        .where(sa.func.lower(SupplierCatalog.supplier) == supplier.lower())
+        .order_by(SupplierCatalog.created_at.desc())
+        .limit(1)
+    )
+    if catalog is None:
+        flash(f"Er is nog geen prijslijst van {supplier} geladen. Laad hieronder het DBF-bestand.", "info")
+        return redirect(url_for("catalog.index"))
+    return redirect(url_for("catalog.detail", catalog_id=catalog.id))
+
+
 def _filters() -> dict:
     """The filter values from the query string (also posted along with an import)."""
     source = request.values

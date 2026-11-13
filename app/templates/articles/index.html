@@ -4,8 +4,8 @@
 {% block page_actions %}
 <a class="btn btn-outline-success" href="{{ url_for('articles.export', **request.args) }}"><i class="bi bi-file-earmark-excel"></i> Exporteren</a>
 <a class="btn btn-outline-secondary" href="{{ url_for('articles.import_view') }}"><i class="bi bi-upload"></i> Excel-import</a>
-<a class="btn btn-outline-primary" href="{{ url_for('catalog.index') }}"><i class="bi bi-database-down"></i> Leverancierscatalogus</a>
-<a class="btn btn-primary" href="{{ url_for('articles.edit') }}"><i class="bi bi-plus-lg"></i> Nieuw artikel</a>
+<a class="btn btn-primary" href="{{ url_for('catalog.supplier', supplier='Rexel') }}" title="Artikelen kiezen en importeren uit de Rexel-prijslijst"><i class="bi bi-database-down"></i> Rexel-import</a>
+<a class="btn btn-outline-primary" href="{{ url_for('articles.edit') }}"><i class="bi bi-plus-lg"></i> Nieuw artikel</a>
 {% endblock %}
 {% block content %}
 <form class="row g-2 mb-3" method="get">

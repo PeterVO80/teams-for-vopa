@@ -10,6 +10,7 @@ from .catalog import CatalogItem, SupplierCatalog
 from .knowledge import Note, Tag, WikiPage, WikiRevision, note_tags
 from .planning import Assignment, AssignmentKind, is_weekend
 from .project import Project, ProjectStatus
+from .stock import MovementKind, StockLocation, StockMovement
 from .purchasing import GoodsReceipt, OrderStatus, PurchaseOrder, PurchaseOrderLine
 from .task import OPEN_STATUSES, Task, TaskPriority, TaskStatus
 from .user import User, UserRole
@@ -21,10 +22,13 @@ __all__ = [
     "AssignmentKind",
     "GoodsReceipt",
     "LabeledEnum",
+    "MovementKind",
     "Note",
     "OPEN_STATUSES",
     "OrderStatus",
     "Project",
+    "StockLocation",
+    "StockMovement",
     "SupplierCatalog",
     "ProjectStatus",
     "PurchaseOrder",

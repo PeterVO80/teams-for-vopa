@@ -49,6 +49,7 @@ def _register_blueprints(app: Flask) -> None:
         notes,
         projects,
         purchasing,
+        stock,
         tasks,
         team,
         users,
@@ -62,6 +63,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(articles.bp, url_prefix="/articles")
     app.register_blueprint(catalog.bp, url_prefix="/articles/catalog")
     app.register_blueprint(purchasing.bp, url_prefix="/purchasing")
+    app.register_blueprint(stock.bp, url_prefix="/stock")
     app.register_blueprint(tasks.bp, url_prefix="/tasks")
     app.register_blueprint(team.bp, url_prefix="/team")
     app.register_blueprint(notes.bp, url_prefix="/notes")

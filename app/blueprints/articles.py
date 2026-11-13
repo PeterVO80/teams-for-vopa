@@ -7,7 +7,8 @@ from flask import current_app, flash, jsonify, redirect, render_template, reques
 
 from ..extensions import db
 from ..forms import ArticleForm, ImportForm
-from ..models import Article, PurchaseOrder, PurchaseOrderLine
+from ..models import Article, PurchaseOrder, PurchaseOrderLine, StockLocation, StockMovement
+from ..services import stock as stock_svc
 from ..services import excel
 from . import protected_blueprint
 
@@ -89,11 +90,22 @@ def edit(article_id: int | None = None):
             .order_by(PurchaseOrder.id.desc())
             .limit(100)
         ).all()
+    # Stock per location and the latest movements.
+    stock, movements = {}, []
+    if article:
+        stock = stock_svc.levels([article.id])[article.id]
+        movements = db.session.scalars(
+            sa.select(StockMovement).where(StockMovement.article_id == article.id)
+            .order_by(StockMovement.moved_on.desc(), StockMovement.id.desc()).limit(15)
+        ).all()
     return render_template(
         "articles/edit.html",
         form=form,
         article=article,
         order_lines=order_lines,
+        stock=stock,
+        movements=movements,
+        locations={loc.id: loc.name for loc in db.session.scalars(sa.select(StockLocation))},
         title="Artikel bewerken" if article else "Nieuw artikel",
         cancel_url=url_for("articles.index"),
     )
