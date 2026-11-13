@@ -25,7 +25,7 @@
   ('tasks.board', 'list-check', 'Punchlijst', 'tasks'),
   ('team.overview', 'people-fill', 'Team', 'team'),
   ('purchasing.index', 'cart3', 'Bestellingen', 'purchasing'),
-  ('articles.index', 'box-seam', 'Artikelen', 'articles'),
+  ('articles.index', 'box-seam', 'Artikelen', 'articles catalog'),
   ('notes.index', 'journal-text', 'Notities', 'notes'),
   ('wiki.index', 'book', 'Wiki', 'wiki'),
 ] %}
@@ -64,7 +64,7 @@
       <ul class="nav flex-column py-2 w-100">
         {% for endpoint, icon, label, blueprint in nav %}
         <li class="nav-item">
-          <a class="nav-link {% if request.blueprint == blueprint %}active{% endif %}" href="{{ url_for(endpoint) }}">
+          <a class="nav-link {% if request.blueprint in blueprint.split() %}active{% endif %}" href="{{ url_for(endpoint) }}">
             <i class="bi bi-{{ icon }}"></i> {{ label }}
           </a>
         </li>

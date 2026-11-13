@@ -63,7 +63,7 @@
         {% endfor %}
       </td>
       <td class="text-end text-nowrap">{{ line.quantity|qty }} {{ line.unit }}</td>
-      <td class="text-end text-nowrap">{{ line.unit_price|money }}</td>
+      <td class="text-end text-nowrap">{{ line.unit_price|price }}</td>
       <td class="text-end text-nowrap">{{ line.line_total|money }}</td>
       <td class="text-end text-nowrap">{{ line.quantity_received|qty }} / {{ line.quantity|qty }}</td>
       <td class="text-end text-nowrap">

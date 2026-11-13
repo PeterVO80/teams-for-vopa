@@ -1,0 +1,117 @@
+{#
+  Catalogue screen: filter, select and import supplier articles.
+  The selection is kept in the browser across pages (static/js/catalog.js).
+#}
+{% extends "base.html" %}
+{% from "_macros.html" import render_field, pagination, post_button %}
+{% block title %}Catalogus {{ catalog.supplier }}{% endblock %}
+{% block page_header %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb mb-1">
+  <li class="breadcrumb-item"><a href="{{ url_for('articles.index') }}">Artikelen</a></li>
+  <li class="breadcrumb-item"><a href="{{ url_for('catalog.index') }}">Leverancierscatalogi</a></li>
+</ol></nav>
+{{ super() }}
+{% endblock %}
+{% block heading %}Catalogus {{ catalog.supplier }}
+  <small class="text-body-secondary fs-6 fw-normal">{{ '{:,}'.format(catalog.item_count).replace(',', '.') }} artikelen{% if catalog.price_date %} · prijzen van {{ catalog.price_date|date }}{% endif %}</small>
+{% endblock %}
+{% block page_actions %}
+{{ post_button(url_for('catalog.update_prices', catalog_id=catalog.id), 'Prijzen bijwerken', class_='btn btn-outline-primary', icon='arrow-repeat',
+   confirm='Alle artikelen die eerder uit ' ~ catalog.supplier ~ ' werden geïmporteerd bijwerken met de prijzen en gegevens van deze prijslijst?') }}
+<a class="btn btn-outline-secondary" href="{{ url_for('catalog.index') }}"><i class="bi bi-upload"></i> Nieuwe prijslijst</a>
+{% endblock %}
+{% block content %}
+<form class="row g-2 mb-3" method="get" id="filter-form">
+  <div class="col-lg-4"><input class="form-control" type="search" name="q" value="{{ filters.search }}" placeholder="Zoek op omschrijving, bestelcode, referentie of EAN..."></div>
+  <div class="col-lg-3">
+    <select class="form-select" name="manufacturer" onchange="this.form.group.value=''; this.form.submit()">
+      <option value="">Alle fabrikanten</option>
+      {% for count, name in manufacturers %}<option value="{{ name or '' }}" {{ 'selected' if filters.manufacturer == name }}>{{ name or '(geen)' }} ({{ count }})</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-lg-2">
+    <select class="form-select" name="group" onchange="this.form.submit()" {{ 'disabled' if not filters.manufacturer }} title="{{ 'Kies eerst een fabrikant' if not filters.manufacturer }}">
+      <option value="">{{ 'Alle productgroepen' if filters.manufacturer else 'Productgroep: kies eerst fabrikant' }}</option>
+      {% for count, name in groups %}<option value="{{ name or '' }}" {{ 'selected' if filters.product_group == name }}>{{ name or '(geen)' }} ({{ count }})</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-lg-2">
+    <select class="form-select" name="status" onchange="this.form.submit()">
+      {% for value, label in [('all', 'Alle artikelen'), ('new', 'Nog niet geïmporteerd'), ('imported', 'Al in artikeldatabank')] %}
+      <option value="{{ value }}" {{ 'selected' if filters.status == value }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-lg-1"><button class="btn btn-secondary w-100" title="Zoeken"><i class="bi bi-search"></i></button></div>
+</form>
+
+<div class="card mb-5" data-catalog="{{ catalog.id }}">
+  <div class="table-responsive">
+  <table class="table table-sm table-hover align-middle mb-0 catalog-table">
+    <thead>
+      <tr>
+        <th style="width: 2rem"><input class="form-check-input" type="checkbox" data-select-page title="Alles op deze pagina selecteren"></th>
+        <th>Fabrikant</th><th>Bestelcode</th><th>Omschrijving</th><th>Productgroep</th>
+        <th class="text-end">Netto</th><th class="text-end" title="Minimale bestelhoeveelheid">Min.</th><th>Status</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in page.items %}
+      {% set article = linked.get(item.supplier_ref) %}
+      <tr>
+        <td><input class="form-check-input" type="checkbox" data-item="{{ item.id }}"></td>
+        <td class="small">{{ item.manufacturer or '' }}</td>
+        <td class="text-nowrap">{{ item.manufacturer_ref or '' }}<br><small class="text-body-secondary">{{ item.supplier_ref }}</small></td>
+        <td>{{ item.description }}{% if item.description_fr and item.description_fr != item.description %}<br><small class="text-body-secondary">{{ item.description_fr }}</small>{% endif %}</td>
+        <td class="small text-nowrap">{{ item.product_group_desc or '' }}</td>
+        <td class="text-end text-nowrap">{{ item.net_price|price }}<small class="text-body-secondary">/{{ item.unit }}</small>
+          {% if item.gross_price %}<br><small class="text-body-secondary" title="Brutoprijs">bruto {{ item.gross_price|price }}</small>{% endif %}</td>
+        <td class="text-end small">{{ item.min_order_qty|qty if item.min_order_qty and item.min_order_qty != 1 else '' }}</td>
+        <td>
+          {% if article %}
+            <a class="badge text-bg-success text-decoration-none" href="{{ url_for('articles.edit', article_id=article.id) }}" title="Artikel {{ article.article_number }}">In databank</a>
+            {% if article.unit_price != item.net_price %}<br><span class="badge text-bg-warning" title="Prijs in databank: {{ article.unit_price|price }}">Prijs gewijzigd</span>{% endif %}
+          {% endif %}
+        </td>
+        <td>{% if item.url %}<a href="{{ item.url }}" target="_blank" rel="noopener" title="Openen in de webshop van {{ catalog.supplier }}"><i class="bi bi-box-arrow-up-right"></i></a>{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="9" class="text-body-secondary">Geen artikelen gevonden voor deze filter.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="card-footer d-flex align-items-center">
+    <small class="text-body-secondary me-auto">{{ '{:,}'.format(page.total).replace(',', '.') }} artikelen gevonden</small>
+    {{ pagination(page, 'catalog.detail') }}
+  </div>
+</div>
+
+{# Sticky import bar #}
+<form method="post" action="{{ url_for('catalog.import_selected', catalog_id=catalog.id) }}" class="catalog-import-bar card shadow" data-import-form data-filter-total="{{ page.total }}">
+  {{ import_form.hidden_tag() }}
+  <input type="hidden" name="q" value="{{ filters.search }}">
+  <input type="hidden" name="manufacturer" value="{{ filters.manufacturer }}">
+  <input type="hidden" name="group" value="{{ filters.product_group }}">
+  <input type="hidden" name="status" value="{{ filters.status }}">
+  <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
+    <span class="fw-semibold"><span data-selected-count>0</span> geselecteerd</span>
+    <button type="button" class="btn btn-sm btn-link" data-clear-selection>wissen</button>
+    <div class="vr mx-1"></div>
+    <label class="small text-body-secondary" for="number_source">Artikelnr.</label>
+    {{ import_form.number_source(class_="form-select form-select-sm w-auto") }}
+    <input class="form-control form-control-sm w-auto" name="category" id="category" list="category-list" placeholder="Categorie (optioneel)">
+    <datalist id="category-list">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
+    <div class="form-check form-check-inline small mb-0">
+      {{ import_form.update_existing(class_="form-check-input") }}
+      <label class="form-check-label" for="update_existing">Bestaande bijwerken</label>
+    </div>
+    <div class="ms-auto d-flex gap-2">
+      <button type="submit" class="btn btn-sm btn-primary" data-import-selected disabled><i class="bi bi-download"></i> Selectie importeren</button>
+      <button type="submit" class="btn btn-sm btn-outline-primary" data-import-filter {{ 'disabled' if not page.total }}>
+        Alle {{ '{:,}'.format(page.total).replace(',', '.') }} gefilterde importeren</button>
+    </div>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/catalog.js') }}"></script>{% endblock %}

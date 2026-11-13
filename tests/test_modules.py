@@ -94,8 +94,12 @@ def test_article_export_import_round_trip(client):
     wb = load_workbook(BytesIO(response.data))
     ws = wb.active
     assert ws["A1"].value == "Artikelnummer"
-    ws["H2"] = "999,95"                       # change a price (Belgian notation)
-    ws.append(["A-9999", "Nieuw relais", "Finder", "40.52", None, "Relais", "st", 7.5])
+    headers = [c.value for c in ws[1]]
+    price_col = headers.index("Eenheidsprijs") + 1
+    ws.cell(row=2, column=price_col, value="999,95")   # change a price (Belgian notation)
+    new_row = {"Artikelnummer": "A-9999", "Omschrijving": "Nieuw relais", "Fabrikant": "Finder",
+               "Bestelcode fabrikant": "40.52", "Categorie": "Relais", "Eenheid": "st", "Eenheidsprijs": 7.5}
+    ws.append([new_row.get(h) for h in headers])
 
     upload = BytesIO()
     wb.save(upload)

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_field, post_button %}
+{% block title %}Leverancierscatalogi{% endblock %}
+{% block page_actions %}<a class="btn btn-outline-secondary" href="{{ url_for('articles.index') }}"><i class="bi bi-box-seam"></i> Naar artikelen</a>{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header fw-semibold">Geladen prijslijsten</div>
+      <div class="list-group list-group-flush">
+        {% for c in catalogs %}
+        <div class="list-group-item d-flex align-items-center gap-3">
+          <i class="bi bi-database fs-4 text-body-secondary"></i>
+          <div class="me-auto">
+            <a class="fw-semibold" href="{{ url_for('catalog.detail', catalog_id=c.id) }}">{{ c.supplier }}</a>
+            <span class="text-body-secondary small">· {{ c.filename }}</span><br>
+            <small class="text-body-secondary">
+              {{ '{:,}'.format(c.item_count).replace(',', '.') }} artikelen
+              {% if c.price_date %}· prijzen van {{ c.price_date|date }}{% endif %}
+              · geladen {{ c.created_at|datetime }}{% if c.uploaded_by %} door {{ c.uploaded_by.full_name }}{% endif %}
+              · {{ imported.get(c.supplier, 0) }} in artikeldatabank
+            </small>
+          </div>
+          <a class="btn btn-sm btn-primary" href="{{ url_for('catalog.detail', catalog_id=c.id) }}">Openen</a>
+          {{ post_button(url_for('catalog.delete', catalog_id=c.id), '', icon='trash', confirm='Catalogus verwijderen? Geïmporteerde artikelen blijven behouden.') }}
+        </div>
+        {% else %}
+        <div class="list-group-item text-body-secondary">Nog geen prijslijst geladen.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card"><div class="card-header fw-semibold">Prijslijst laden</div><div class="card-body">
+      <form method="post" enctype="multipart/form-data" novalidate data-upload-form>
+        {{ form.hidden_tag() }}
+        {{ render_field(form.supplier) }}
+        {{ render_field(form.file) }}
+        {{ render_field(form.replace) }}
+        <div class="form-text mt-n2 mb-3">{{ form.replace.description }}</div>
+        <button class="btn btn-primary" data-loading-text="Bezig met laden... (dit kan even duren)"><i class="bi bi-upload"></i> Laden</button>
+      </form>
+      <hr>
+      <div class="small text-body-secondary">
+        <p class="mb-1"><strong>Hoe werkt het?</strong></p>
+        <ol class="ps-3 mb-0">
+          <li>Laad de prijslijst van de leverancier (Rexel DBF, max. {{ max_upload_mb }} MB).</li>
+          <li>Filter op fabrikant, productgroep of zoekterm.</li>
+          <li>Vink de artikelen aan die je nodig hebt (ook over meerdere pagina's) en importeer ze in de artikeldatabank.</li>
+          <li>Komt er een nieuwe prijslijst? Laad ze opnieuw en klik op <em>Prijzen bijwerken</em>.</li>
+        </ol>
+      </div>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Large price lists take a while to load: show that the upload is busy.
+  document.querySelector("[data-upload-form]").addEventListener("submit", (event) => {
+    const button = event.target.querySelector("[data-loading-text]");
+    button.disabled = true;
+    button.innerHTML = `<span class="spinner-border spinner-border-sm"></span> ${button.dataset.loadingText}`;
+  });
+</script>
+{% endblock %}

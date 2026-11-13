@@ -33,6 +33,8 @@ def _filtered_query() -> sa.Select:
                 Article.manufacturer.ilike(pattern),
                 Article.manufacturer_ref.ilike(pattern),
                 Article.supplier.ilike(pattern),
+                Article.supplier_ref.ilike(pattern),
+                Article.ean == search,
             )
         )
     category = request.args.get("category", "").strip()
@@ -170,6 +172,8 @@ def search_json():
                 Article.article_number.ilike(pattern),
                 Article.description.ilike(pattern),
                 Article.manufacturer_ref.ilike(pattern),
+                Article.supplier_ref.ilike(pattern),
+                Article.ean == term,
             ),
         )
         .order_by(Article.article_number)

@@ -22,8 +22,9 @@ class Config:
     #: Detect connections dropped by the database (e.g. after a DB restart).
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
 
-    #: Maximum upload size (Excel imports). 16 MB is plenty for article lists.
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
+    #: Maximum upload size in MB. A complete supplier price list (DBF) can be
+    #: well over 100 MB, hence the generous default.
+    MAX_CONTENT_LENGTH = int(os.environ.get("MAX_UPLOAD_MB", 300)) * 1024 * 1024
 
     #: Number of rows shown per page in paginated list views.
     ITEMS_PER_PAGE = 50

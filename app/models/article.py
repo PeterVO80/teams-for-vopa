@@ -24,9 +24,17 @@ class Article(TimestampMixin, db.Model):
     #: Order code of the manufacturer, e.g. ``6ES7 214-1AG40-0XB0``.
     manufacturer_ref: Mapped[str | None] = mapped_column(sa.String(120))
     supplier: Mapped[str | None] = mapped_column(sa.String(120))
+    #: The supplier's own reference, e.g. Rexel ``SIE6ES72141AG400XB0``. Used to
+    #: find the article again when a new price list of that supplier arrives.
+    supplier_ref: Mapped[str | None] = mapped_column(sa.String(64), index=True)
+    ean: Mapped[str | None] = mapped_column(sa.String(20))
+    #: Product page in the supplier's web shop.
+    url: Mapped[str | None] = mapped_column(sa.String(300))
     category: Mapped[str | None] = mapped_column(sa.String(120), index=True)
     unit: Mapped[str] = mapped_column(sa.String(20), default="st")
-    unit_price: Mapped[Decimal | None] = mapped_column(sa.Numeric(12, 2))
+    #: Net purchase price per unit. 4 decimals: cable is priced per metre
+    #: (e.g. 0.3422 EUR/m), where rounding to cents would be inaccurate.
+    unit_price: Mapped[Decimal | None] = mapped_column(sa.Numeric(12, 4))
     notes: Mapped[str | None] = mapped_column(sa.Text)
     #: Obsolete articles stay in the database for history but are hidden by default.
     active: Mapped[bool] = mapped_column(default=True)

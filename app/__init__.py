@@ -44,6 +44,7 @@ def _register_blueprints(app: Flask) -> None:
     from .blueprints import (
         articles,
         auth,
+        catalog,
         main,
         notes,
         projects,
@@ -59,6 +60,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(users.bp, url_prefix="/users")
     app.register_blueprint(projects.bp, url_prefix="/projects")
     app.register_blueprint(articles.bp, url_prefix="/articles")
+    app.register_blueprint(catalog.bp, url_prefix="/articles/catalog")
     app.register_blueprint(purchasing.bp, url_prefix="/purchasing")
     app.register_blueprint(tasks.bp, url_prefix="/tasks")
     app.register_blueprint(team.bp, url_prefix="/team")
@@ -87,6 +89,16 @@ def _register_template_helpers(app: Flask) -> None:
             return ""
         text = f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         return f"€ {text}"
+
+    @app.template_filter("price")
+    def format_price(value: Decimal | float | None) -> str:
+        """Unit price with 2 to 4 decimals: ``€ 385,00`` but ``€ 0,3422``."""
+        if value is None:
+            return ""
+        text = f"{Decimal(str(value)):,.4f}".rstrip("0")
+        whole, decimals = text.split(".")
+        decimals = decimals.ljust(2, "0")
+        return f"€ {whole.replace(',', '.')},{decimals}"
 
     @app.template_filter("qty")
     def format_quantity(value: Decimal | float | None) -> str:

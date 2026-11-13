@@ -6,6 +6,7 @@ which Flask-Migrate needs to autogenerate migrations.
 
 from .article import Article
 from .base import LabeledEnum
+from .catalog import CatalogItem, SupplierCatalog
 from .knowledge import Note, Tag, WikiPage, WikiRevision, note_tags
 from .planning import Assignment, AssignmentKind, is_weekend
 from .project import Project, ProjectStatus
@@ -16,6 +17,7 @@ from .user import User, UserRole
 __all__ = [
     "Article",
     "Assignment",
+    "CatalogItem",
     "AssignmentKind",
     "GoodsReceipt",
     "LabeledEnum",
@@ -23,6 +25,7 @@ __all__ = [
     "OPEN_STATUSES",
     "OrderStatus",
     "Project",
+    "SupplierCatalog",
     "ProjectStatus",
     "PurchaseOrder",
     "PurchaseOrderLine",

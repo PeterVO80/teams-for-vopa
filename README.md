@@ -7,7 +7,7 @@ assignment is a **project**. All modules hang off that project:
 |---|---|
 | **Projects** | Automatic project code (`PRJ/2026/0001`, numbering restarts each year), project card with customer, project manager and timeline, plus an overview of the project's tasks, orders and notes. |
 | **Purchasing** | Purchase orders per project/supplier. Order lines are **linked to the article database** (search on the order, "add to order" from the article list, or link a free-text line afterwards). **Delivery tracking per line** (partial deliveries, delivery notes, who received it); order status updates automatically. **Material overview per project**: per article, what is in draft, ordered, delivered and still outstanding across all the project's orders (project tab + page + Excel export). List of all outstanding deliveries, Excel export per order. |
-| **Articles** | Article database with search and filters, order history per article. **Excel import/export** (round trip: export → edit in Excel → import). |
+| **Articles** | Article database with search and filters, order history per article. **Excel import/export** (round trip: export → edit in Excel → import). **Supplier catalogue**: load a supplier price list (Rexel DBF, hundreds of thousands of articles), filter by manufacturer / product group / search text, select articles across pages (or a whole filter) and import them; a new price list updates the prices of imported articles in one click. Prices with up to 4 decimals (cable per metre). |
 | **Punch list** | Kanban board with *New · In progress · On hold · Done · Cancelled*. Drag & drop, filters per project/team member, priority, deadline and estimate. |
 | **Team overview** | Planning grid (people × days, weekends included) with load per day and period, absences (leave, sick, training), and open tasks per person. Plan by clicking a day or click-and-dragging over several days; the form opens in a popup. Weekend days are only planned when "Weekenddagen inplannen" is ticked. |
 | **Notes** | Markdown notes with a WYSIWYG editor, **tags** (e.g. *Status meeting*, *Customer feedback*), optional project link, search and pinning. |
@@ -177,6 +177,7 @@ app/
 │   ├── excel.py           #   article import/export
 │   ├── material.py        #   ordered vs. delivered per project and article
 │   ├── numbering.py       #   automatic numbers (PRJ/2026/0001, PO-2026-0001)
+│   ├── supplier_catalog.py #  supplier price lists (Rexel DBF): load, filter, import
 │   ├── markdown_render.py #   Markdown → safe HTML, [[wiki links]]
 │   └── workload.py        #   team overview calculations
 ├── blueprints/            # one blueprint (URL prefix) per module
@@ -225,6 +226,11 @@ Project ──< Note >──< Tag            WikiPage ──< WikiRevision
   as absence. Saturdays and Sundays in the period only count when
   `include_weekends` is set; weekend hours come on top of the normal
   capacity.
+* Supplier price lists are loaded into `SupplierCatalog` / `CatalogItem`
+  (not directly into `Article`). An imported article remembers its supplier
+  and `supplier_ref`, so a newer price list finds it again for price updates.
+  Another supplier's file format can be added in
+  `services/supplier_catalog.py` (a `CatalogFormat` + an entry in `FORMATS`).
 * `WikiPage.project_id` is NULL for the general wiki, or points to the
   project whose wiki the page belongs to. Sub-pages are always in the same
   wiki as their parent.
@@ -239,3 +245,6 @@ Project ──< Note >──< Tag            WikiPage ──< WikiRevision
   nginx or Caddy), and don't expose PostgreSQL to the outside world (the
   compose file doesn't publish a DB port).
 * Schedule regular `pg_dump` backups of the database.
+* Behind a reverse proxy, allow large uploads for supplier price lists
+  (e.g. nginx `client_max_body_size 300m;` and a read timeout of a few
+  minutes). The app itself accepts `MAX_UPLOAD_MB` (default 300).

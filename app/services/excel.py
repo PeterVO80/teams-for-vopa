@@ -37,9 +37,12 @@ ARTICLE_COLUMNS: list[tuple[str, str, int]] = [
     ("manufacturer", "Fabrikant", 18),
     ("manufacturer_ref", "Bestelcode fabrikant", 24),
     ("supplier", "Leverancier", 18),
+    ("supplier_ref", "Referentie leverancier", 22),
     ("category", "Categorie", 18),
     ("unit", "Eenheid", 9),
     ("unit_price", "Eenheidsprijs", 14),
+    ("ean", "EAN", 15),
+    ("url", "Link", 30),
     ("notes", "Opmerkingen", 40),
     ("active", "Actief", 8),
 ]
@@ -108,11 +111,11 @@ def _parse_bool(value) -> bool:
 def _parse_decimal(value) -> Decimal:
     """Accept both ``12.5`` and the Belgian notation ``12,50`` / ``€ 1.234,50``."""
     if isinstance(value, (int, float, Decimal)):
-        return Decimal(str(value)).quantize(Decimal("0.01"))
+        return Decimal(str(value)).quantize(Decimal("0.0001"))
     text = str(value).replace("€", "").replace(" ", "")
     if "," in text:  # comma used as decimal separator -> dots are thousands
         text = text.replace(".", "").replace(",", ".")
-    return Decimal(text).quantize(Decimal("0.01"))
+    return Decimal(text).quantize(Decimal("0.0001"))
 
 
 def _map_headers(header_row: tuple) -> dict[int, str]:

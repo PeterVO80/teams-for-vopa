@@ -30,4 +30,6 @@ EXPOSE 8000
 # The entrypoint waits for the database and applies migrations,
 # then executes the CMD below.
 ENTRYPOINT ["docker/entrypoint.sh"]
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--access-logfile", "-", "wsgi:app"]
+# --timeout 600: loading a complete supplier price list (hundreds of
+# thousands of articles) can take a few minutes.
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "600", "--access-logfile", "-", "wsgi:app"]

@@ -109,7 +109,7 @@ class PurchaseOrderLine(db.Model):
     description: Mapped[str] = mapped_column(sa.String(300))
     quantity: Mapped[Decimal] = mapped_column(sa.Numeric(12, 2))
     unit: Mapped[str] = mapped_column(sa.String(20), default="st")
-    unit_price: Mapped[Decimal | None] = mapped_column(sa.Numeric(12, 2))
+    unit_price: Mapped[Decimal | None] = mapped_column(sa.Numeric(12, 4))
 
     order: Mapped[PurchaseOrder] = relationship(back_populates="lines")
     article = relationship("Article")

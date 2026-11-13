@@ -47,6 +47,26 @@ from .models import (
 )
 
 
+class PriceField(DecimalField):
+    """Price in EUR with up to 4 decimals (cable is priced per metre: 0.3422).
+
+    Shown with at least 2 and at most 4 decimals: ``385.00``, ``0.3422``.
+    """
+
+    def __init__(self, label="Eenheidsprijs (€)", **kwargs):
+        kwargs.setdefault("validators", [Optional(), NumberRange(min=0)])
+        super().__init__(label, places=None, **kwargs)
+
+    def _value(self):
+        if self.raw_data:
+            return self.raw_data[0]
+        if self.data is None:
+            return ""
+        text = f"{self.data:.4f}".rstrip("0")
+        decimals = len(text.split(".")[1])
+        return text + "0" * (2 - decimals) if decimals < 2 else text
+
+
 def none_if_zero(value: int | None) -> int | None:
     """Translate the ``0`` placeholder of optional selects back to ``None``."""
     return value or None
@@ -108,11 +128,41 @@ class ArticleForm(FlaskForm):
     manufacturer = StringField("Fabrikant", validators=[Optional(), Length(max=120)])
     manufacturer_ref = StringField("Bestelcode fabrikant", validators=[Optional(), Length(max=120)])
     supplier = StringField("Leverancier", validators=[Optional(), Length(max=120)])
+    supplier_ref = StringField("Referentie leverancier", validators=[Optional(), Length(max=64)])
     category = StringField("Categorie", validators=[Optional(), Length(max=120)])
     unit = StringField("Eenheid", default="st", validators=[DataRequired(), Length(max=20)])
-    unit_price = DecimalField("Eenheidsprijs (€)", places=2, validators=[Optional(), NumberRange(min=0)])
+    unit_price = PriceField()
+    ean = StringField("EAN-code", validators=[Optional(), Length(max=20)])
+    url = StringField("Link webshop", validators=[Optional(), Length(max=300)])
     notes = TextAreaField("Opmerkingen", validators=[Optional()])
     active = BooleanField("Actief", default=True)
+
+
+class CatalogUploadForm(FlaskForm):
+    """Upload a supplier price list (Rexel DBF)."""
+
+    supplier = StringField("Leverancier", default="Rexel", validators=[DataRequired(), Length(max=120)])
+    file = FileField(
+        "Prijslijst (.dbf)",
+        validators=[FileRequired(), FileAllowed(["dbf", "DBF"], "Enkel .dbf bestanden.")],
+    )
+    replace = BooleanField(
+        "Vorige prijslijst van deze leverancier vervangen", default=True,
+        description="Aanbevolen: de oude catalogus wordt verwijderd, je geïmporteerde artikelen blijven.",
+    )
+
+
+class CatalogImportForm(FlaskForm):
+    """Options for importing the selected catalogue items as articles."""
+
+    #: "selected" = the ticked items (``item_ids``), "filter" = everything matching the filter.
+    scope = HiddenField(default="selected")
+    item_ids = HiddenField()
+    number_source = SelectField("Artikelnummer van nieuwe artikelen")
+    category = StringField("Categorie voor nieuwe artikelen", validators=[Optional(), Length(max=120)])
+    update_existing = BooleanField(
+        "Bestaande artikelen bijwerken (omschrijving, prijs, ...)", default=True
+    )
 
 
 class ImportForm(FlaskForm):
@@ -140,7 +190,7 @@ class OrderLineForm(FlaskForm):
     description = StringField("Omschrijving", validators=[DataRequired(), Length(max=300)])
     quantity = DecimalField("Aantal", places=2, validators=[DataRequired(), NumberRange(min=0.01)])
     unit = StringField("Eenheid", default="st", validators=[DataRequired(), Length(max=20)])
-    unit_price = DecimalField("Eenheidsprijs (€)", places=2, validators=[Optional(), NumberRange(min=0)])
+    unit_price = PriceField()
 
 
 class AddArticleToOrderForm(FlaskForm):
@@ -148,7 +198,7 @@ class AddArticleToOrderForm(FlaskForm):
 
     order_id = SelectField("Bestelling", coerce=int, validators=[DataRequired(message="Kies een bestelling.")])
     quantity = DecimalField("Aantal", places=2, validators=[DataRequired(), NumberRange(min=0.01)])
-    unit_price = DecimalField("Eenheidsprijs (€)", places=2, validators=[Optional(), NumberRange(min=0)])
+    unit_price = PriceField()
 
 
 class ReceiptForm(FlaskForm):
