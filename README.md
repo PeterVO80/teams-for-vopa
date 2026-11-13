@@ -69,7 +69,7 @@ Use `portainer-stack.yml` for this. Portainer clones the repository and builds
 the image on the Docker host itself.
 
 1. **Stacks → Add stack**, give it a name (e.g. `vopa-teams`), then choose **Repository**.
-2. **Repository URL**: `https://github.com/petervo80/teams_for_vopa`.
+2. **Repository URL**: `https://github.com/petervo80/teams-for-vopa`.
    **Repository reference**: `refs/heads/main` (or the branch you want to run).
    **Compose path**: `portainer-stack.yml`.
 3. For a private repository, turn on **Authentication**: your GitHub username

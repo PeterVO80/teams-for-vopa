@@ -2,7 +2,7 @@
 # VOPA Teams - Portainer stack
 #
 # Deploy in Portainer via:  Stacks > Add stack > "Repository"
-#   Repository URL     : https://github.com/petervo80/teams_for_vopa
+#   Repository URL     : https://github.com/petervo80/teams-for-vopa
 #   Repository ref     : refs/heads/main   (or the branch you want to run)
 #   Compose path       : portainer-stack.yml
 #   Authentication     : on, with a GitHub Personal Access Token (private repo)
