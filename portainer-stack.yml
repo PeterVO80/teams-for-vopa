@@ -46,10 +46,14 @@ services:
     # No "ports:" on purpose: the database is only reachable from the web container.
 
   web:
-    # Built from the Dockerfile in the repository. The image gets a fixed name
-    # so it is easy to recognise under Portainer > Images.
+    # Built from the Dockerfile in the repository on the Docker host itself.
+    # There is deliberately no "image:" line: this image does not exist in
+    # any registry, so Portainer must never try to pull it.
+    # "pull_policy: build" makes "docker compose pull" (Portainer's "Re-pull
+    # image") skip this service, and rebuilds it from the latest code on
+    # every (re)deploy.
     build: .
-    image: vopa-teams:latest
+    pull_policy: build
     restart: unless-stopped
     depends_on:
       db:
