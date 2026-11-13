@@ -106,10 +106,35 @@ class UserForm(FlaskForm):
     )
 
 
+# -------------------------------------------------------------- relations
+class CompanyForm(FlaskForm):
+    """A customer and/or supplier."""
+
+    name = StringField("Naam", validators=[DataRequired(), Length(max=200)])
+    is_customer = BooleanField("Klant")
+    is_supplier = BooleanField("Leverancier")
+    vat_number = StringField("Btw-nummer", validators=[Optional(), Length(max=30)])
+    contact_person = StringField("Contactpersoon", validators=[Optional(), Length(max=120)])
+    phone = StringField("Telefoon", validators=[Optional(), Length(max=50)])
+    email = StringField("E-mail", validators=[Optional(), Email(), Length(max=120)])
+    website = StringField("Website", validators=[Optional(), Length(max=200)])
+    street = StringField("Straat en nummer", validators=[Optional(), Length(max=200)])
+    postal_code = StringField("Postcode", validators=[Optional(), Length(max=20)])
+    city = StringField("Gemeente", validators=[Optional(), Length(max=120)])
+    country = StringField("Land", default="België", validators=[Optional(), Length(max=80)])
+    notes = TextAreaField("Opmerkingen", validators=[Optional()])
+    active = BooleanField("Actief", default=True)
+
+    def validate_is_supplier(self, field):
+        if not (field.data or self.is_customer.data):
+            raise ValidationError("Duid aan of dit een klant, een leverancier of beide is.")
+
+
 # --------------------------------------------------------------- projects
 class ProjectForm(FlaskForm):
     name = StringField("Naam", validators=[DataRequired(), Length(max=200)])
-    customer = StringField("Klant", validators=[Optional(), Length(max=200)])
+    #: Choices: Company.choices("customer") - 0 = no customer.
+    customer_id = SelectField("Klant", coerce=int)
     status = SelectField("Status", choices=ProjectStatus.choices(), default="active")
     manager_id = SelectField("Projectleider", coerce=int)
     start_date = DateField("Startdatum", validators=[Optional()])
@@ -127,7 +152,7 @@ class ArticleForm(FlaskForm):
     description = StringField("Omschrijving", validators=[DataRequired(), Length(max=300)])
     manufacturer = StringField("Fabrikant", validators=[Optional(), Length(max=120)])
     manufacturer_ref = StringField("Bestelcode fabrikant", validators=[Optional(), Length(max=120)])
-    supplier = StringField("Leverancier", validators=[Optional(), Length(max=120)])
+    supplier_id = SelectField("Leverancier", coerce=int)
     supplier_ref = StringField("Referentie leverancier", validators=[Optional(), Length(max=64)])
     category = StringField("Categorie", validators=[Optional(), Length(max=120)])
     unit = StringField("Eenheid", default="st", validators=[DataRequired(), Length(max=20)])
@@ -145,7 +170,7 @@ class ArticleForm(FlaskForm):
 class CatalogUploadForm(FlaskForm):
     """Upload a supplier price list (Rexel DBF)."""
 
-    supplier = StringField("Leverancier", default="Rexel", validators=[DataRequired(), Length(max=120)])
+    supplier_id = SelectField("Leverancier", coerce=int, validators=[DataRequired(message="Kies een leverancier.")])
     file = FileField(
         "Prijslijst (.dbf)",
         validators=[FileRequired(), FileAllowed(["dbf", "DBF"], "Enkel .dbf bestanden.")],
@@ -180,7 +205,7 @@ class ImportForm(FlaskForm):
 class PurchaseOrderForm(FlaskForm):
     number = StringField("Bestelnummer", validators=[DataRequired(), Length(max=40)])
     project_id = SelectField("Project", coerce=int)
-    supplier = StringField("Leverancier", validators=[DataRequired(), Length(max=120)])
+    supplier_id = SelectField("Leverancier", coerce=int, validators=[DataRequired(message="Kies een leverancier.")])
     status = SelectField("Status", choices=OrderStatus.choices(), default="draft")
     stock_location_id = SelectField(
         "Op stock leggen in", coerce=int,

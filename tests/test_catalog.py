@@ -70,8 +70,13 @@ def write_rexel_dbf(rows, fields=REXEL_FIELDS) -> bytes:
     return out.getvalue()
 
 
+def _supplier_id(name="Rexel"):
+    from app.models import Company
+    return Company.by_name(name).id
+
+
 def upload(client, rows=ROWS, supplier="Rexel", replace=True, name="rexel.dbf"):
-    data = {"supplier": supplier, "file": (BytesIO(write_rexel_dbf(rows)), name)}
+    data = {"supplier_id": _supplier_id(supplier), "file": (BytesIO(write_rexel_dbf(rows)), name)}
     if replace:
         data["replace"] = "y"
     return client.post("/articles/catalog/", data=data, content_type="multipart/form-data")
@@ -103,14 +108,14 @@ def test_read_rexel_dbf(tmp_path):
 
 def test_unknown_file_format_is_rejected(client):
     other = [("NAME", "C", 20, 0), ("PRICE", "N", 10, 2)]
-    data = {"supplier": "X", "file": (BytesIO(write_rexel_dbf([{"NAME": "a", "PRICE": 1}], other)), "x.dbf")}
+    data = {"supplier_id": _supplier_id(), "file": (BytesIO(write_rexel_dbf([{"NAME": "a", "PRICE": 1}], other)), "x.dbf")}
     html = client.post("/articles/catalog/", data=data, content_type="multipart/form-data").get_data(as_text=True)
     assert "Onbekend prijslijstformaat" in html
     assert db.session.scalar(sa.select(sa.func.count(SupplierCatalog.id))) == 0
 
 
 def test_not_a_dbf_file(client):
-    data = {"supplier": "X", "file": (BytesIO(b"this is not a dbf file at all" * 10), "x.dbf")}
+    data = {"supplier_id": _supplier_id(), "file": (BytesIO(b"this is not a dbf file at all" * 10), "x.dbf")}
     html = client.post("/articles/catalog/", data=data, content_type="multipart/form-data").get_data(as_text=True)
     assert "Geen geldig DBF-bestand" in html or "Onbekend prijslijstformaat" in html
 
@@ -156,7 +161,7 @@ def test_import_selected_items(client):
     assert response.status_code == 302 and "done=1" in response.headers["Location"]
 
     cpu = db.session.scalar(sa.select(Article).filter_by(article_number="6ES7510-1SK03-0AB0"))
-    assert cpu.supplier == "Rexel" and cpu.supplier_ref == "SIE6ES75101SK030AB0"
+    assert cpu.supplier.name == "Rexel" and cpu.supplier_ref == "SIE6ES75101SK030AB0"
     assert cpu.unit_price == Decimal("769.5752") and cpu.category == "PLC" and cpu.ean == "4047623412724"
     cable = db.session.scalar(sa.select(Article).filter_by(supplier_ref="CBLVTBS0,75BLRAL5003R100EUP"))
     assert cable.unit == "m" and cable.unit_price == Decimal("0.3876")

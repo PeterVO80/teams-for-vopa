@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% from "_macros.html" import project_status_badge, order_status_badge %}
+{% block title %}{{ company.name }}{% endblock %}
+{% block page_header %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb mb-1"><li class="breadcrumb-item"><a href="{{ url_for('relations.index') }}">Relaties</a></li></ol></nav>
+{{ super() }}
+{% endblock %}
+{% block heading %}{{ company.name }}
+  {% if company.is_customer %}<span class="badge text-bg-primary fs-6 align-middle">Klant</span>{% endif %}
+  {% if company.is_supplier %}<span class="badge text-bg-success fs-6 align-middle">Leverancier</span>{% endif %}
+  {% if not company.active %}<span class="badge text-bg-secondary fs-6 align-middle">inactief</span>{% endif %}
+{% endblock %}
+{% block page_actions %}
+{% if company.is_customer %}<a class="btn btn-outline-secondary" href="{{ url_for('projects.edit') }}"><i class="bi bi-plus-lg"></i> Project</a>{% endif %}
+{% if company.is_supplier %}<a class="btn btn-outline-secondary" href="{{ url_for('purchasing.edit', supplier=company.id) }}"><i class="bi bi-plus-lg"></i> Bestelling</a>{% endif %}
+<a class="btn btn-primary" href="{{ url_for('relations.edit', company_id=company.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>
+{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card"><div class="card-body small">
+      <dl class="mb-0">
+        {% if company.address_lines %}<dt>Adres</dt><dd>{{ company.address_lines|join('<br>'|safe) }}</dd>{% endif %}
+        {% if company.vat_number %}<dt>Btw-nummer</dt><dd>{{ company.vat_number }}</dd>{% endif %}
+        {% if company.contact_person %}<dt>Contactpersoon</dt><dd>{{ company.contact_person }}</dd>{% endif %}
+        {% if company.phone %}<dt>Telefoon</dt><dd><a href="tel:{{ company.phone }}">{{ company.phone }}</a></dd>{% endif %}
+        {% if company.email %}<dt>E-mail</dt><dd><a href="mailto:{{ company.email }}">{{ company.email }}</a></dd>{% endif %}
+        {% if company.website %}<dt>Website</dt><dd><a href="{{ company.website if '://' in company.website else 'https://' ~ company.website }}" target="_blank" rel="noopener">{{ company.website }}</a></dd>{% endif %}
+      </dl>
+      {% if company.notes %}<hr><div>{{ company.notes }}</div>{% endif %}
+    </div></div>
+  </div>
+  <div class="col-lg-8">
+    {% if company.is_customer or projects %}
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Projecten ({{ projects|length }})</div>
+      <div class="list-group list-group-flush">
+        {% for p in projects %}
+        <a class="list-group-item list-group-item-action d-flex align-items-center" href="{{ url_for('projects.detail', project_id=p.id) }}">
+          <span class="me-auto">{{ p.code }} · {{ p.name }}</span>{{ project_status_badge(p.status) }}
+        </a>
+        {% else %}<div class="list-group-item small text-body-secondary">Nog geen projecten.</div>{% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% if company.is_supplier or orders %}
+    <div class="card mb-3">
+      <div class="card-header d-flex">
+        <span class="fw-semibold me-auto">Bestellingen</span>
+        <span class="small text-body-secondary">{{ article_count }} artikelen met deze leverancier
+          {% for c in catalogs %} · <a href="{{ url_for('catalog.detail', catalog_id=c.id) }}">prijslijst ({{ c.item_count }} art.)</a>{% endfor %}</span>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for o in orders %}
+        <a class="list-group-item list-group-item-action d-flex align-items-center gap-2" href="{{ url_for('purchasing.detail', order_id=o.id) }}">
+          <span class="me-auto">{{ o.number }}{% if o.project %} · {{ o.project.code }}{% endif %}</span>
+          <small class="text-body-secondary">{{ o.order_date|date }}</small>{{ order_status_badge(o.status) }}
+        </a>
+        {% else %}<div class="list-group-item small text-body-secondary">Nog geen bestellingen.</div>{% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

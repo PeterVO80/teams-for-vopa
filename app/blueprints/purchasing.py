@@ -13,6 +13,7 @@ from ..extensions import db
 from ..forms import AddArticleToOrderForm, OrderLineForm, PurchaseOrderForm, ReceiptForm, none_if_zero
 from ..models import (
     Article,
+    Company,
     GoodsReceipt,
     OrderStatus,
     Project,
@@ -25,6 +26,7 @@ from ..services.numbering import next_number
 from ..services.stock import receive_into_stock
 from ..utils import int_arg, is_modal_request, next_url
 from . import protected_blueprint
+from .relations import add_button as add_relation_button
 
 bp = protected_blueprint("purchasing", __name__)
 
@@ -90,12 +92,15 @@ def edit(order_id: int | None = None):
     form = PurchaseOrderForm(obj=order)
     form.project_id.choices = Project.open_choices()
     form.stock_location_id.choices = StockLocation.choices(include_empty="- niet op stock (projectmateriaal) -")
+    form.supplier_id.choices = Company.choices("supplier", order.supplier_id if order else None, empty="- kies een leverancier -")
+    add_relation_button(form.supplier_id, "supplier")
     if not form.is_submitted():
         if order:
             form.project_id.data = order.project_id or 0
             form.stock_location_id.data = order.stock_location_id or 0
         else:
             form.number.data = _next_order_number()
+            form.supplier_id.data = int_arg("supplier") or 0
             form.project_id.data = int_arg("project") or 0
 
     if form.validate_on_submit():
@@ -372,7 +377,7 @@ def export(order_id: int):
     ws = wb.active
     ws.title = order.number
     ws.append(["Bestelling", order.number])
-    ws.append(["Leverancier", order.supplier])
+    ws.append(["Leverancier", order.supplier.name])
     ws.append(["Project", order.project.display_name if order.project else ""])
     ws.append(["Besteldatum", order.order_date])
     ws.append([])

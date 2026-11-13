@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensions import db
 from .base import TimestampMixin
@@ -23,7 +23,7 @@ class Article(TimestampMixin, db.Model):
     manufacturer: Mapped[str | None] = mapped_column(sa.String(120), index=True)
     #: Order code of the manufacturer, e.g. ``6ES7 214-1AG40-0XB0``.
     manufacturer_ref: Mapped[str | None] = mapped_column(sa.String(120))
-    supplier: Mapped[str | None] = mapped_column(sa.String(120))
+    supplier_id: Mapped[int | None] = mapped_column(sa.ForeignKey("companies.id"), index=True)
     #: The supplier's own reference, e.g. Rexel ``SIE6ES72141AG400XB0``. Used to
     #: find the article again when a new price list of that supplier arrives.
     supplier_ref: Mapped[str | None] = mapped_column(sa.String(64), index=True)
@@ -41,6 +41,9 @@ class Article(TimestampMixin, db.Model):
     min_stock: Mapped[Decimal | None] = mapped_column(sa.Numeric(12, 2))
     #: Obsolete articles stay in the database for history but are hidden by default.
     active: Mapped[bool] = mapped_column(default=True)
+
+    #: Usual supplier (a relation marked as supplier, see models/company.py).
+    supplier = relationship("Company")
 
     @property
     def label(self) -> str:

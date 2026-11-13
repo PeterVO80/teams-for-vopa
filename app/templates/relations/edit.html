@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_macros.html" import post_button %}
+{% block title %}{{ company.name if company else 'Nieuwe relatie' }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 860px"><div class="card-body">
+  <form method="post" novalidate>
+    {% include "relations/_fields.html" %}
+    <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Opslaan</button>
+    <a class="btn btn-link" href="{{ url_for('relations.detail', company_id=company.id) if company else url_for('relations.index') }}">Annuleren</a>
+  </form>
+  {% if company %}
+  <hr>
+  {{ post_button(url_for('relations.delete', company_id=company.id), 'Verwijderen', icon='trash',
+                 confirm='Relatie verwijderen? Is ze in gebruik, dan wordt ze op inactief gezet.') }}
+  {% endif %}
+</div></div>
+{% endblock %}

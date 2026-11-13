@@ -22,6 +22,7 @@ from .services.markdown_render import slugify
 from .models import (
     Article,
     Assignment,
+    Company,
     MovementKind,
     StockLocation,
     StockMovement,
@@ -114,10 +115,18 @@ def _seed_demo_data() -> None:
             db.session.add(user)
         team.append(user)
 
-    p1 = Project(name="Verpakkingslijn L3", customer="Brouwerij De Kroon",
+    # Relations: customers and suppliers.
+    kroon = Company(name="Brouwerij De Kroon", is_customer=True, city="Leuven", contact_person="Productieleider")
+    aquafin = Company(name="Aquafin", is_customer=True, city="Aartselaar")
+    rexel = Company(name="Rexel", is_supplier=True, website="www.rexel.be")
+    cebeo = Company(name="Cebeo", is_supplier=True)
+    ifm = Company(name="ifm", is_supplier=True)
+    db.session.add_all([kroon, aquafin, rexel, cebeo, ifm])
+
+    p1 = Project(name="Verpakkingslijn L3", customer=kroon,
                  start_date=monday - timedelta(days=30), end_date=monday + timedelta(days=60),
                  manager=team[0], description="Retrofit van de PLC-sturing van verpakkingslijn 3.")
-    p2 = Project(name="Waterzuivering SCADA", customer="Aquafin",
+    p2 = Project(name="Waterzuivering SCADA", customer=aquafin,
                  start_date=monday, end_date=monday + timedelta(days=90), manager=team[1])
     for project in (p1, p2):  # automatic codes: PRJ/<year>/0001, 0002
         project.assign_code()
@@ -127,18 +136,18 @@ def _seed_demo_data() -> None:
     articles = [
         Article(article_number="A-1001", description="Siemens S7-1200 CPU 1214C DC/DC/DC",
                 manufacturer="Siemens", manufacturer_ref="6ES7214-1AG40-0XB0",
-                supplier="Rexel", category="PLC", unit_price=Decimal("385.00")),
+                supplier=rexel, category="PLC", unit_price=Decimal("385.00")),
         Article(article_number="A-1002", description="Siemens KTP700 Basic HMI",
                 manufacturer="Siemens", manufacturer_ref="6AV2123-2GB03-0AX0",
-                supplier="Rexel", category="HMI", unit_price=Decimal("612.50")),
+                supplier=rexel, category="HMI", unit_price=Decimal("612.50")),
         Article(article_number="A-2001", description="Phoenix Contact klem UT 2,5 grijs",
                 manufacturer="Phoenix Contact", manufacturer_ref="3044076",
-                supplier="Cebeo", category="Klemmen", unit_price=Decimal("0.95")),
+                supplier=cebeo, category="Klemmen", unit_price=Decimal("0.95")),
         Article(article_number="A-3001", description="Inductieve sensor M12 PNP NO",
-                manufacturer="ifm", manufacturer_ref="IFS204", supplier="ifm",
+                manufacturer="ifm", manufacturer_ref="IFS204", supplier=ifm,
                 category="Sensoren", unit_price=Decimal("48.20")),
         Article(article_number="A-4001", description="Kabel LiYY 4x0,75mm²", unit="m",
-                supplier="Cebeo", category="Kabel", unit_price=Decimal("1.15")),
+                supplier=cebeo, category="Kabel", unit_price=Decimal("1.15")),
     ]
     db.session.add_all(articles)
 
@@ -157,7 +166,7 @@ def _seed_demo_data() -> None:
         db.session.add(StockMovement(article=article, location=location, kind=MovementKind.RECEIPT,
                                      quantity=Decimal(qty), user=team[0], note="Beginstock"))
 
-    order = PurchaseOrder(number=f"PO-{today:%Y}-0101", project=p1, supplier="Rexel",
+    order = PurchaseOrder(number=f"PO-{today:%Y}-0101", project=p1, supplier=rexel,
                           status=OrderStatus.ORDERED, order_date=today - timedelta(days=7),
                           expected_date=today + timedelta(days=3), created_by=team[0])
     for article, qty in [(articles[0], 2), (articles[1], 1)]:

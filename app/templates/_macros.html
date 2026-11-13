@@ -15,7 +15,15 @@
     <div class="mb-3 {{ class_ }}">
       {{ field.label(class_="form-label") }}
       {% set css = "form-select" if field.type == "SelectField" else "form-control" %}
-      {% if field.type == "TextAreaField" %}
+      {% if field.render_kw and field.render_kw.get('data-add-url') %}
+        {# Select with a '+' button that creates a new relation in a popup. #}
+        <div class="input-group">
+          {{ field(class_=css + (" is-invalid" if field.errors else "")) }}
+          <button type="button" class="btn btn-outline-secondary" title="{{ field.render_kw['data-add-title'] }}"
+                  data-modal-url="{{ field.render_kw['data-add-url'] }}"><i class="bi bi-plus-lg"></i></button>
+          {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+        </div>
+      {% elif field.type == "TextAreaField" %}
         {{ field(class_=css + (" is-invalid" if field.errors else ""), rows=5) }}
       {% elif field.name == "color" %}
         {{ field(class_="form-control form-control-color" + (" is-invalid" if field.errors else ""), type="color") }}

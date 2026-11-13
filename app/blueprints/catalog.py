@@ -10,9 +10,10 @@ from flask_login import current_user
 
 from ..extensions import db
 from ..forms import CatalogImportForm, CatalogUploadForm
-from ..models import Article, CatalogItem, SupplierCatalog
+from ..models import Article, CatalogItem, Company, SupplierCatalog
 from ..services import supplier_catalog as svc
 from . import protected_blueprint
+from .relations import add_button as add_relation_button
 
 bp = protected_blueprint("catalog", __name__)
 
@@ -24,10 +25,16 @@ PER_PAGE = 100
 def index():
     """List of uploaded catalogues + upload form."""
     form = CatalogUploadForm()
+    form.supplier_id.choices = Company.choices("supplier", empty="- kies een leverancier -")
+    add_relation_button(form.supplier_id, "supplier")
+    if not form.is_submitted():
+        rexel = Company.by_name("Rexel")
+        form.supplier_id.data = rexel.id if rexel else 0
     if form.validate_on_submit():
         try:
             catalog = svc.load_catalog(
-                form.file.data, form.supplier.data.strip(), current_user.id, replace=form.replace.data
+                form.file.data, db.session.get(Company, form.supplier_id.data), current_user.id,
+                replace=form.replace.data,
             )
             db.session.commit()
         except svc.CatalogFileError as exc:
@@ -41,9 +48,9 @@ def index():
     # How many articles were imported per supplier (for the overview).
     imported = dict(
         db.session.execute(
-            sa.select(Article.supplier, sa.func.count(Article.id))
+            sa.select(Article.supplier_id, sa.func.count(Article.id))
             .where(Article.supplier_ref.is_not(None))
-            .group_by(Article.supplier)
+            .group_by(Article.supplier_id)
         ).all()
     )
     return render_template(
@@ -61,7 +68,8 @@ def supplier(supplier: str):
     """
     catalog = db.session.scalar(
         sa.select(SupplierCatalog)
-        .where(sa.func.lower(SupplierCatalog.supplier) == supplier.lower())
+        .join(Company, SupplierCatalog.supplier_id == Company.id)
+        .where(sa.func.lower(Company.name) == supplier.lower())
         .order_by(SupplierCatalog.created_at.desc())
         .limit(1)
     )

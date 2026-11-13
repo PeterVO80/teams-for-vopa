@@ -10,7 +10,7 @@
   <div class="col-md-5">
     <div class="card h-100"><div class="card-body">
       <dl class="row mb-0 small">
-        <dt class="col-5">Klant</dt><dd class="col-7">{{ project.customer or '-' }}</dd>
+        <dt class="col-5">Klant</dt><dd class="col-7">{% if project.customer %}<a href="{{ url_for('relations.detail', company_id=project.customer.id) }}">{{ project.customer }}</a>{% else %}-{% endif %}</dd>
         <dt class="col-5">Projectleider</dt><dd class="col-7">{{ project.manager.full_name if project.manager else '-' }}</dd>
         <dt class="col-5">Periode</dt><dd class="col-7">{{ project.start_date|date or '?' }} – {{ project.end_date|date or '?' }}</dd>
       </dl>

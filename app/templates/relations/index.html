@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination %}
+{% block title %}Relaties{% endblock %}
+{% block page_actions %}<a class="btn btn-primary" href="{{ url_for('relations.edit', kind=kind or None) }}"><i class="bi bi-plus-lg"></i> Nieuwe relatie</a>{% endblock %}
+{% block content %}
+<ul class="nav nav-pills mb-3">
+  <li class="nav-item"><a class="nav-link {{ 'active' if not kind }}" href="{{ url_for('relations.index', q=search or None) }}">Alle</a></li>
+  {% for value, label in kinds.items() %}
+  <li class="nav-item"><a class="nav-link {{ 'active' if kind == value }}" href="{{ url_for('relations.index', kind=value, q=search or None) }}">{{ label }}</a></li>
+  {% endfor %}
+</ul>
+<form class="row g-2 mb-3" method="get">
+  {% if kind %}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}
+  <div class="col-md-6"><input class="form-control" type="search" name="q" value="{{ search }}" placeholder="Zoek op naam, gemeente, contactpersoon, btw-nummer..."></div>
+  <div class="col-md-3 d-flex align-items-center">
+    <div class="form-check"><input class="form-check-input" type="checkbox" name="inactive" value="1" id="inactive" {{ 'checked' if request.args.inactive }} onchange="this.form.submit()">
+      <label class="form-check-label" for="inactive">Ook inactieve</label></div>
+  </div>
+  <div class="col-md-3"><button class="btn btn-secondary w-100"><i class="bi bi-search"></i> Zoeken</button></div>
+</form>
+<div class="card"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+  <thead><tr><th>Naam</th><th>Type</th><th>Gemeente</th><th>Contact</th><th class="text-end">Projecten</th><th class="text-end">Bestellingen</th><th class="text-end">Artikelen</th></tr></thead>
+  <tbody>
+  {% for c in page.items %}
+    {% set u = usage[c.id] %}
+    <tr class="clickable-row {{ 'text-body-tertiary' if not c.active }}" data-href="{{ url_for('relations.detail', company_id=c.id) }}">
+      <td class="fw-semibold"><a href="{{ url_for('relations.detail', company_id=c.id) }}">{{ c.name }}</a>{% if not c.active %} <span class="badge text-bg-secondary">inactief</span>{% endif %}</td>
+      <td>
+        {% if c.is_customer %}<span class="badge text-bg-primary">Klant</span>{% endif %}
+        {% if c.is_supplier %}<span class="badge text-bg-success">Leverancier</span>{% endif %}
+      </td>
+      <td>{{ c.city or '' }}</td>
+      <td class="small">{{ c.contact_person or '' }}{% if c.phone %}<br>{{ c.phone }}{% endif %}</td>
+      <td class="text-end">{{ u.projects or '' }}</td>
+      <td class="text-end">{{ u.orders or '' }}</td>
+      <td class="text-end">{{ u.articles or '' }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="text-body-secondary">Geen relaties gevonden.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+<div class="mt-2">{{ pagination(page, 'relations.index') }}</div>
+{% endblock %}

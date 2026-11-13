@@ -14,7 +14,7 @@ Workflow
 
 Matching catalogue items with articles
 ---------------------------------------
-An article belongs to a catalogue item when ``Article.supplier`` equals the
+An article belongs to a catalogue item when ``Article.supplier_id`` equals the
 catalogue's supplier and ``Article.supplier_ref`` equals the item's
 supplier reference. Those two fields are filled on import, so later price
 lists find the same articles again, even if the article number was changed.
@@ -38,7 +38,7 @@ import sqlalchemy as sa
 from dbfread import DBF
 
 from ..extensions import db
-from ..models import Article, CatalogItem, SupplierCatalog
+from ..models import Article, CatalogItem, Company, SupplierCatalog
 
 #: Rows inserted per database round trip while loading a catalogue.
 CHUNK_SIZE = 2000
@@ -159,7 +159,7 @@ def read_dbf(path: str) -> tuple[CatalogFormat, int, Iterator[dict]]:
     return fmt, len(table), rows()
 
 
-def load_catalog(upload, supplier: str, user_id: int | None, replace: bool = True) -> SupplierCatalog:
+def load_catalog(upload, supplier: Company, user_id: int | None, replace: bool = True) -> SupplierCatalog:
     """Store an uploaded price list as a new catalogue.
 
     :param upload: werkzeug ``FileStorage`` from the upload form.
@@ -174,7 +174,7 @@ def load_catalog(upload, supplier: str, user_id: int | None, replace: bool = Tru
         fmt, _, rows = read_dbf(path)
 
         catalog = SupplierCatalog(
-            supplier=supplier or fmt.name, filename=upload.filename or "prijslijst.dbf",
+            supplier=supplier, filename=upload.filename or "prijslijst.dbf",
             uploaded_by_id=user_id,
         )
         db.session.add(catalog)
@@ -201,7 +201,7 @@ def load_catalog(upload, supplier: str, user_id: int | None, replace: bool = Tru
         if replace:
             for old in db.session.scalars(
                 sa.select(SupplierCatalog).where(
-                    SupplierCatalog.supplier == catalog.supplier, SupplierCatalog.id != catalog.id
+                    SupplierCatalog.supplier_id == catalog.supplier_id, SupplierCatalog.id != catalog.id
                 )
             ):
                 delete_catalog(old)
@@ -225,7 +225,7 @@ def _linked_article_exists(catalog: SupplierCatalog):
     """SQL condition: an article exists for this catalogue item."""
     return (
         sa.select(Article.id)
-        .where(Article.supplier == catalog.supplier, Article.supplier_ref == CatalogItem.supplier_ref)
+        .where(Article.supplier_id == catalog.supplier_id, Article.supplier_ref == CatalogItem.supplier_ref)
         .exists()
     )
 
@@ -271,7 +271,7 @@ def linked_articles(catalog: SupplierCatalog, items: list[CatalogItem]) -> dict[
     if not refs:
         return {}
     articles = db.session.scalars(
-        sa.select(Article).where(Article.supplier == catalog.supplier, Article.supplier_ref.in_(refs))
+        sa.select(Article).where(Article.supplier_id == catalog.supplier_id, Article.supplier_ref.in_(refs))
     )
     return {a.supplier_ref: a for a in articles}
 
@@ -309,7 +309,7 @@ def _apply(article: Article, item: CatalogItem, catalog: SupplierCatalog) -> boo
         "description": item.description,
         "manufacturer": item.manufacturer,
         "manufacturer_ref": item.manufacturer_ref,
-        "supplier": catalog.supplier,
+        "supplier_id": catalog.supplier_id,
         "supplier_ref": item.supplier_ref,
         "unit": item.unit,
         "unit_price": item.net_price,
@@ -349,7 +349,7 @@ def import_items(
     by_ref = {
         a.supplier_ref: a
         for a in db.session.scalars(
-            sa.select(Article).where(Article.supplier == catalog.supplier, Article.supplier_ref.is_not(None))
+            sa.select(Article).where(Article.supplier_id == catalog.supplier_id, Article.supplier_ref.is_not(None))
         )
     }
 

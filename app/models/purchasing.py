@@ -38,7 +38,7 @@ class PurchaseOrder(TimestampMixin, db.Model):
     project_id: Mapped[int | None] = mapped_column(
         sa.ForeignKey("projects.id"), index=True
     )
-    supplier: Mapped[str] = mapped_column(sa.String(120))
+    supplier_id: Mapped[int] = mapped_column(sa.ForeignKey("companies.id"), index=True)
     status: Mapped[OrderStatus] = mapped_column(
         enum_column(OrderStatus), default=OrderStatus.DRAFT
     )
@@ -51,6 +51,7 @@ class PurchaseOrder(TimestampMixin, db.Model):
     created_by_id: Mapped[int | None] = mapped_column(sa.ForeignKey("users.id"))
 
     project = relationship("Project")
+    supplier = relationship("Company")
     stock_location = relationship("StockLocation")
     created_by = relationship("User")
     lines: Mapped[list["PurchaseOrderLine"]] = relationship(

@@ -8,6 +8,7 @@ from ..extensions import db
 from ..forms import ProjectForm, none_if_zero
 from ..models import (
     Assignment,
+    Company,
     Note,
     Project,
     ProjectStatus,
@@ -22,6 +23,7 @@ from ..services.material import project_material
 from ..services.workload import build_overview, planning_period
 from ..services.numbering import insert_with_unique_number
 from . import protected_blueprint
+from .relations import add_button as add_relation_button
 
 bp = protected_blueprint("projects", __name__)
 
@@ -113,8 +115,11 @@ def edit(project_id: int | None = None):
     project = db.get_or_404(Project, project_id) if project_id else None
     form = ProjectForm(obj=project)
     form.manager_id.choices = [(0, "- geen -")] + User.active_choices()
+    form.customer_id.choices = Company.choices("customer", project.customer_id if project else None, empty="- geen klant -")
+    add_relation_button(form.customer_id, "customer")
     if project and not form.is_submitted():
         form.manager_id.data = project.manager_id or 0
+        form.customer_id.data = project.customer_id or 0
 
     if form.validate_on_submit():
         is_new = project is None
@@ -123,6 +128,7 @@ def edit(project_id: int | None = None):
         form.populate_obj(project)
         project.status = ProjectStatus(form.status.data)
         project.manager_id = none_if_zero(form.manager_id.data)
+        project.customer_id = none_if_zero(form.customer_id.data)
         if is_new:
             # Retries automatically if a colleague saved a project with the
             # same code at the same moment.

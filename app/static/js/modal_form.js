@@ -10,6 +10,10 @@
  *  - GET returns an HTML fragment: the content of `.modal-content`.
  *  - A <form data-modal-form> inside it is submitted with fetch():
  *      200 + JSON {ok: true}  -> saved: the page reloads (shows the flash message)
+ *      200 + JSON {ok: true, option: {select, value, label}}
+ *                             -> a record was created from another form (e.g. a
+ *                                new customer from the project form): it is added
+ *                                to that select and selected, no reload
  *      422 + HTML             -> validation errors: the fragment is replaced
  *  - A <button data-modal-post="url" data-confirm="..."> posts to `url`
  *    (used for "delete") and reloads the page on success.
@@ -56,6 +60,20 @@
   /** Handle the server's answer to a POST from the popup. */
   async function handleResponse(response) {
     if (response.ok && response.headers.get("Content-Type")?.includes("application/json")) {
+      const data = await response.json();
+      const select = data.option && document.querySelector(`select[name="${data.option.select}"]`);
+      if (select) {
+        // Keep the user's unsaved input in the form underneath: just add the option.
+        let option = [...select.options].find((o) => o.value === String(data.option.value));
+        if (!option) {
+          option = new Option(data.option.label, data.option.value);
+          select.add(option);
+        }
+        select.value = option.value;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+        modal.hide();
+        return;
+      }
       window.location.reload();  // saved: show the updated page + flash message
     } else if (response.status === 422) {
       setContent(await response.text());  // validation errors: show them

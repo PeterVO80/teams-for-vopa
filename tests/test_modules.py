@@ -9,6 +9,7 @@ from openpyxl import Workbook, load_workbook
 
 from app.extensions import db
 from app.models import (
+    Company,
     User,
     Article,
     Assignment,
@@ -228,7 +229,7 @@ def test_new_project_gets_next_code_and_ignores_form_input(client):
     year = date.today().year
     # Demo data already created PRJ/<year>/0001 and 0002.
     response = client.post("/projects/new", data={
-        "code": "HACK-1", "name": "Nieuwe lijn", "status": "active", "manager_id": 0,
+        "code": "HACK-1", "name": "Nieuwe lijn", "status": "active", "manager_id": 0, "customer_id": 0,
     })
     assert response.status_code == 302
     project = db.session.scalar(sa.select(Project).filter_by(name="Nieuwe lijn"))
@@ -241,7 +242,7 @@ def test_project_code_does_not_change_on_edit(client):
     project = db.session.scalar(sa.select(Project))
     original = project.code
     client.post(f"/projects/{project.id}/edit", data={
-        "name": "Hernoemd", "status": "active", "manager_id": 0,
+        "name": "Hernoemd", "status": "active", "manager_id": 0, "customer_id": project.customer_id,
     })
     db.session.refresh(project)
     assert project.name == "Hernoemd" and project.code == original
@@ -448,13 +449,13 @@ def _material_setup():
     order = db.session.scalar(sa.select(PurchaseOrder))
     project = order.project
     plc, sensor = _article("A-1001"), _article("A-1003") or _article("A-3001")
-    second = PurchaseOrder(number="PO-T-2", project=project, supplier="Rexel", status=OrderStatus.ORDERED)
+    second = PurchaseOrder(number="PO-T-2", project=project, supplier=Company.by_name("Rexel"), status=OrderStatus.ORDERED)
     second.lines.append(PurchaseOrderLine(article=plc, description=plc.description, quantity=Decimal(3),
                                           unit="st", unit_price=Decimal(385)))
     second.lines.append(PurchaseOrderLine(description="Montageplaat op maat", quantity=Decimal(1), unit="st"))
-    draft = PurchaseOrder(number="PO-T-3", project=project, supplier="ifm", status=OrderStatus.DRAFT)
+    draft = PurchaseOrder(number="PO-T-3", project=project, supplier=Company.by_name("ifm"), status=OrderStatus.DRAFT)
     draft.lines.append(PurchaseOrderLine(article=sensor, description=sensor.description, quantity=Decimal(10), unit="st"))
-    cancelled = PurchaseOrder(number="PO-T-4", project=project, supplier="X", status=OrderStatus.CANCELLED)
+    cancelled = PurchaseOrder(number="PO-T-4", project=project, supplier=Company.by_name("Cebeo"), status=OrderStatus.CANCELLED)
     cancelled.lines.append(PurchaseOrderLine(article=plc, description="x", quantity=Decimal(99), unit="st"))
     db.session.add_all([second, draft, cancelled])
     db.session.commit()

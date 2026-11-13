@@ -1,0 +1,21 @@
+{# Fields of the relation form, shared by the page and the popup. #}
+{% from "_macros.html" import render_field %}
+{{ form.hidden_tag() }}
+{{ render_field(form.name) }}
+<div class="d-flex gap-4 mb-1">
+  {{ render_field(form.is_customer) }}
+  {{ render_field(form.is_supplier) }}
+  {{ render_field(form.active) }}
+</div>
+<div class="row">
+  {{ render_field(form.vat_number, class_="col-md-6") }}
+  {{ render_field(form.contact_person, class_="col-md-6") }}
+  {{ render_field(form.phone, class_="col-md-4") }}
+  {{ render_field(form.email, class_="col-md-4") }}
+  {{ render_field(form.website, class_="col-md-4") }}
+  {{ render_field(form.street, class_="col-md-12") }}
+  {{ render_field(form.postal_code, class_="col-md-3") }}
+  {{ render_field(form.city, class_="col-md-5") }}
+  {{ render_field(form.country, class_="col-md-4") }}
+</div>
+{{ render_field(form.notes) }}

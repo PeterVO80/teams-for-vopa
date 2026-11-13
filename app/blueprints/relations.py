@@ -1,0 +1,143 @@
+"""Relations: manage customers and suppliers.
+
+Other modules pick a relation from a list instead of typing a name (see
+models/company.py). From those forms a new relation can be created in a
+popup: ``/relations/new?kind=customer&select=customer_id`` answers with the
+new option, which static/js/modal_form.js adds to the select and selects.
+"""
+
+import sqlalchemy as sa
+from flask import abort, current_app, flash, jsonify, redirect, render_template, request, url_for
+
+from ..extensions import db
+from ..forms import CompanyForm
+from ..models import Article, Company, Project, PurchaseOrder, SupplierCatalog
+from ..utils import is_modal_request
+from . import protected_blueprint
+
+bp = protected_blueprint("relations", __name__)
+
+KINDS = {"customer": "Klanten", "supplier": "Leveranciers"}
+
+
+def _usage(company_ids: list[int]) -> dict[int, dict[str, int]]:
+    """Number of projects, orders and articles per relation (grouped queries)."""
+    usage = {cid: {"projects": 0, "orders": 0, "articles": 0} for cid in company_ids}
+    if not company_ids:
+        return usage
+    for key, column in (("projects", Project.customer_id), ("orders", PurchaseOrder.supplier_id),
+                        ("articles", Article.supplier_id)):
+        for cid, count in db.session.execute(
+            sa.select(column, sa.func.count()).where(column.in_(company_ids)).group_by(column)
+        ):
+            usage[cid][key] = count
+    return usage
+
+
+@bp.route("/")
+def index():
+    kind = request.args.get("kind", "")
+    search = request.args.get("q", "").strip()
+    query = sa.select(Company).order_by(Company.name)
+    if kind == "customer":
+        query = query.where(Company.is_customer.is_(True))
+    elif kind == "supplier":
+        query = query.where(Company.is_supplier.is_(True))
+    if not request.args.get("inactive"):
+        query = query.where(Company.active.is_(True))
+    for word in search.split():
+        pattern = f"%{word}%"
+        query = query.where(sa.or_(Company.name.ilike(pattern), Company.city.ilike(pattern),
+                                   Company.contact_person.ilike(pattern), Company.vat_number.ilike(pattern)))
+    page = db.paginate(query, per_page=current_app.config["ITEMS_PER_PAGE"], error_out=False)
+    return render_template("relations/index.html", page=page, kind=kind, search=search, kinds=KINDS,
+                           usage=_usage([c.id for c in page.items]))
+
+
+@bp.route("/<int:company_id>")
+def detail(company_id: int):
+    company = db.get_or_404(Company, company_id)
+    projects = db.session.scalars(
+        sa.select(Project).filter_by(customer_id=company.id).order_by(Project.code.desc())
+    ).all()
+    orders = db.session.scalars(
+        sa.select(PurchaseOrder).filter_by(supplier_id=company.id).order_by(PurchaseOrder.id.desc()).limit(25)
+    ).all()
+    article_count = db.session.scalar(sa.select(sa.func.count(Article.id)).filter_by(supplier_id=company.id))
+    catalogs = db.session.scalars(sa.select(SupplierCatalog).filter_by(supplier_id=company.id)).all()
+    return render_template("relations/detail.html", company=company, projects=projects, orders=orders,
+                           article_count=article_count, catalogs=catalogs)
+
+
+@bp.route("/new", methods=["GET", "POST"])
+@bp.route("/<int:company_id>/edit", methods=["GET", "POST"])
+def edit(company_id: int | None = None):
+    """Create or edit a relation, as a page or as a popup.
+
+    Popup from another form: ``?kind=customer|supplier`` pre-ticks the role and
+    ``?select=<field name>`` makes the answer carry the new option for that select.
+    """
+    company = db.get_or_404(Company, company_id) if company_id else None
+    form = CompanyForm(obj=company)
+    kind = request.args.get("kind")
+    select_field = request.args.get("select")
+    if company is None and not form.is_submitted():
+        form.is_customer.data = kind == "customer"
+        form.is_supplier.data = kind == "supplier"
+
+    if form.validate_on_submit():
+        existing = Company.by_name(form.name.data)
+        if existing and existing.id != (company.id if company else None):
+            form.name.errors.append(f"Er bestaat al een relatie '{existing.name}'.")
+        else:
+            if company is None:
+                company = Company()
+                db.session.add(company)
+            form.populate_obj(company)
+            company.name = " ".join(form.name.data.split())  # no double / surrounding spaces
+            db.session.commit()
+            if is_modal_request():
+                if select_field:
+                    # Add the new relation to the select of the form underneath.
+                    return jsonify(ok=True, option={"select": select_field, "value": company.id, "label": company.name})
+                flash(f"Relatie {company.name} opgeslagen.", "success")
+                return jsonify(ok=True)
+            flash(f"Relatie {company.name} opgeslagen.", "success")
+            return redirect(url_for("relations.detail", company_id=company.id))
+
+    if is_modal_request():
+        status = 422 if form.errors else 200
+        return render_template("relations/_form_modal.html", form=form, company=company,
+                               action=request.full_path), status
+    return render_template("relations/edit.html", form=form, company=company)
+
+
+@bp.route("/<int:company_id>/delete", methods=["POST"])
+def delete(company_id: int):
+    """Delete an unused relation; a relation that is in use is deactivated instead."""
+    company = db.get_or_404(Company, company_id)
+    used = sum(_usage([company.id])[company.id].values()) + db.session.scalar(
+        sa.select(sa.func.count(SupplierCatalog.id)).filter_by(supplier_id=company.id))
+    if used:
+        company.active = False
+        flash(f"{company.name} wordt gebruikt en werd daarom op inactief gezet (de historiek blijft bewaard).", "warning")
+        db.session.commit()
+        return redirect(url_for("relations.detail", company_id=company.id))
+    db.session.delete(company)
+    db.session.commit()
+    flash("Relatie verwijderd.", "success")
+    return redirect(url_for("relations.index"))
+
+
+def add_button(field, kind: str) -> None:
+    """Show a '+' button next to a relation select to create one in a popup.
+
+    Used by the project, article, order and catalogue forms; rendered by the
+    render_field macro (templates/_macros.html).
+    """
+    if kind not in KINDS:
+        abort(500)
+    field.render_kw = dict(field.render_kw or {}, **{
+        "data-add-url": url_for("relations.edit", kind=kind, select=field.name),
+        "data-add-title": "Nieuwe klant" if kind == "customer" else "Nieuwe leverancier",
+    })

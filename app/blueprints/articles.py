@@ -6,11 +6,12 @@ import sqlalchemy as sa
 from flask import current_app, flash, jsonify, redirect, render_template, request, send_file, url_for
 
 from ..extensions import db
-from ..forms import ArticleForm, ImportForm
-from ..models import Article, PurchaseOrder, PurchaseOrderLine, StockLocation, StockMovement
+from ..forms import ArticleForm, ImportForm, none_if_zero
+from ..models import Article, Company, PurchaseOrder, PurchaseOrderLine, StockLocation, StockMovement
 from ..services import stock as stock_svc
 from ..services import excel
 from . import protected_blueprint
+from .relations import add_button as add_relation_button
 
 bp = protected_blueprint("articles", __name__)
 
@@ -33,7 +34,7 @@ def _filtered_query() -> sa.Select:
                 Article.description.ilike(pattern),
                 Article.manufacturer.ilike(pattern),
                 Article.manufacturer_ref.ilike(pattern),
-                Article.supplier.ilike(pattern),
+                Article.supplier.has(Company.name.ilike(pattern)),
                 Article.supplier_ref.ilike(pattern),
                 Article.ean == search,
             )
@@ -62,6 +63,10 @@ def index():
 def edit(article_id: int | None = None):
     article = db.get_or_404(Article, article_id) if article_id else None
     form = ArticleForm(obj=article)
+    form.supplier_id.choices = Company.choices("supplier", article.supplier_id if article else None, empty="- geen leverancier -")
+    add_relation_button(form.supplier_id, "supplier")
+    if article and not form.is_submitted():
+        form.supplier_id.data = article.supplier_id or 0
     if form.validate_on_submit():
         duplicate = db.session.scalar(
             sa.select(Article).where(
@@ -76,6 +81,7 @@ def edit(article_id: int | None = None):
                 article = Article()
                 db.session.add(article)
             form.populate_obj(article)
+            article.supplier_id = none_if_zero(form.supplier_id.data)
             article.article_number = article.article_number.strip()
             db.session.commit()
             flash(f"Artikel {article.article_number} opgeslagen.", "success")
@@ -199,7 +205,7 @@ def search_json():
                 "description": a.description,
                 "unit": a.unit,
                 "unit_price": float(a.unit_price) if a.unit_price is not None else None,
-                "supplier": a.supplier,
+                "supplier": a.supplier.name if a.supplier else None,
             }
             for a in articles
         ]

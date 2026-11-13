@@ -29,7 +29,7 @@ class Project(TimestampMixin, db.Model):
     #: their original code.
     code: Mapped[str] = mapped_column(sa.String(30), unique=True, index=True)
     name: Mapped[str] = mapped_column(sa.String(200))
-    customer: Mapped[str | None] = mapped_column(sa.String(200))
+    customer_id: Mapped[int | None] = mapped_column(sa.ForeignKey("companies.id"), index=True)
     description: Mapped[str | None] = mapped_column(sa.Text)
     status: Mapped[ProjectStatus] = mapped_column(
         enum_column(ProjectStatus), default=ProjectStatus.ACTIVE
@@ -39,6 +39,8 @@ class Project(TimestampMixin, db.Model):
     manager_id: Mapped[int | None] = mapped_column(sa.ForeignKey("users.id"))
 
     manager = relationship("User")
+    #: The customer (a relation marked as customer, see models/company.py).
+    customer = relationship("Company")
 
     def assign_code(self) -> None:
         """Give this project the next automatic code, e.g. ``PRJ/2026/0001``.

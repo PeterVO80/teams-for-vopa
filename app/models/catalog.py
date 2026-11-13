@@ -25,8 +25,8 @@ class SupplierCatalog(TimestampMixin, db.Model):
     __tablename__ = "supplier_catalogs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    #: Supplier name, copied to ``Article.supplier`` on import (e.g. "Rexel").
-    supplier: Mapped[str] = mapped_column(sa.String(120), index=True)
+    #: The supplier (relation), copied to ``Article.supplier`` on import.
+    supplier_id: Mapped[int] = mapped_column(sa.ForeignKey("companies.id"), index=True)
     filename: Mapped[str] = mapped_column(sa.String(255))
     item_count: Mapped[int] = mapped_column(default=0)
     #: Price date as stated in the file (newest date found).
@@ -34,6 +34,7 @@ class SupplierCatalog(TimestampMixin, db.Model):
     uploaded_by_id: Mapped[int | None] = mapped_column(sa.ForeignKey("users.id"))
 
     uploaded_by = relationship("User")
+    supplier = relationship("Company")
     # passive_deletes: let PostgreSQL's ON DELETE CASCADE remove the (many)
     # items in one statement instead of loading them all into Python.
     items = relationship("CatalogItem", back_populates="catalog", passive_deletes=True)

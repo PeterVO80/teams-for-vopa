@@ -18,7 +18,7 @@
               {{ '{:,}'.format(c.item_count).replace(',', '.') }} artikelen
               {% if c.price_date %}· prijzen van {{ c.price_date|date }}{% endif %}
               · geladen {{ c.created_at|datetime }}{% if c.uploaded_by %} door {{ c.uploaded_by.full_name }}{% endif %}
-              · {{ imported.get(c.supplier, 0) }} in artikeldatabank
+              · {{ imported.get(c.supplier_id, 0) }} in artikeldatabank
             </small>
           </div>
           <a class="btn btn-sm btn-primary" href="{{ url_for('catalog.detail', catalog_id=c.id) }}">Openen</a>
@@ -34,7 +34,7 @@
     <div class="card"><div class="card-header fw-semibold">Prijslijst laden</div><div class="card-body">
       <form method="post" enctype="multipart/form-data" novalidate data-upload-form>
         {{ form.hidden_tag() }}
-        {{ render_field(form.supplier) }}
+        {{ render_field(form.supplier_id) }}
         {{ render_field(form.file) }}
         {{ render_field(form.replace) }}
         <div class="form-text mt-n2 mb-3">{{ form.replace.description }}</div>

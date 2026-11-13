@@ -6,7 +6,7 @@ import pytest
 import sqlalchemy as sa
 
 from app.extensions import db
-from app.models import Article, MovementKind, OrderStatus, Project, PurchaseOrder, PurchaseOrderLine, StockLocation, StockMovement
+from app.models import Article, Company, MovementKind, OrderStatus, Project, PurchaseOrder, PurchaseOrderLine, StockLocation, StockMovement
 from app.services import stock as svc
 
 MODAL = {"X-Modal": "1"}
@@ -105,7 +105,7 @@ def test_generic_popup_lists_stocked_articles(client):
 
 def test_order_with_stock_location_puts_deliveries_in_stock(client):
     terminals, warehouse = _article("A-2001"), _location("Magazijn")
-    order = PurchaseOrder(number="PO-STOCK-1", supplier="Cebeo", status=OrderStatus.ORDERED,
+    order = PurchaseOrder(number="PO-STOCK-1", supplier=Company.by_name("Cebeo"), status=OrderStatus.ORDERED,
                           stock_location_id=warehouse.id)
     order.lines.append(PurchaseOrderLine(article=terminals, description=terminals.description,
                                          quantity=Decimal(100), unit="st"))

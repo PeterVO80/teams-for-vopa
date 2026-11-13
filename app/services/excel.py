@@ -12,6 +12,9 @@ Import rules
 * ``Artikelnummer`` is the unique key: existing articles are **updated**,
   unknown numbers are **created**. Articles are never deleted by an import.
 * Empty cells in an update leave the existing value untouched.
+* ``Leverancier`` must be the name of an existing supplier (see Relaties;
+  capitals don't matter). Rows with an unknown supplier are skipped, so a
+  typo never creates a second, misspelled supplier.
 * Invalid rows are skipped and reported; valid rows are still imported.
 """
 
@@ -28,7 +31,7 @@ from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from ..extensions import db
-from ..models import Article
+from ..models import Article, Company
 
 #: (model attribute, column header in Excel, column width)
 ARTICLE_COLUMNS: list[tuple[str, str, int]] = [
@@ -67,6 +70,8 @@ def _write_sheet(rows: Iterable[Article]) -> BytesIO:
         values = []
         for attr, _, _ in ARTICLE_COLUMNS:
             value = getattr(article, attr)
+            if attr == "supplier":
+                value = value.name if value else None
             if isinstance(value, Decimal):
                 value = float(value)
             elif isinstance(value, bool):
@@ -171,6 +176,16 @@ def import_articles(file: IO[bytes]) -> ImportResult:
             continue
 
         try:
+            if "supplier" in data:
+                supplier = Company.by_name(str(data["supplier"]))
+                if supplier is None or not supplier.is_supplier:
+                    result.skipped += 1
+                    result.errors.append(
+                        f"Rij {row_number}: leverancier '{data['supplier']}' bestaat niet. "
+                        "Maak ze eerst aan bij Relaties of controleer de schrijfwijze."
+                    )
+                    continue
+                data["supplier"] = supplier
             if "unit_price" in data:
                 data["unit_price"] = _parse_decimal(data["unit_price"])
             if "active" in data:
@@ -198,7 +213,7 @@ def import_articles(file: IO[bytes]) -> ImportResult:
                 continue
             if isinstance(value, str):
                 value = value.strip()
-            elif attr not in ("unit_price", "active"):
+            elif attr not in ("unit_price", "active", "supplier"):
                 value = str(value)  # e.g. numeric order codes read as int
             setattr(article, attr, value)
 
