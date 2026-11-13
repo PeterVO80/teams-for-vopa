@@ -24,14 +24,6 @@
     }
   });
 
-  // Team planning: click on an empty spot of a cell to plan that day.
-  document.addEventListener("click", (event) => {
-    const cell = event.target.closest(".planning-cell[data-new-url]");
-    if (cell && event.target === cell) {
-      window.location = cell.dataset.newUrl;
-    }
-  });
-
   /**
    * POST a JSON body to `url`, including Flask-WTF's CSRF token header.
    * Resolves with the parsed JSON response, rejects on HTTP errors.

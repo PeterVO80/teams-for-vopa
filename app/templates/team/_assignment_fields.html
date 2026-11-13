@@ -1,0 +1,16 @@
+{# Fields of the planning form. Shared by the popup (_assignment_modal.html)
+   and the full-page fallback (assignment_form.html). The behaviour (project
+   field only for "Project", end date >= start date) lives in static/js/team.js. #}
+{% from "_macros.html" import render_field %}
+{{ form.hidden_tag() }}
+<div class="row">
+  {{ render_field(form.user_id, class_="col-md-6") }}
+  {{ render_field(form.kind, class_="col-md-6") }}
+</div>
+<div data-project-field>{{ render_field(form.project_id) }}</div>
+<div class="row">
+  {{ render_field(form.start_date, class_="col-md-4") }}
+  {{ render_field(form.end_date, class_="col-md-4") }}
+  {{ render_field(form.hours_per_day, class_="col-md-4") }}
+</div>
+{{ render_field(form.note) }}

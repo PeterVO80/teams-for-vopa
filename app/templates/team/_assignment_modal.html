@@ -1,0 +1,20 @@
+{# Content of the planning popup. Loaded into the shared modal of base.html
+   by static/js/modal_form.js, which also submits the form with fetch(). #}
+<div class="modal-header">
+  <h1 class="modal-title fs-5">{{ 'Planning bewerken' if assignment else 'Inplannen' }}</h1>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Sluiten"></button>
+</div>
+<form method="post" action="{{ action_url }}" data-modal-form novalidate>
+  <div class="modal-body">
+    {% include "team/_assignment_fields.html" %}
+  </div>
+  <div class="modal-footer">
+    {% if assignment %}
+    <button type="button" class="btn btn-outline-danger me-auto"
+            data-modal-post="{{ url_for('team.delete_assignment', assignment_id=assignment.id) }}"
+            data-confirm="Planning verwijderen?"><i class="bi bi-trash"></i> Verwijderen</button>
+    {% endif %}
+    <button type="button" class="btn btn-link" data-bs-dismiss="modal">Annuleren</button>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Opslaan</button>
+  </div>
+</form>

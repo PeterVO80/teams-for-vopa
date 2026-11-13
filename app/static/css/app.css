@@ -79,3 +79,11 @@
 .markdown-body blockquote { border-left: 4px solid var(--bs-border-color); padding-left: 1rem; color: var(--bs-secondary-color); }
 .markdown-body img { max-width: 100%; }
 .toastui-editor-defaultUI { background: var(--bs-body-bg); }
+
+/* Day selection by click-and-drag in the planning grid (static/js/team.js). */
+.planning-cell { user-select: none; }
+.planning-grid td.planning-cell.selecting {
+  background-image: linear-gradient(rgba(13, 110, 253, .28), rgba(13, 110, 253, .28));
+  outline: 2px solid var(--bs-primary);
+  outline-offset: -2px;
+}

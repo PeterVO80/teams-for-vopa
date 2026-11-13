@@ -274,3 +274,45 @@ def test_order_number_suggestion(client):
 
     html = client.get("/purchasing/new").get_data(as_text=True)
     assert f"PO-{date.today().year}-0102" in html  # demo order is PO-<year>-0101
+
+
+# -------------------------------------------------- planning popup (modal)
+MODAL = {"X-Modal": "1"}
+
+
+def test_planning_popup_prefills_dragged_range(client):
+    html = client.get("/team/assignments/new?user=2&start=2026-11-18&end=2026-11-16", headers=MODAL).get_data(as_text=True)
+    assert "<html" not in html and "modal-header" in html          # fragment, not a page
+    assert 'value="2026-11-16"' in html and 'value="2026-11-18"' in html  # right-to-left drag swapped
+    assert '<option selected value="2">' in html
+
+
+def test_planning_popup_single_day(client):
+    html = client.get("/team/assignments/new?user=2&day=2026-11-16", headers=MODAL).get_data(as_text=True)
+    assert html.count('value="2026-11-16"') == 2  # start and end
+
+
+def test_planning_popup_save_returns_json(client):
+    count = db.session.scalar(sa.select(sa.func.count(Assignment.id)))
+    response = client.post("/team/assignments/new", headers=MODAL, data={
+        "user_id": 2, "kind": "training", "project_id": 0,
+        "start_date": "2026-12-01", "end_date": "2026-12-03", "hours_per_day": 8,
+    })
+    assert response.status_code == 200 and response.get_json() == {"ok": True}
+    assert db.session.scalar(sa.select(sa.func.count(Assignment.id))) == count + 1
+
+
+def test_planning_popup_validation_error_returns_422(client):
+    response = client.post("/team/assignments/new", headers=MODAL, data={
+        "user_id": 2, "kind": "project", "project_id": 0,
+        "start_date": "2026-12-01", "end_date": "2026-12-03", "hours_per_day": 8,
+    })
+    assert response.status_code == 422
+    assert "Kies een project" in response.get_data(as_text=True)
+
+
+def test_planning_popup_delete(client):
+    assignment = db.session.scalar(sa.select(Assignment))
+    response = client.post(f"/team/assignments/{assignment.id}/delete", headers=MODAL)
+    assert response.get_json() == {"ok": True}
+    assert db.session.get(Assignment, assignment.id) is None

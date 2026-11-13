@@ -95,8 +95,17 @@
   </main>
 </div>
 
+{# Shared popup. Its content is loaded on demand by static/js/modal_form.js
+   for every element with a `data-modal-url` attribute. #}
+<div class="modal fade" id="app-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" id="app-modal-content"></div>
+  </div>
+</div>
+
 <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modal_form.js') }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -3,7 +3,7 @@
 from datetime import date, timedelta
 
 import sqlalchemy as sa
-from flask import current_app, flash, redirect, render_template, request, url_for
+from flask import current_app, flash, jsonify, redirect, render_template, request, url_for
 
 from ..extensions import db
 from ..forms import AssignmentForm, none_if_zero
@@ -57,9 +57,35 @@ def assignments():
     )
 
 
+def _is_modal() -> bool:
+    """True when the request comes from the popup (``static/js/modal_form.js``).
+
+    The popup loads the form as an HTML *fragment* and submits it with
+    ``fetch()``; it marks those requests with an ``X-Modal: 1`` header. Without
+    that header the same URLs still work as normal full pages (fallback).
+    """
+    return request.headers.get("X-Modal") == "1"
+
+
+def _date_arg(name: str) -> date | None:
+    """Read an optional ISO date (``2026-11-16``) from the query string."""
+    try:
+        return date.fromisoformat(request.args[name])
+    except (KeyError, ValueError):
+        return None
+
+
 @bp.route("/assignments/new", methods=["GET", "POST"])
 @bp.route("/assignments/<int:assignment_id>/edit", methods=["GET", "POST"])
 def edit_assignment(assignment_id: int | None = None):
+    """Create or edit a planning entry, as a popup or as a full page.
+
+    Pre-filling a new entry (used by the planning grid):
+
+    * ``?user=3``                              - the team member
+    * ``?start=2026-11-16&end=2026-11-18``     - a range selected by dragging
+    * ``?day=2026-11-16``                      - a single clicked day
+    """
     assignment = db.get_or_404(Assignment, assignment_id) if assignment_id else None
     form = AssignmentForm(obj=assignment)
     form.user_id.choices = User.active_choices()
@@ -68,11 +94,13 @@ def edit_assignment(assignment_id: int | None = None):
     if not form.is_submitted():
         if assignment:
             form.project_id.data = assignment.project_id or 0
-        else:  # clicking an empty cell in the grid pre-fills person and day
+        else:
             form.user_id.data = int_arg("user")
-            day = request.args.get("day")
-            if day:
-                form.start_date.data = form.end_date.data = date.fromisoformat(day)
+            start = _date_arg("start") or _date_arg("day")
+            end = _date_arg("end") or start
+            if start and end and end < start:  # dragged from right to left
+                start, end = end, start
+            form.start_date.data, form.end_date.data = start, end
 
     if form.validate_on_submit():
         if assignment is None:
@@ -86,13 +114,23 @@ def edit_assignment(assignment_id: int | None = None):
         )
         db.session.commit()
         flash("Planning opgeslagen.", "success")
+        if _is_modal():
+            # The popup reloads the page, which then shows the flash message.
+            return jsonify(ok=True)
         return redirect(next_url(url_for("team.overview", start=assignment.start_date.isoformat())))
 
-    return render_template(
-        "team/assignment_form.html",
+    context = dict(
         form=form,
         assignment=assignment,
-        cancel_url=next_url(url_for("team.overview")),
+        action_url=url_for("team.edit_assignment", assignment_id=assignment.id) if assignment
+        else url_for("team.edit_assignment"),
+    )
+    if _is_modal():
+        # 422 tells the popup that the form contains validation errors.
+        status = 422 if form.errors else 200
+        return render_template("team/_assignment_modal.html", **context), status
+    return render_template(
+        "team/assignment_form.html", cancel_url=next_url(url_for("team.overview")), **context
     )
 
 
@@ -103,4 +141,6 @@ def delete_assignment(assignment_id: int):
     db.session.delete(assignment)
     db.session.commit()
     flash("Planning verwijderd.", "success")
+    if _is_modal():
+        return jsonify(ok=True)
     return redirect(next_url(url_for("team.overview", start=start.isoformat())))

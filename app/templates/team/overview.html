@@ -1,14 +1,16 @@
 {#
   Team planning grid: one row per person, one column per working day.
-  Cell colour = load level (see services/workload.py). Clicking an empty
-  part of a cell creates a new planning entry for that person and day.
+  Cell colour = load level (see services/workload.py).
+  Click a day, or click-and-drag over several days in one row, to plan that
+  person for that period (static/js/team.js). Planning opens in a popup.
 #}
 {% extends "base.html" %}
 {% from "_macros.html" import avatar %}
 {% block title %}Teamoverzicht{% endblock %}
 {% block page_actions %}
 <a class="btn btn-outline-secondary" href="{{ url_for('team.assignments') }}"><i class="bi bi-list-ul"></i> Lijst</a>
-<a class="btn btn-primary" href="{{ url_for('team.edit_assignment', next=request.full_path) }}"><i class="bi bi-plus-lg"></i> Inplannen</a>
+<a class="btn btn-primary" href="{{ url_for('team.edit_assignment', next=request.full_path) }}"
+   data-modal-url="{{ url_for('team.edit_assignment') }}"><i class="bi bi-plus-lg"></i> Inplannen</a>
 {% endblock %}
 {% block content %}
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
@@ -26,7 +28,7 @@
 </div>
 
 <div class="card"><div class="table-responsive">
-<table class="table table-bordered planning-grid mb-0">
+<table class="table table-bordered planning-grid mb-0" data-new-url="{{ url_for('team.edit_assignment') }}">
   <thead>
     <tr>
       <th class="planning-name">Medewerker</th>
@@ -52,10 +54,11 @@
       </td>
       {% for cell in row.cells %}
       <td class="planning-cell level-{{ cell.level(workday_hours) }} {{ 'today' if cell.day == today() }} {{ 'week-start' if cell.day.weekday() == 0 }}"
-          data-new-url="{{ url_for('team.edit_assignment', user=row.user.id, day=cell.day.isoformat(), next=request.full_path) }}"
+          data-user="{{ row.user.id }}" data-day="{{ cell.day.isoformat() }}"
           title="{{ cell.planned_hours }}u gepland">
         {% for a in cell.assignments %}
         <a class="planning-chip bg-{{ a.kind.css_class }}" href="{{ url_for('team.edit_assignment', assignment_id=a.id, next=request.full_path) }}"
+           data-modal-url="{{ url_for('team.edit_assignment', assignment_id=a.id) }}"
            title="{{ a.label }} · {{ a.hours_per_day }}u/dag{% if a.note %} · {{ a.note }}{% endif %}">{{ a.label }}</a>
         {% endfor %}
       </td>
@@ -72,6 +75,7 @@
   <span><span class="legend level-full"></span> Volledig ingepland</span>
   <span><span class="legend level-over"></span> Overboekt</span>
   <span><span class="legend level-absent"></span> Afwezig</span>
-  <span>· Klik op een lege cel om in te plannen.</span>
+  <span>· Klik op een dag, of klik en sleep over meerdere dagen, om in te plannen.</span>
 </div>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/team.js') }}"></script>{% endblock %}

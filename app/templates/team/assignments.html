@@ -3,7 +3,8 @@
 {% block title %}Planning (lijst){% endblock %}
 {% block page_actions %}
 <a class="btn btn-outline-secondary" href="{{ url_for('team.overview') }}"><i class="bi bi-grid-3x3"></i> Raster</a>
-<a class="btn btn-primary" href="{{ url_for('team.edit_assignment', user=user_id, next=request.full_path) }}"><i class="bi bi-plus-lg"></i> Inplannen</a>
+<a class="btn btn-primary" href="{{ url_for('team.edit_assignment', user=user_id, next=request.full_path) }}"
+   data-modal-url="{{ url_for('team.edit_assignment', user=user_id) }}"><i class="bi bi-plus-lg"></i> Inplannen</a>
 {% endblock %}
 {% block content %}
 <form class="row g-2 mb-3" method="get">
@@ -28,7 +29,8 @@
       <td>{{ a.hours_per_day }}</td>
       <td class="small">{{ a.note or '' }}</td>
       <td class="text-end text-nowrap">
-        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('team.edit_assignment', assignment_id=a.id, next=request.full_path) }}"><i class="bi bi-pencil"></i></a>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('team.edit_assignment', assignment_id=a.id, next=request.full_path) }}"
+           data-modal-url="{{ url_for('team.edit_assignment', assignment_id=a.id) }}"><i class="bi bi-pencil"></i></a>
         {{ post_button(url_for('team.delete_assignment', assignment_id=a.id), '', icon='trash', confirm='Planning verwijderen?', next=request.full_path) }}
       </td>
     </tr>
@@ -39,3 +41,4 @@
 </table>
 </div></div>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/team.js') }}"></script>{% endblock %}
