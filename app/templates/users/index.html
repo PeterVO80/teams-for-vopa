@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+{% block title %}Gebruikers{% endblock %}
+{% block page_actions %}<a class="btn btn-primary" href="{{ url_for('users.edit') }}"><i class="bi bi-plus-lg"></i> Nieuwe gebruiker</a>{% endblock %}
+{% block content %}
+<div class="card"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+  <thead><tr><th></th><th>Naam</th><th>Gebruikersnaam</th><th>E-mail</th><th>Rol</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for user in users %}
+    <tr class="{{ 'text-body-tertiary' if not user.active }}">
+      <td>{{ avatar(user) }}</td>
+      <td>{{ user.full_name }}</td>
+      <td>{{ user.username }}</td>
+      <td>{{ user.email or '' }}</td>
+      <td>{{ user.role.label }}</td>
+      <td>{% if user.active %}<span class="badge text-bg-success">Actief</span>{% else %}<span class="badge text-bg-secondary">Inactief</span>{% endif %}</td>
+      <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('users.edit', user_id=user.id) }}"><i class="bi bi-pencil"></i></a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}

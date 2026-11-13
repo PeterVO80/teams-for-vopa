@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import project_status_badge %}
+{% block title %}Projecten{% endblock %}
+{% block page_actions %}<a class="btn btn-primary" href="{{ url_for('projects.edit') }}"><i class="bi bi-plus-lg"></i> Nieuw project</a>{% endblock %}
+{% block content %}
+<ul class="nav nav-pills mb-3">
+  {% for value, label in [('open', 'Lopend')] + ProjectStatus.choices() + [('all', 'Alle')] %}
+  <li class="nav-item"><a class="nav-link {{ 'active' if status == value }}" href="{{ url_for('projects.index', status=value) }}">{{ label }}</a></li>
+  {% endfor %}
+</ul>
+<div class="card"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+  <thead><tr><th>Code</th><th>Naam</th><th>Klant</th><th>Projectleider</th><th>Periode</th><th>Open taken</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for p in projects %}
+    <tr class="clickable-row" data-href="{{ url_for('projects.detail', project_id=p.id) }}">
+      <td class="fw-semibold"><a href="{{ url_for('projects.detail', project_id=p.id) }}">{{ p.code }}</a></td>
+      <td>{{ p.name }}</td>
+      <td>{{ p.customer or '' }}</td>
+      <td>{{ p.manager.full_name if p.manager else '' }}</td>
+      <td class="small">{{ p.start_date|date }}{% if p.end_date %} – {{ p.end_date|date }}{% endif %}</td>
+      <td>{{ open_counts.get(p.id, 0) }}</td>
+      <td>{{ project_status_badge(p.status) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="text-body-secondary">Geen projecten gevonden.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}

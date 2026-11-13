@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% from "_macros.html" import order_status_badge, post_button, render_field %}
+{% block title %}Bestelling {{ order.number }}{% endblock %}
+{% block heading %}{{ order.number }} {{ order_status_badge(order.status) }}{% endblock %}
+{% block page_actions %}
+  {% if order.status.value == 'draft' %}
+    {{ post_button(url_for('purchasing.set_status', order_id=order.id, status='ordered'), 'Markeer als besteld', class_='btn btn-primary', icon='send') }}
+  {% endif %}
+  {% if order.status.value in ('ordered', 'partial') %}
+    {{ post_button(url_for('purchasing.receive_all', order_id=order.id), 'Alles ontvangen', class_='btn btn-success', icon='box-seam', confirm='Alle openstaande aantallen als vandaag ontvangen registreren?') }}
+  {% endif %}
+  <a class="btn btn-outline-success" href="{{ url_for('purchasing.export', order_id=order.id) }}"><i class="bi bi-file-earmark-excel"></i> Excel</a>
+  <a class="btn btn-outline-secondary" href="{{ url_for('purchasing.edit', order_id=order.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>
+  <div class="dropdown">
+    <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
+    <div class="dropdown-menu dropdown-menu-end p-2">
+      {% if order.status.value != 'cancelled' %}
+        {{ post_button(url_for('purchasing.set_status', order_id=order.id, status='cancelled'), 'Annuleren', class_='dropdown-item', confirm='Bestelling annuleren?') }}
+      {% else %}
+        {{ post_button(url_for('purchasing.set_status', order_id=order.id, status='ordered'), 'Heropenen', class_='dropdown-item') }}
+      {% endif %}
+      {{ post_button(url_for('purchasing.delete', order_id=order.id), 'Verwijderen', class_='dropdown-item text-danger', confirm='Bestelling definitief verwijderen?') }}
+    </div>
+  </div>
+{% endblock %}
+{% block content %}
+<div class="card mb-3"><div class="card-body">
+  <div class="row small">
+    <div class="col-md-3"><div class="text-body-secondary">Leverancier</div>{{ order.supplier }}</div>
+    <div class="col-md-3"><div class="text-body-secondary">Project</div>{% if order.project %}<a href="{{ url_for('projects.detail', project_id=order.project.id) }}">{{ order.project.display_name }}</a>{% else %}-{% endif %}</div>
+    <div class="col-md-2"><div class="text-body-secondary">Besteld op</div>{{ order.order_date|date or '-' }}</div>
+    <div class="col-md-2"><div class="text-body-secondary">Verwacht</div><span class="{{ 'text-danger fw-semibold' if order.is_overdue }}">{{ order.expected_date|date or '-' }}</span></div>
+    <div class="col-md-2"><div class="text-body-secondary">Geleverd</div>
+      <div class="progress mt-1" style="height: 8px"><div class="progress-bar bg-success" style="width: {{ order.delivery_progress }}%"></div></div>{{ order.delivery_progress }}%
+    </div>
+  </div>
+  {% if order.notes %}<hr><div class="small">{{ order.notes }}</div>{% endif %}
+</div></div>
+
+<div class="card mb-3"><div class="table-responsive">
+<table class="table align-middle mb-0">
+  <thead><tr><th>Artikel</th><th>Omschrijving</th><th class="text-end">Aantal</th><th class="text-end">Prijs</th><th class="text-end">Totaal</th><th class="text-end">Ontvangen</th><th></th></tr></thead>
+  <tbody>
+  {% for line in order.lines %}
+    <tr class="{{ 'table-success' if line.is_complete }}">
+      <td class="text-nowrap small">{{ line.article.article_number if line.article else '' }}</td>
+      <td>{{ line.description }}
+        {% for r in line.receipts %}
+        <div class="small text-body-secondary">
+          <i class="bi bi-box-arrow-in-down"></i> {{ r.quantity|qty }} op {{ r.received_on|date }}
+          {% if r.received_by %}door {{ r.received_by.full_name }}{% endif %}{% if r.note %} – {{ r.note }}{% endif %}
+          {{ post_button(url_for('purchasing.delete_receipt', receipt_id=r.id), '', class_='btn btn-link btn-sm p-0 text-danger', icon='x-circle', confirm='Deze levering ongedaan maken?') }}
+        </div>
+        {% endfor %}
+      </td>
+      <td class="text-end text-nowrap">{{ line.quantity|qty }} {{ line.unit }}</td>
+      <td class="text-end text-nowrap">{{ line.unit_price|money }}</td>
+      <td class="text-end text-nowrap">{{ line.line_total|money }}</td>
+      <td class="text-end text-nowrap">{{ line.quantity_received|qty }} / {{ line.quantity|qty }}</td>
+      <td class="text-end text-nowrap">
+        {% if not line.is_complete and order.status.value != 'cancelled' %}
+        <button class="btn btn-sm btn-success" data-bs-toggle="collapse" data-bs-target="#receive-{{ line.id }}" title="Ontvangst registreren"><i class="bi bi-box-arrow-in-down"></i></button>
+        {% endif %}
+        {% if not line.receipts %}
+        {{ post_button(url_for('purchasing.delete_line', line_id=line.id), '', icon='trash', confirm='Lijn verwijderen?') }}
+        {% endif %}
+      </td>
+    </tr>
+    {% if not line.is_complete %}
+    <tr class="collapse" id="receive-{{ line.id }}"><td colspan="7" class="bg-body-tertiary">
+      <form method="post" action="{{ url_for('purchasing.receive', line_id=line.id) }}" class="row g-2 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-2"><label class="form-label small">Aantal</label><input class="form-control form-control-sm" type="number" step="0.01" min="0.01" name="quantity" value="{{ line.quantity_outstanding|qty|replace(',', '.') }}"></div>
+        <div class="col-md-3"><label class="form-label small">Ontvangen op</label><input class="form-control form-control-sm" type="date" name="received_on" value="{{ today().isoformat() }}"></div>
+        <div class="col-md-5"><label class="form-label small">Opmerking / leveringsbon</label><input class="form-control form-control-sm" name="note"></div>
+        <div class="col-md-2"><button class="btn btn-sm btn-success w-100">Registreren</button></div>
+      </form>
+    </td></tr>
+    {% endif %}
+  {% else %}
+    <tr><td colspan="7" class="text-body-secondary">Nog geen lijnen. Voeg hieronder artikelen toe.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr><th colspan="4" class="text-end">Totaal</th><th class="text-end text-nowrap">{{ order.total_amount|money }}</th><th colspan="2"></th></tr></tfoot>
+</table>
+</div></div>
+
+{% if order.status.value not in ('cancelled', 'delivered') %}
+<div class="card"><div class="card-header fw-semibold">Lijn toevoegen</div><div class="card-body">
+  <form method="post" action="{{ url_for('purchasing.add_line', order_id=order.id) }}" id="line-form" novalidate>
+    {{ line_form.hidden_tag() }}
+    <div class="mb-3 position-relative">
+      <label class="form-label">Zoek in artikeldatabank</label>
+      <input class="form-control" id="article-search" autocomplete="off" placeholder="Typ artikelnummer, omschrijving of bestelcode..." data-url="{{ url_for('articles.search_json') }}">
+      <div class="list-group position-absolute w-100 shadow d-none" id="article-results" style="z-index: 1000"></div>
+      <div class="form-text">Of vul de omschrijving hieronder vrij in voor een eenmalig artikel.</div>
+    </div>
+    <div class="row">
+      {{ render_field(line_form.description, class_="col-md-6") }}
+      {{ render_field(line_form.quantity, class_="col-md-2") }}
+      {{ render_field(line_form.unit, class_="col-md-2") }}
+      {{ render_field(line_form.unit_price, class_="col-md-2") }}
+    </div>
+    <button class="btn btn-primary"><i class="bi bi-plus-lg"></i> Toevoegen</button>
+  </form>
+</div></div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/order_lines.js') }}"></script>{% endblock %}

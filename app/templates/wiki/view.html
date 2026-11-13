@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import post_button %}
+{% block title %}{{ page.title }}{% endblock %}
+{% block page_header %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb mb-1">
+    <li class="breadcrumb-item"><a href="{{ url_for('wiki.index') }}">Wiki</a></li>
+    {% for crumb in page.breadcrumbs %}<li class="breadcrumb-item"><a href="{{ url_for('wiki.view', slug=crumb.slug) }}">{{ crumb.title }}</a></li>{% endfor %}
+  </ol>
+</nav>
+{{ super() }}
+{% endblock %}
+{% block page_actions %}
+<a class="btn btn-outline-secondary" href="{{ url_for('wiki.create', parent=page.id) }}"><i class="bi bi-plus-lg"></i> Subpagina</a>
+<a class="btn btn-outline-secondary" href="{{ url_for('wiki.history', slug=page.slug) }}"><i class="bi bi-clock-history"></i> Geschiedenis ({{ page.revisions|length }})</a>
+<a class="btn btn-outline-secondary" href="{{ url_for('wiki.download', slug=page.slug) }}"><i class="bi bi-download"></i> .md</a>
+<a class="btn btn-primary" href="{{ url_for('wiki.edit', slug=page.slug) }}"><i class="bi bi-pencil"></i> Bewerken</a>
+{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-9">
+    <div class="card"><div class="card-body markdown-body">
+      {{ page.content|wiki_markdown or '<p class="text-body-secondary">Deze pagina is nog leeg.</p>'|safe }}
+    </div></div>
+    <div class="small text-body-secondary mt-2 d-flex">
+      <span class="me-auto">Laatst gewijzigd {{ page.updated_at|datetime }}{% if page.updated_by %} door {{ page.updated_by.full_name }}{% endif %}</span>
+      {% if not page.children %}{{ post_button(url_for('wiki.delete', slug=page.slug), 'Pagina verwijderen', class_='btn btn-sm btn-link text-danger', confirm='Pagina en geschiedenis verwijderen?') }}{% endif %}
+    </div>
+  </div>
+  <div class="col-lg-3">
+    {% include "wiki/_sidebar.html" %}
+    {% if page.children %}
+    <div class="card"><div class="card-body">
+      <h2 class="h6">Subpagina's</h2>
+      {% with pages = page.children, current = page %}{% include "wiki/_tree.html" %}{% endwith %}
+    </div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

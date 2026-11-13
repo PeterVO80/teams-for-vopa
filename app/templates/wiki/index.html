@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Wiki{% endblock %}
+{% block page_actions %}<a class="btn btn-primary" href="{{ url_for('wiki.create') }}"><i class="bi bi-plus-lg"></i> Nieuwe pagina</a>{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-7">
+    {% include "wiki/_sidebar.html" %}
+    <div class="card"><div class="card-body">
+      <h2 class="h6">Alle pagina's</h2>
+      {% if roots %}{% with pages = roots, current = None %}{% include "wiki/_tree.html" %}{% endwith %}
+      {% else %}<p class="text-body-secondary mb-0">De wiki is nog leeg. Maak de eerste pagina aan!</p>{% endif %}
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header fw-semibold">Recent gewijzigd</div>
+      <div class="list-group list-group-flush">
+        {% for page in recent %}
+        <a class="list-group-item list-group-item-action" href="{{ url_for('wiki.view', slug=page.slug) }}">
+          {{ page.title }}<br><small class="text-body-secondary">{{ page.updated_at|datetime }}{% if page.updated_by %} · {{ page.updated_by.full_name }}{% endif %}</small>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="card mt-3"><div class="card-body small">
+      <strong>Tip:</strong> link naar een andere pagina met <code>[[Titel van de pagina]]</code>.
+      Bestaat die pagina nog niet, dan kan je ze via de link meteen aanmaken.
+    </div></div>
+  </div>
+</div>
+{% endblock %}

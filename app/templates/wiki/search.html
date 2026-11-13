@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Zoeken in wiki{% endblock %}
+{% block content %}
+{% include "wiki/_sidebar.html" %}
+{% if term %}
+<p class="text-body-secondary">{{ results|length }} resultaat/resultaten voor "{{ term }}".</p>
+<div class="list-group">
+  {% for page in results %}
+  <a class="list-group-item list-group-item-action" href="{{ url_for('wiki.view', slug=page.slug) }}">
+    <div class="fw-semibold">{{ page.title }}</div>
+    <small class="text-body-secondary">{{ page.content|wiki_markdown|striptags|truncate(200) }}</small>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

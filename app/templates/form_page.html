@@ -1,0 +1,14 @@
+{# Generic page for simple forms: renders every field of `form` in order. #}
+{% extends "base.html" %}
+{% from "_macros.html" import render_field %}
+{% block content %}
+<div class="card" style="max-width: 760px">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% for field in form %}{{ render_field(field) }}{% endfor %}
+      <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg"></i> Opslaan</button>
+      {% if cancel_url %}<a class="btn btn-link" href="{{ cancel_url }}">Annuleren</a>{% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}

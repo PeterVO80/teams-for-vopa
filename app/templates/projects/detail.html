@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_macros.html" import project_status_badge, task_status_badge, priority_badge, order_status_badge, tag_badge, avatar %}
+{% block title %}{{ project.code }}{% endblock %}
+{% block heading %}{{ project.code }} <span class="text-body-secondary fw-normal">{{ project.name }}</span> {{ project_status_badge(project.status) }}{% endblock %}
+{% block page_actions %}
+<a class="btn btn-outline-secondary" href="{{ url_for('projects.edit', project_id=project.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>
+{% endblock %}
+{% block content %}
+<div class="row g-3 mb-3">
+  <div class="col-md-5">
+    <div class="card h-100"><div class="card-body">
+      <dl class="row mb-0 small">
+        <dt class="col-5">Klant</dt><dd class="col-7">{{ project.customer or '-' }}</dd>
+        <dt class="col-5">Projectleider</dt><dd class="col-7">{{ project.manager.full_name if project.manager else '-' }}</dd>
+        <dt class="col-5">Periode</dt><dd class="col-7">{{ project.start_date|date or '?' }} – {{ project.end_date|date or '?' }}</dd>
+      </dl>
+      {% if project.description %}<hr><div class="small">{{ project.description|markdown }}</div>{% endif %}
+    </div></div>
+  </div>
+  <div class="col-md-7">
+    <div class="card h-100"><div class="card-body">
+      <h2 class="h6">Voortgang punchlijst</h2>
+      {% set total = tasks|length %}
+      {% if total %}
+      <div class="progress-stacked mb-2" style="height: 22px">
+        {% set colors = {'new': 'secondary', 'in_progress': 'primary', 'on_hold': 'warning', 'done': 'success', 'cancelled': 'dark'} %}
+        {% for status, count in status_counts.items() if count %}
+        <div class="progress" style="width: {{ count / total * 100 }}%"><div class="progress-bar bg-{{ colors[status.value] }}">{{ count }}</div></div>
+        {% endfor %}
+      </div>
+      <div class="small">{% for status, count in status_counts.items() %}{{ task_status_badge(status) }} {{ count }} &nbsp;{% endfor %}</div>
+      {% else %}<p class="text-body-secondary small mb-0">Nog geen taken.</p>{% endif %}
+    </div></div>
+  </div>
+</div>
+
+<ul class="nav nav-tabs" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-tasks">Taken ({{ tasks|length }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-orders">Bestellingen ({{ orders|length }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-notes">Notities ({{ notes|length }})</button></li>
+</ul>
+<div class="tab-content card border-top-0 rounded-top-0">
+  <div class="tab-pane fade show active" id="tab-tasks">
+    <div class="p-2 d-flex gap-2">
+      <a class="btn btn-sm btn-primary" href="{{ url_for('tasks.edit', project=project.id, next=request.path) }}"><i class="bi bi-plus-lg"></i> Taak</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('tasks.board', project=project.id) }}"><i class="bi bi-kanban"></i> Kanbanbord</a>
+    </div>
+    <table class="table table-sm table-hover align-middle mb-0">
+      <tbody>
+      {% for task in tasks %}
+        <tr>
+          <td><a href="{{ url_for('tasks.edit', task_id=task.id, next=request.path) }}">{{ task.title }}</a> {{ priority_badge(task.priority) }}</td>
+          <td>{{ avatar(task.assignee) }}</td>
+          <td class="small {{ 'text-danger' if task.is_overdue }}">{{ task.due_date|date }}</td>
+          <td>{{ task_status_badge(task.status) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="tab-pane fade" id="tab-orders">
+    <div class="p-2"><a class="btn btn-sm btn-primary" href="{{ url_for('purchasing.edit', project=project.id) }}"><i class="bi bi-plus-lg"></i> Bestelling</a></div>
+    <table class="table table-sm table-hover align-middle mb-0">
+      <tbody>
+      {% for order in orders %}
+        <tr>
+          <td><a href="{{ url_for('purchasing.detail', order_id=order.id) }}">{{ order.number }}</a></td>
+          <td>{{ order.supplier }}</td>
+          <td class="small">{{ order.order_date|date }}</td>
+          <td style="width: 120px"><div class="progress" style="height: 6px"><div class="progress-bar" style="width: {{ order.delivery_progress }}%"></div></div></td>
+          <td>{{ order_status_badge(order.status) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="tab-pane fade" id="tab-notes">
+    <div class="p-2"><a class="btn btn-sm btn-primary" href="{{ url_for('notes.edit', project=project.id) }}"><i class="bi bi-plus-lg"></i> Notitie</a></div>
+    <div class="list-group list-group-flush">
+      {% for note in notes %}
+      <a class="list-group-item list-group-item-action" href="{{ url_for('notes.view', note_id=note.id) }}">
+        {{ note.title }} <small class="text-body-secondary">· {{ note.updated_at|datetime }}</small>
+        {% for tag in note.tags %}{{ tag_badge(tag, link=False) }}{% endfor %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

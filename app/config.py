@@ -1,0 +1,47 @@
+"""Application configuration.
+
+All settings are read from environment variables so the very same image can
+run in development, test and production. Sensible defaults are provided for
+local development only - never run production with the default SECRET_KEY.
+"""
+
+import os
+
+
+class Config:
+    """Base configuration shared by all environments."""
+
+    #: Signs session cookies and CSRF tokens. MUST be overridden in production.
+    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-insecure-secret-key")
+
+    #: SQLAlchemy connection string. ``postgresql+psycopg`` selects psycopg 3.
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        "DATABASE_URL", "postgresql+psycopg://vopa:vopa@localhost:5432/vopa"
+    )
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    #: Detect connections dropped by the database (e.g. after a DB restart).
+    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
+
+    #: Maximum upload size (Excel imports). 16 MB is plenty for article lists.
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
+
+    #: Number of rows shown per page in paginated list views.
+    ITEMS_PER_PAGE = 50
+
+    #: Default number of working hours in one day, used by the team planning
+    #: to express workload as a percentage.
+    WORKDAY_HOURS = float(os.environ.get("WORKDAY_HOURS", 8))
+
+
+class TestConfig(Config):
+    """Configuration used by the automated test-suite.
+
+    Uses an in-memory SQLite database by default so the tests need no
+    infrastructure. Set ``TEST_DATABASE_URL`` to run them against a real
+    (empty, throw-away!) PostgreSQL database instead.
+    """
+
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = os.environ.get("TEST_DATABASE_URL", "sqlite:///:memory:")
+    SQLALCHEMY_ENGINE_OPTIONS: dict = {}
+    WTF_CSRF_ENABLED = False

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_field, post_button, tag_badge %}
+{% block title %}Tags{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card"><div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead><tr><th>Voorbeeld</th><th>Naam</th><th>Kleur</th><th></th></tr></thead>
+      <tbody>
+      {% for tag in tags %}
+        <tr>
+          <td>{{ tag_badge(tag) }}</td>
+          <td colspan="2">
+            <form method="post" action="{{ url_for('notes.update_tag', tag_id=tag.id) }}" class="d-flex gap-2">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input class="form-control form-control-sm" name="name" value="{{ tag.name }}">
+              <input class="form-control form-control-sm form-control-color" type="color" name="color" value="{{ tag.color }}">
+              <button class="btn btn-sm btn-outline-primary"><i class="bi bi-check-lg"></i></button>
+            </form>
+          </td>
+          <td class="text-end">{{ post_button(url_for('notes.delete_tag', tag_id=tag.id), '', icon='trash', confirm='Tag ' ~ tag.name ~ ' verwijderen?') }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="text-body-secondary">Nog geen tags.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card"><div class="card-header fw-semibold">Nieuwe tag</div><div class="card-body">
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+        {{ render_field(form.name) }}
+        {{ render_field(form.color) }}
+        <button class="btn btn-primary"><i class="bi bi-plus-lg"></i> Toevoegen</button>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_field %}
+{% block title %}Artikelen importeren{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card"><div class="card-body">
+      <form method="post" enctype="multipart/form-data" novalidate>
+        {{ form.hidden_tag() }}
+        {{ render_field(form.file) }}
+        <button class="btn btn-primary"><i class="bi bi-upload"></i> Importeren</button>
+        <a class="btn btn-link" href="{{ url_for('articles.index') }}">Terug</a>
+      </form>
+    </div></div>
+
+    {% if result %}
+    <div class="card mt-3"><div class="card-body">
+      <h2 class="h6">Resultaat</h2>
+      <p class="mb-2">
+        <span class="badge text-bg-success">{{ result.created }} nieuw</span>
+        <span class="badge text-bg-primary">{{ result.updated }} bijgewerkt</span>
+        <span class="badge text-bg-warning">{{ result.skipped }} overgeslagen</span>
+      </p>
+      {% if result.errors %}
+      <ul class="small text-danger mb-0">{% for e in result.errors[:100] %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% if result.errors|length > 100 %}<p class="small">… en {{ result.errors|length - 100 }} meer.</p>{% endif %}
+      {% endif %}
+    </div></div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card"><div class="card-body small">
+      <h2 class="h6">Hoe werkt de import?</h2>
+      <ul>
+        <li>De <strong>eerste rij</strong> bevat de kolomnamen; de volgorde maakt niet uit.</li>
+        <li><strong>Artikelnummer</strong> is de sleutel: bestaande artikels worden bijgewerkt, nieuwe worden aangemaakt.</li>
+        <li>Lege cellen laten de bestaande waarde ongewijzigd. Er wordt nooit iets verwijderd.</li>
+        <li>Een export kan je in Excel aanpassen en meteen opnieuw importeren.</li>
+      </ul>
+      <p class="mb-1">Herkende kolommen:</p>
+      <div>{% for attr, header, _ in columns %}<code class="me-2">{{ header }}</code>{% endfor %}</div>
+      <a class="btn btn-sm btn-outline-success mt-3" href="{{ url_for('articles.import_template') }}"><i class="bi bi-file-earmark-excel"></i> Download leeg sjabloon</a>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

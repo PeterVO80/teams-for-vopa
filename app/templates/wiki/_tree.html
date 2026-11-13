@@ -1,0 +1,11 @@
+{# Recursive page tree. Expects `pages` (list) and optional `current` page. #}
+<ul class="wiki-tree list-unstyled">
+  {% for page in pages %}
+  <li>
+    <a href="{{ url_for('wiki.view', slug=page.slug) }}" class="{{ 'fw-bold' if current and current.id == page.id }}">
+      <i class="bi bi-{{ 'folder2-open' if page.children else 'file-earmark-text' }}"></i> {{ page.title }}
+    </a>
+    {% if page.children %}{% with pages = page.children %}{% include "wiki/_tree.html" %}{% endwith %}{% endif %}
+  </li>
+  {% endfor %}
+</ul>

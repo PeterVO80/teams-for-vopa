@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Pagina bestaat nog niet{% endblock %}
+{% block content %}
+<div class="card"><div class="card-body">
+  <p>De wikipagina <code>{{ slug }}</code> bestaat nog niet.</p>
+  <a class="btn btn-primary" href="{{ url_for('wiki.create', title=slug.replace('-', ' ')|capitalize) }}"><i class="bi bi-plus-lg"></i> Pagina aanmaken</a>
+  <a class="btn btn-link" href="{{ url_for('wiki.index') }}">Naar de wiki</a>
+</div></div>
+{% endblock %}

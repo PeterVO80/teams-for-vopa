@@ -1,0 +1,89 @@
+{# Reusable template snippets. Import with:
+   {% from "_macros.html" import render_field, ... %} #}
+
+{# Render one WTForms field as a Bootstrap form group, including errors. #}
+{% macro render_field(field, class_="") %}
+  {% if field.type == "HiddenField" or field.type == "CSRFTokenField" %}
+    {{ field() }}
+  {% elif field.type == "BooleanField" %}
+    <div class="form-check mb-3 {{ class_ }}">
+      {{ field(class_="form-check-input" + (" is-invalid" if field.errors else "")) }}
+      {{ field.label(class_="form-check-label") }}
+      {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+    </div>
+  {% else %}
+    <div class="mb-3 {{ class_ }}">
+      {{ field.label(class_="form-label") }}
+      {% set css = "form-select" if field.type == "SelectField" else "form-control" %}
+      {% if field.type == "TextAreaField" %}
+        {{ field(class_=css + (" is-invalid" if field.errors else ""), rows=5) }}
+      {% elif field.name == "color" %}
+        {{ field(class_="form-control form-control-color" + (" is-invalid" if field.errors else ""), type="color") }}
+      {% else %}
+        {{ field(class_=css + (" is-invalid" if field.errors else "")) }}
+      {% endif %}
+      {% if field.description %}<div class="form-text">{{ field.description }}</div>{% endif %}
+      {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+    </div>
+  {% endif %}
+{% endmacro %}
+
+{# A tiny POST form with a single button - used for delete and status actions.
+   `confirm` shows a confirmation dialog first (handled in app.js). #}
+{% macro post_button(action, label, class_="btn btn-sm btn-outline-danger", confirm=None, icon=None, next=None) %}
+  <form method="post" action="{{ action }}" class="d-inline" {% if confirm %}data-confirm="{{ confirm }}"{% endif %}>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <button class="{{ class_ }}" type="submit">{% if icon %}<i class="bi bi-{{ icon }}"></i> {% endif %}{{ label }}</button>
+  </form>
+{% endmacro %}
+
+{# Pagination bar for a Flask-SQLAlchemy Pagination object. Keeps the
+   current query-string filters. #}
+{% macro pagination(page, endpoint) %}
+  {% if page.pages > 1 %}
+  <nav><ul class="pagination pagination-sm">
+    {% for num in page.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if num %}
+        {% set args = request.args.to_dict() %}{% set _ = args.update(page=num) %}
+        <li class="page-item {% if num == page.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for(endpoint, **args) }}">{{ num }}</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+  </ul></nav>
+  {% endif %}
+{% endmacro %}
+
+{# Status badges. The colour mapping lives here so it is identical everywhere. #}
+{% macro task_status_badge(status) %}
+  {% set colors = {'new': 'secondary', 'in_progress': 'primary', 'on_hold': 'warning', 'done': 'success', 'cancelled': 'dark'} %}
+  <span class="badge text-bg-{{ colors[status.value] }}">{{ status.label }}</span>
+{% endmacro %}
+
+{% macro priority_badge(priority) %}
+  {% set colors = {'low': 'light', 'normal': 'secondary', 'high': 'warning', 'urgent': 'danger'} %}
+  {% if priority.value != 'normal' %}<span class="badge text-bg-{{ colors[priority.value] }}">{{ priority.label }}</span>{% endif %}
+{% endmacro %}
+
+{% macro order_status_badge(status) %}
+  {% set colors = {'draft': 'secondary', 'ordered': 'primary', 'partial': 'warning', 'delivered': 'success', 'cancelled': 'dark'} %}
+  <span class="badge text-bg-{{ colors[status.value] }}">{{ status.label }}</span>
+{% endmacro %}
+
+{% macro project_status_badge(status) %}
+  {% set colors = {'planned': 'info', 'active': 'success', 'on_hold': 'warning', 'closed': 'secondary'} %}
+  <span class="badge text-bg-{{ colors[status.value] }}">{{ status.label }}</span>
+{% endmacro %}
+
+{% macro tag_badge(tag, link=True) %}
+  {% if link %}<a href="{{ url_for('notes.index', tag=tag.id) }}" class="text-decoration-none">{% endif %}
+  <span class="badge tag-badge" style="background: {{ tag.color }}">{{ tag.name }}</span>
+  {% if link %}</a>{% endif %}
+{% endmacro %}
+
+{% macro avatar(user) %}
+  {% if user %}<span class="avatar" style="background: {{ user.color }}" title="{{ user.full_name }}">{{ user.initials }}</span>{% endif %}
+{% endmacro %}

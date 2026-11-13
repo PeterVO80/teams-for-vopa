@@ -1,0 +1,41 @@
+# ---------------------------------------------------------------------------
+# VOPA Teams - complete stack (web application + PostgreSQL)
+#
+#   cp .env.example .env      # adjust passwords / secret key
+#   docker compose up -d --build
+#   open http://localhost:8000
+# ---------------------------------------------------------------------------
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vopa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vopa}
+      POSTGRES_DB: ${POSTGRES_DB:-vopa}
+    volumes:
+      # Named volume: the data survives `docker compose down` and upgrades.
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vopa} -d ${POSTGRES_DB:-vopa}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-vopa}:${POSTGRES_PASSWORD:-vopa}@db:5432/${POSTGRES_DB:-vopa}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in the .env file}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+
+volumes:
+  pgdata:

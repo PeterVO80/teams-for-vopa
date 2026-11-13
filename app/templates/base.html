@@ -1,0 +1,102 @@
+{#
+  Base layout: top bar + sidebar navigation + flash messages.
+  Child templates fill the `content` block and optionally `title`,
+  `page_actions` (buttons right of the page title) and `scripts`.
+#}
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {# CSRF token for JavaScript fetch() calls (see static/js/app.js). #}
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}{{ title|default('VOPA Teams') }}{% endblock %} · VOPA Teams</title>
+  {# Front-end libraries are served locally (static/vendor) so the app also
+     works on networks without internet access. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.min.css') }}">
+  {% block head %}{% endblock %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+{% set nav = [
+  ('main.dashboard', 'speedometer2', 'Dashboard', 'main'),
+  ('projects.index', 'kanban-fill', 'Projecten', 'projects'),
+  ('tasks.board', 'list-check', 'Punchlijst', 'tasks'),
+  ('team.overview', 'people-fill', 'Team', 'team'),
+  ('purchasing.index', 'cart3', 'Bestellingen', 'purchasing'),
+  ('articles.index', 'box-seam', 'Artikelen', 'articles'),
+  ('notes.index', 'journal-text', 'Notities', 'notes'),
+  ('wiki.index', 'book', 'Wiki', 'wiki'),
+] %}
+<nav class="navbar navbar-dark bg-dark sticky-top px-3">
+  <button class="btn btn-dark d-lg-none me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-label="Menu">
+    <i class="bi bi-list"></i>
+  </button>
+  <a class="navbar-brand fw-semibold" href="{{ url_for('main.dashboard') }}"><i class="bi bi-gear-wide-connected"></i> VOPA Teams</a>
+  {% if current_user.is_authenticated %}
+  <div class="dropdown ms-auto">
+    <button class="btn btn-dark dropdown-toggle" data-bs-toggle="dropdown">
+      <span class="avatar" style="background: {{ current_user.color }}">{{ current_user.initials }}</span>
+      <span class="d-none d-sm-inline">{{ current_user.full_name }}</span>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+      <li><a class="dropdown-item" href="{{ url_for('auth.change_password') }}"><i class="bi bi-key"></i> Wachtwoord wijzigen</a></li>
+      {% if current_user.is_admin %}
+      <li><a class="dropdown-item" href="{{ url_for('users.index') }}"><i class="bi bi-person-gear"></i> Gebruikersbeheer</a></li>
+      {% endif %}
+      <li><hr class="dropdown-divider"></li>
+      <li>
+        <form method="post" action="{{ url_for('auth.logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="dropdown-item"><i class="bi bi-box-arrow-right"></i> Afmelden</button>
+        </form>
+      </li>
+    </ul>
+  </div>
+  {% endif %}
+</nav>
+
+<div class="d-flex">
+  {% if current_user.is_authenticated %}
+  <aside class="offcanvas-lg offcanvas-start sidebar bg-body-tertiary border-end" id="sidebar" tabindex="-1">
+    <div class="offcanvas-body p-0">
+      <ul class="nav flex-column py-2 w-100">
+        {% for endpoint, icon, label, blueprint in nav %}
+        <li class="nav-item">
+          <a class="nav-link {% if request.blueprint == blueprint %}active{% endif %}" href="{{ url_for(endpoint) }}">
+            <i class="bi bi-{{ icon }}"></i> {{ label }}
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </aside>
+  {% endif %}
+
+  <main class="flex-grow-1 p-3 p-lg-4 main-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+      <div class="alert alert-{{ 'info' if category == 'message' else category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Sluiten"></button>
+      </div>
+      {% endfor %}
+    {% endwith %}
+
+    {% block page_header %}
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <h1 class="h3 mb-0 me-auto">{% block heading %}{{ self.title() }}{% endblock %}</h1>
+      {% block page_actions %}{% endblock %}
+    </div>
+    {% endblock %}
+
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

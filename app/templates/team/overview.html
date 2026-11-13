@@ -1,0 +1,77 @@
+{#
+  Team planning grid: one row per person, one column per working day.
+  Cell colour = load level (see services/workload.py). Clicking an empty
+  part of a cell creates a new planning entry for that person and day.
+#}
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+{% block title %}Teamoverzicht{% endblock %}
+{% block page_actions %}
+<a class="btn btn-outline-secondary" href="{{ url_for('team.assignments') }}"><i class="bi bi-list-ul"></i> Lijst</a>
+<a class="btn btn-primary" href="{{ url_for('team.edit_assignment', next=request.full_path) }}"><i class="bi bi-plus-lg"></i> Inplannen</a>
+{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <div class="btn-group">
+    <a class="btn btn-outline-secondary" href="{{ url_for('team.overview', start=prev_start.isoformat(), weeks=weeks) }}"><i class="bi bi-chevron-left"></i></a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('team.overview', weeks=weeks) }}">Vandaag</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('team.overview', start=next_start.isoformat(), weeks=weeks) }}"><i class="bi bi-chevron-right"></i></a>
+  </div>
+  <span class="fw-semibold">{{ days[0]|date }} – {{ days[-1]|date }}</span>
+  <div class="btn-group ms-auto">
+    {% for w in (1, 2, 4, 8) %}
+    <a class="btn btn-sm {{ 'btn-secondary' if weeks == w else 'btn-outline-secondary' }}" href="{{ url_for('team.overview', start=start.isoformat(), weeks=w) }}">{{ w }} w</a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card"><div class="table-responsive">
+<table class="table table-bordered planning-grid mb-0">
+  <thead>
+    <tr>
+      <th class="planning-name">Medewerker</th>
+      <th class="text-center small" title="Gemiddelde bezetting over de periode (afwezigheden niet meegeteld)">Bezetting</th>
+      <th class="text-center small" title="Open taken op de punchlijst">Taken</th>
+      {% for day in days %}
+      <th class="text-center small {{ 'today' if day == today() }} {{ 'week-start' if day.weekday() == 0 }}">
+        {{ ['ma','di','wo','do','vr'][day.weekday()] }}<br>{{ day|date('%d/%m') }}
+      </th>
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in rows %}
+    {% set load = row.period_load(workday_hours) %}
+    <tr>
+      <td class="planning-name text-nowrap">{{ avatar(row.user) }} {{ row.user.full_name }}</td>
+      <td class="text-center align-middle">
+        <span class="badge {{ 'text-bg-danger' if load > 100 else 'text-bg-success' if load >= 80 else 'text-bg-warning' if load > 0 else 'text-bg-light border' }}">{{ load }}%</span>
+      </td>
+      <td class="text-center align-middle">
+        <a href="{{ url_for('tasks.board', assignee=row.user.id) }}" title="{{ row.open_task_hours|round(1) }} geschatte uren">{{ row.open_tasks }}</a>
+      </td>
+      {% for cell in row.cells %}
+      <td class="planning-cell level-{{ cell.level(workday_hours) }} {{ 'today' if cell.day == today() }} {{ 'week-start' if cell.day.weekday() == 0 }}"
+          data-new-url="{{ url_for('team.edit_assignment', user=row.user.id, day=cell.day.isoformat(), next=request.full_path) }}"
+          title="{{ cell.planned_hours }}u gepland">
+        {% for a in cell.assignments %}
+        <a class="planning-chip bg-{{ a.kind.css_class }}" href="{{ url_for('team.edit_assignment', assignment_id=a.id, next=request.full_path) }}"
+           title="{{ a.label }} · {{ a.hours_per_day }}u/dag{% if a.note %} · {{ a.note }}{% endif %}">{{ a.label }}</a>
+        {% endfor %}
+      </td>
+      {% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+
+<div class="small text-body-secondary mt-2 d-flex flex-wrap gap-3">
+  <span><span class="legend level-free"></span> Vrij</span>
+  <span><span class="legend level-partial"></span> Deels ingepland</span>
+  <span><span class="legend level-full"></span> Volledig ingepland</span>
+  <span><span class="legend level-over"></span> Overboekt</span>
+  <span><span class="legend level-absent"></span> Afwezig</span>
+  <span>· Klik op een lege cel om in te plannen.</span>
+</div>
+{% endblock %}

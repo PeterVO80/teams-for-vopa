@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_field %}
+{% block title %}{{ 'Notitie bewerken' if note else 'Nieuwe notitie' }}{% endblock %}
+{% block head %}{% include "_editor.html" %}{% endblock %}
+{% block content %}
+<form method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="row">
+    {{ render_field(form.title, class_="col-md-6") }}
+    {{ render_field(form.project_id, class_="col-md-6") }}
+    <div class="col-md-9">
+      {{ render_field(form.tags) }}
+      {# Suggestions for existing tags (native browser autocomplete on the last tag). #}
+      <div class="mb-3 mt-n2 small">
+        {% for name in all_tags %}<button type="button" class="btn btn-sm btn-light border py-0 me-1 mb-1 tag-suggestion">{{ name }}</button>{% endfor %}
+      </div>
+    </div>
+    <div class="col-md-3 pt-md-4">{{ render_field(form.pinned) }}</div>
+  </div>
+  {{ form.content(**{"data-md-editor": "", "class": "d-none"}) }}
+  <div class="mt-3">
+    <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Opslaan</button>
+    <a class="btn btn-link" href="{{ cancel_url }}">Annuleren</a>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Clicking a suggested tag appends it to the comma separated tag field.
+  document.querySelectorAll(".tag-suggestion").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const input = document.getElementById("tags");
+      const tags = input.value.split(",").map((t) => t.trim()).filter(Boolean);
+      if (!tags.some((t) => t.toLowerCase() === btn.textContent.toLowerCase())) tags.push(btn.textContent);
+      input.value = tags.join(", ");
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import order_status_badge %}
+{% block title %}Bestellingen{% endblock %}
+{% block page_actions %}<a class="btn btn-primary" href="{{ url_for('purchasing.edit', project=project_id) }}"><i class="bi bi-plus-lg"></i> Nieuwe bestelling</a>{% endblock %}
+{% block content %}
+{% include "purchasing/_tabs.html" %}
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-3">
+    <select class="form-select" name="status" onchange="this.form.submit()">
+      {% for value, label in [('open', 'Openstaand')] + OrderStatus.choices() + [('all', 'Alle')] %}
+      <option value="{{ value }}" {{ 'selected' if status == value }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-4">
+    <select class="form-select" name="project" onchange="this.form.submit()">
+      <option value="">Alle projecten</option>
+      {% for id, label in projects %}<option value="{{ id }}" {{ 'selected' if project_id == id }}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+</form>
+<div class="card"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+  <thead><tr><th>Nummer</th><th>Project</th><th>Leverancier</th><th>Besteld</th><th>Verwacht</th><th>Geleverd</th><th class="text-end">Bedrag</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for o in orders %}
+    <tr class="clickable-row" data-href="{{ url_for('purchasing.detail', order_id=o.id) }}">
+      <td class="fw-semibold"><a href="{{ url_for('purchasing.detail', order_id=o.id) }}">{{ o.number }}</a></td>
+      <td>{{ o.project.code if o.project else '' }}</td>
+      <td>{{ o.supplier }}</td>
+      <td class="small">{{ o.order_date|date }}</td>
+      <td class="small {{ 'text-danger fw-semibold' if o.is_overdue }}">{{ o.expected_date|date }}</td>
+      <td style="width: 130px"><div class="progress" style="height: 6px" title="{{ o.delivery_progress }}%"><div class="progress-bar bg-success" style="width: {{ o.delivery_progress }}%"></div></div></td>
+      <td class="text-end text-nowrap">{{ o.total_amount|money }}</td>
+      <td>{{ order_status_badge(o.status) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="text-body-secondary">Geen bestellingen gevonden.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_field, post_button %}
+{% block title %}{{ 'Planning bewerken' if assignment else 'Inplannen' }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 760px"><div class="card-body">
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="row">
+      {{ render_field(form.user_id, class_="col-md-6") }}
+      {{ render_field(form.kind, class_="col-md-6") }}
+    </div>
+    <div id="project-field">{{ render_field(form.project_id) }}</div>
+    <div class="row">
+      {{ render_field(form.start_date, class_="col-md-4") }}
+      {{ render_field(form.end_date, class_="col-md-4") }}
+      {{ render_field(form.hours_per_day, class_="col-md-4") }}
+    </div>
+    {{ render_field(form.note) }}
+    <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Opslaan</button>
+    <a class="btn btn-link" href="{{ cancel_url }}">Annuleren</a>
+  </form>
+  {% if assignment %}
+  <hr>
+  {{ post_button(url_for('team.delete_assignment', assignment_id=assignment.id), 'Verwijderen', icon='trash', confirm='Planning verwijderen?', next=cancel_url) }}
+  {% endif %}
+</div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Only show the project selector for planning entries of type "project".
+  (function () {
+    const kind = document.getElementById("kind");
+    const projectField = document.getElementById("project-field");
+    const toggle = () => projectField.classList.toggle("d-none", kind.value !== "project");
+    kind.addEventListener("change", toggle);
+    toggle();
+  })();
+  // Keep "end date" >= "start date" when the start date is moved forward.
+  (function () {
+    const start = document.getElementById("start_date"), end = document.getElementById("end_date");
+    start.addEventListener("change", () => { if (!end.value || end.value < start.value) end.value = start.value; });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_field, post_button %}
+{% block title %}{{ 'Taak bewerken' if task else 'Nieuwe taak' }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 900px"><div class="card-body">
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+    {{ render_field(form.title) }}
+    <div class="row">
+      {{ render_field(form.project_id, class_="col-md-6") }}
+      {{ render_field(form.assignee_id, class_="col-md-6") }}
+      {{ render_field(form.status, class_="col-md-3") }}
+      {{ render_field(form.priority, class_="col-md-3") }}
+      {{ render_field(form.due_date, class_="col-md-3") }}
+      {{ render_field(form.estimated_hours, class_="col-md-3") }}
+    </div>
+    {{ render_field(form.description) }}
+    <div class="d-flex gap-2">
+      <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Opslaan</button>
+      <a class="btn btn-link" href="{{ cancel_url }}">Annuleren</a>
+    </div>
+  </form>
+  {% if task %}
+  <hr>
+  <div class="d-flex align-items-center small text-body-secondary">
+    <span class="me-auto">Aangemaakt {{ task.created_at|datetime }}{% if task.created_by %} door {{ task.created_by.full_name }}{% endif %} · laatst gewijzigd {{ task.updated_at|datetime }}</span>
+    {{ post_button(url_for('tasks.delete', task_id=task.id), 'Verwijderen', icon='trash', confirm='Taak verwijderen?', next=cancel_url) }}
+  </div>
+  {% endif %}
+</div></div>
+{% endblock %}

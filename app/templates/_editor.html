@@ -1,0 +1,8 @@
+{# Assets for the WYSIWYG Markdown editor (Toast UI Editor).
+   Include in the `head` and `scripts` blocks of pages with an editor:
+     {% block head %}{% include "_editor.html" %}{% endblock %}
+   and add `data-md-editor` to the textarea that holds the Markdown. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/toastui-editor/toastui-editor.css') }}">
+{# Bundle = editor + ProseMirror + Dutch texts, see static/vendor/README.md #}
+<script defer src="{{ url_for('static', filename='vendor/toastui-editor/toastui-editor-all.min.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/editor.js') }}"></script>

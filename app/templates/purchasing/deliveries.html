@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Openstaande leveringen{% endblock %}
+{% block content %}
+{% include "purchasing/_tabs.html" %}
+<p class="text-body-secondary small">Alle bestellijnen van geplaatste bestellingen die nog niet (volledig) geleverd zijn. Registreer een ontvangst rechtstreeks vanuit deze lijst.</p>
+<div class="card"><div class="table-responsive">
+<table class="table table-sm table-hover align-middle mb-0">
+  <thead><tr><th>Bestelling</th><th>Project</th><th>Leverancier</th><th>Omschrijving</th><th class="text-end">Besteld</th><th class="text-end">Ontvangen</th><th class="text-end">Open</th><th>Verwacht</th><th style="min-width: 230px">Ontvangst registreren</th></tr></thead>
+  <tbody>
+  {% for line in lines %}
+    {% set order = line.order %}
+    <tr>
+      <td><a href="{{ url_for('purchasing.detail', order_id=order.id) }}">{{ order.number }}</a></td>
+      <td>{{ order.project.code if order.project else '' }}</td>
+      <td>{{ order.supplier }}</td>
+      <td>{{ line.description }}</td>
+      <td class="text-end">{{ line.quantity|qty }} {{ line.unit }}</td>
+      <td class="text-end">{{ line.quantity_received|qty }}</td>
+      <td class="text-end fw-semibold">{{ line.quantity_outstanding|qty }}</td>
+      <td class="small {{ 'text-danger fw-semibold' if order.is_overdue }}">{{ order.expected_date|date }}</td>
+      <td>
+        <form method="post" action="{{ url_for('purchasing.receive', line_id=line.id) }}" class="d-flex gap-1">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="next" value="{{ request.path }}">
+          <input type="hidden" name="received_on" value="{{ today().isoformat() }}">
+          <input class="form-control form-control-sm" type="number" step="0.01" min="0.01" name="quantity" value="{{ line.quantity_outstanding|qty|replace(',', '.') }}" style="width: 90px">
+          <input class="form-control form-control-sm" type="text" name="note" placeholder="Leveringsbon">
+          <button class="btn btn-sm btn-success" title="Ontvangen vandaag"><i class="bi bi-check-lg"></i></button>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="9" class="text-body-secondary">Alles is geleverd. 👍</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% from "_macros.html" import post_button %}
+{% block title %}Oude versie: {{ revision.title }}{% endblock %}
+{% block page_actions %}
+{{ post_button(url_for('wiki.restore', revision_id=revision.id), 'Deze versie terugzetten', class_='btn btn-primary', confirm='Deze versie terugzetten?') }}
+{% endblock %}
+{% block content %}
+<div class="alert alert-warning">Je bekijkt een oude versie (bewaard op {{ revision.created_at|datetime }}). <a href="{{ url_for('wiki.history', slug=revision.page.slug) }}">Terug naar de geschiedenis</a></div>
+<div class="card"><div class="card-body markdown-body">{{ revision.content|wiki_markdown }}</div></div>
+{% endblock %}

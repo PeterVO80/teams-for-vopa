@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import post_button, avatar %}
+{% block title %}Planning (lijst){% endblock %}
+{% block page_actions %}
+<a class="btn btn-outline-secondary" href="{{ url_for('team.overview') }}"><i class="bi bi-grid-3x3"></i> Raster</a>
+<a class="btn btn-primary" href="{{ url_for('team.edit_assignment', user=user_id, next=request.full_path) }}"><i class="bi bi-plus-lg"></i> Inplannen</a>
+{% endblock %}
+{% block content %}
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-4">
+    <select class="form-select" name="user" onchange="this.form.submit()">
+      <option value="">Iedereen</option>
+      {% for id, name in users %}<option value="{{ id }}" {{ 'selected' if user_id == id }}>{{ name }}</option>{% endfor %}
+    </select>
+  </div>
+</form>
+<div class="card"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+  <thead><tr><th>Medewerker</th><th>Type</th><th>Project</th><th>Van</th><th>Tot</th><th>u/dag</th><th>Opmerking</th><th></th></tr></thead>
+  <tbody>
+  {% for a in assignments %}
+    <tr>
+      <td>{{ avatar(a.user) }} {{ a.user.full_name }}</td>
+      <td><span class="badge text-bg-{{ a.kind.css_class }}">{{ a.kind.label }}</span></td>
+      <td>{{ a.project.display_name if a.project else '' }}</td>
+      <td>{{ a.start_date|date }}</td>
+      <td>{{ a.end_date|date }}</td>
+      <td>{{ a.hours_per_day }}</td>
+      <td class="small">{{ a.note or '' }}</td>
+      <td class="text-end text-nowrap">
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('team.edit_assignment', assignment_id=a.id, next=request.full_path) }}"><i class="bi bi-pencil"></i></a>
+        {{ post_button(url_for('team.delete_assignment', assignment_id=a.id), '', icon='trash', confirm='Planning verwijderen?', next=request.full_path) }}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="text-body-secondary">Geen planning gevonden.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}
