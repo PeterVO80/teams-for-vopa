@@ -63,7 +63,13 @@ class Note(TimestampMixin, db.Model):
 
 
 class WikiPage(TimestampMixin, db.Model):
-    """A wiki article. Pages can be nested via ``parent_id``."""
+    """A wiki article. Pages can be nested via ``parent_id``.
+
+    A page either belongs to the **general wiki** (``project_id`` is NULL:
+    company-wide knowledge) or to the **wiki of one project** (``project_id``
+    set: e.g. the I/O conventions or network plan of that installation).
+    A page and all its sub pages always belong to the same wiki.
+    """
 
     __tablename__ = "wiki_pages"
 
@@ -73,6 +79,8 @@ class WikiPage(TimestampMixin, db.Model):
     slug: Mapped[str] = mapped_column(sa.String(220), unique=True, index=True)
     content: Mapped[str] = mapped_column(sa.Text, default="")
     parent_id: Mapped[int | None] = mapped_column(sa.ForeignKey("wiki_pages.id"))
+    #: NULL = general wiki, otherwise the project this page belongs to.
+    project_id: Mapped[int | None] = mapped_column(sa.ForeignKey("projects.id"), index=True)
     updated_by_id: Mapped[int | None] = mapped_column(sa.ForeignKey("users.id"))
 
     parent: Mapped["WikiPage | None"] = relationship(
@@ -82,6 +90,7 @@ class WikiPage(TimestampMixin, db.Model):
         back_populates="parent", order_by="WikiPage.title"
     )
     updated_by = relationship("User")
+    project = relationship("Project")
     revisions: Mapped[list["WikiRevision"]] = relationship(
         back_populates="page",
         cascade="all, delete-orphan",

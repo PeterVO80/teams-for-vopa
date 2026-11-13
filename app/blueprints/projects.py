@@ -14,6 +14,7 @@ from ..models import (
     Task,
     TaskStatus,
     User,
+    WikiPage,
 )
 from ..services.numbering import insert_with_unique_number
 from . import protected_blueprint
@@ -54,6 +55,11 @@ def detail(project_id: int):
     notes = db.session.scalars(
         sa.select(Note).filter_by(project_id=project.id).order_by(Note.updated_at.desc())
     ).all()
+    # Project wiki: top-level pages (the template shows the tree) + page count.
+    wiki_roots = db.session.scalars(
+        sa.select(WikiPage).filter_by(project_id=project.id, parent_id=None).order_by(WikiPage.title)
+    ).all()
+    wiki_count = db.session.scalar(sa.select(sa.func.count(WikiPage.id)).filter_by(project_id=project.id))
 
     # Task count per status for the progress summary.
     status_counts = {s: 0 for s in TaskStatus}
@@ -65,6 +71,8 @@ def detail(project_id: int):
         tasks=tasks,
         orders=orders,
         notes=notes,
+        wiki_roots=wiki_roots,
+        wiki_count=wiki_count,
         status_counts=status_counts,
     )
 

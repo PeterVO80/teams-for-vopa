@@ -13,4 +13,6 @@
   {{ render_field(form.end_date, class_="col-md-4") }}
   {{ render_field(form.hours_per_day, class_="col-md-4") }}
 </div>
+{{ render_field(form.include_weekends) }}
+<div class="form-text mt-n2 mb-3">{{ form.include_weekends.description }}</div>
 {{ render_field(form.note) }}

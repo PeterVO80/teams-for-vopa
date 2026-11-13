@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensions import db
 from .base import LabeledEnum, TimestampMixin, enum_column
+
+
+def is_weekend(day: date) -> bool:
+    """Saturday or Sunday."""
+    return day.weekday() >= 5
 
 
 class AssignmentKind(LabeledEnum):
@@ -41,6 +46,11 @@ class Assignment(TimestampMixin, db.Model):
 
     ``hours_per_day`` lets you plan part-time work, e.g. 4h/day on project A
     and 4h/day on project B in the same week.
+
+    By default only Monday-Friday inside the period are planned, so a period
+    of two weeks does not silently book the weekend in between. Set
+    ``include_weekends`` to also plan the Saturdays and Sundays in the period
+    (e.g. a commissioning during a production stop).
     """
 
     __tablename__ = "assignments"
@@ -54,6 +64,7 @@ class Assignment(TimestampMixin, db.Model):
     start_date: Mapped[date] = mapped_column(index=True)
     end_date: Mapped[date] = mapped_column(index=True)
     hours_per_day: Mapped[float] = mapped_column(default=8.0)
+    include_weekends: Mapped[bool] = mapped_column(default=False, server_default=sa.false())
     note: Mapped[str | None] = mapped_column(sa.String(300))
 
     user = relationship("User")
@@ -64,8 +75,22 @@ class Assignment(TimestampMixin, db.Model):
     )
 
     def covers(self, day: date) -> bool:
-        """Return ``True`` when this assignment applies to ``day``."""
-        return self.start_date <= day <= self.end_date
+        """Return ``True`` when this assignment applies to ``day``.
+
+        Weekend days only count when ``include_weekends`` is set.
+        """
+        if not self.start_date <= day <= self.end_date:
+            return False
+        return self.include_weekends or not is_weekend(day)
+
+    @property
+    def planned_days(self) -> int:
+        """Number of days in the period that are actually planned."""
+        days = (self.end_date - self.start_date).days + 1
+        return sum(
+            1 for i in range(days)
+            if self.include_weekends or not is_weekend(self.start_date + timedelta(days=i))
+        )
 
     @property
     def label(self) -> str:

@@ -11,7 +11,8 @@
  *
  * 2. Behaviour of the planning form (popup and full page)
  *    - the project selector is only shown for type "Project";
- *    - moving the start date past the end date moves the end date along.
+ *    - moving the start date past the end date moves the end date along;
+ *    - choosing a Saturday/Sunday as start or end ticks "plan weekend days".
  */
 (function () {
   "use strict";
@@ -84,9 +85,17 @@
     kind.addEventListener("change", toggleProject);
     toggleProject();
 
+    const weekends = root.querySelector("#include_weekends");
+    const isWeekend = (value) => value && [0, 6].includes(new Date(`${value}T12:00:00`).getDay());
+    const checkWeekend = () => {
+      if (weekends && (isWeekend(start.value) || isWeekend(end.value))) weekends.checked = true;
+    };
+
     start.addEventListener("change", () => {
       if (!end.value || end.value < start.value) end.value = start.value;
+      checkWeekend();
     });
+    end.addEventListener("change", checkWeekend);
   }
 
   initAssignmentForm(document);  // full-page form

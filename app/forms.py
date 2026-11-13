@@ -11,6 +11,8 @@ when copying such a value to a model.
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
 from wtforms import (
@@ -169,11 +171,22 @@ class AssignmentForm(FlaskForm):
     hours_per_day = FloatField(
         "Uren per dag", default=8.0, validators=[DataRequired(), NumberRange(min=0.5, max=24)]
     )
+    include_weekends = BooleanField(
+        "Weekenddagen inplannen",
+        description="Zonder vinkje worden enkel maandag t/m vrijdag van deze periode ingepland.",
+    )
     note = StringField("Opmerking", validators=[Optional(), Length(max=300)])
 
     def validate_end_date(self, field):
-        if self.start_date.data and field.data and field.data < self.start_date.data:
+        start, end = self.start_date.data, field.data
+        if not (start and end):
+            return
+        if end < start:
             raise ValidationError("Einddatum ligt voor de startdatum.")
+        # A weekend-only period without the weekend option would plan nothing.
+        only_weekend = all((start + timedelta(days=i)).weekday() >= 5 for i in range((end - start).days + 1))
+        if only_weekend and not self.include_weekends.data:
+            raise ValidationError("Deze periode bevat enkel weekenddagen: vink 'Weekenddagen inplannen' aan.")
 
     def validate_project_id(self, field):
         if self.kind.data == AssignmentKind.PROJECT.value and not field.data:
@@ -193,6 +206,8 @@ class NoteForm(FlaskForm):
 
 class WikiPageForm(FlaskForm):
     title = StringField("Titel", validators=[DataRequired(), Length(max=200)])
+    #: 0 = general wiki, otherwise the id of the project whose wiki this is.
+    project_id = SelectField("Wiki", coerce=int)
     parent_id = SelectField("Bovenliggende pagina", coerce=int)
     content = TextAreaField("Inhoud")
 

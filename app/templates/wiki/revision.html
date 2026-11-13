@@ -6,5 +6,5 @@
 {% endblock %}
 {% block content %}
 <div class="alert alert-warning">Je bekijkt een oude versie (bewaard op {{ revision.created_at|datetime }}). <a href="{{ url_for('wiki.history', slug=revision.page.slug) }}">Terug naar de geschiedenis</a></div>
-<div class="card"><div class="card-body markdown-body">{{ revision.content|wiki_markdown }}</div></div>
+<div class="card"><div class="card-body markdown-body">{{ revision.content|wiki_markdown(revision.page.project_id) }}</div></div>
 {% endblock %}

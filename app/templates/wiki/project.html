@@ -1,0 +1,46 @@
+{# Start page of the wiki of one project. #}
+{% extends "base.html" %}
+{% block title %}Projectwiki {{ project.code }}{% endblock %}
+{% block page_header %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb mb-1">
+    <li class="breadcrumb-item"><a href="{{ url_for('wiki.index') }}">Wiki</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('projects.detail', project_id=project.id) }}">{{ project.code }}</a></li>
+  </ol>
+</nav>
+{{ super() }}
+{% endblock %}
+{% block heading %}Projectwiki <span class="text-body-secondary fw-normal">{{ project.display_name }}</span>{% endblock %}
+{% block page_actions %}
+<a class="btn btn-outline-secondary" href="{{ url_for('projects.detail', project_id=project.id) }}"><i class="bi bi-kanban"></i> Naar project</a>
+<a class="btn btn-primary" href="{{ url_for('wiki.create', project=project.id) }}"><i class="bi bi-plus-lg"></i> Nieuwe pagina</a>
+{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-7">
+    {% include "wiki/_sidebar.html" %}
+    <div class="card"><div class="card-body">
+      {% if roots %}{% with pages = roots, current = None %}{% include "wiki/_tree.html" %}{% endwith %}
+      {% else %}
+      <p class="text-body-secondary">Dit project heeft nog geen wikipagina's.</p>
+      <p class="small text-body-secondary mb-3">Ideaal voor kennis die specifiek is voor deze installatie: I/O-afspraken, netwerkplan, IP-adressen, contactpersonen, lessons learned, ...</p>
+      <a class="btn btn-primary" href="{{ url_for('wiki.create', project=project.id) }}"><i class="bi bi-plus-lg"></i> Eerste pagina aanmaken</a>
+      {% endif %}
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header fw-semibold">Recent gewijzigd</div>
+      <div class="list-group list-group-flush">
+        {% for page in recent %}
+        <a class="list-group-item list-group-item-action" href="{{ url_for('wiki.view', slug=page.slug) }}">
+          {{ page.title }}<br><small class="text-body-secondary">{{ page.updated_at|datetime }}{% if page.updated_by %} · {{ page.updated_by.full_name }}{% endif %}</small>
+        </a>
+        {% else %}
+        <div class="list-group-item small text-body-secondary">Nog niets gewijzigd.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

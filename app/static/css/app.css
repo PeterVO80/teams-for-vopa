@@ -55,6 +55,9 @@
 /* Load colours. Bootstrap tables paint cell backgrounds through the
    --bs-table-bg variable, so we set that variable instead of `background`. */
 .level-free    { --bs-table-bg: var(--bs-body-bg); background: var(--bs-body-bg); }
+.level-weekend { --bs-table-bg: #f1f3f5; background: #f1f3f5; }
+.planning-grid th.weekend { color: var(--bs-secondary-color); background: var(--bs-tertiary-bg); }
+.planning-grid .planning-cell.weekend { min-width: 52px; }
 .level-partial { --bs-table-bg: #fff3cd; background: #fff3cd; }
 .level-full    { --bs-table-bg: #d1e7dd; background: #d1e7dd; }
 .level-over    { --bs-table-bg: #f8d7da; background: #f8d7da; }

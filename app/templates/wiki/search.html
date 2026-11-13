@@ -2,13 +2,19 @@
 {% block title %}Zoeken in wiki{% endblock %}
 {% block content %}
 {% include "wiki/_sidebar.html" %}
+{% if project %}
+<p class="small">Zoeken in de projectwiki van <strong>{{ project.display_name }}</strong> ·
+  <a href="{{ url_for('wiki.search', q=term) }}">zoek in alle wiki's</a></p>
+{% endif %}
 {% if term %}
 <p class="text-body-secondary">{{ results|length }} resultaat/resultaten voor "{{ term }}".</p>
 <div class="list-group">
   {% for page in results %}
   <a class="list-group-item list-group-item-action" href="{{ url_for('wiki.view', slug=page.slug) }}">
-    <div class="fw-semibold">{{ page.title }}</div>
-    <small class="text-body-secondary">{{ page.content|wiki_markdown|striptags|truncate(200) }}</small>
+    <div class="fw-semibold">{{ page.title }}
+      <span class="badge text-bg-light border fw-normal">{{ 'Projectwiki ' ~ page.project.code if page.project else 'Algemene wiki' }}</span>
+    </div>
+    <small class="text-body-secondary">{{ page.content|wiki_markdown(page.project_id)|striptags|truncate(200) }}</small>
   </a>
   {% endfor %}
 </div>

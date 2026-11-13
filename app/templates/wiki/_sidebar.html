@@ -1,3 +1,6 @@
+{# Search box. Inside a project wiki (`project` set) it searches that wiki only. #}
 <form action="{{ url_for('wiki.search') }}" class="mb-3">
-  <input class="form-control" type="search" name="q" value="{{ term|default('') }}" placeholder="Zoeken in wiki...">
+  {% if project %}<input type="hidden" name="project" value="{{ project.id }}">{% endif %}
+  <input class="form-control" type="search" name="q" value="{{ term|default('') }}"
+         placeholder="{{ 'Zoeken in deze projectwiki...' if project else 'Zoeken in alle wiki\'s...' }}">
 </form>

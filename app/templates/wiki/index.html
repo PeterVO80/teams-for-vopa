@@ -4,14 +4,27 @@
 {% block content %}
 <div class="row g-3">
   <div class="col-lg-7">
-    {% include "wiki/_sidebar.html" %}
+    {% with project = None %}{% include "wiki/_sidebar.html" %}{% endwith %}
     <div class="card"><div class="card-body">
-      <h2 class="h6">Alle pagina's</h2>
+      <h2 class="h6">Algemene wiki</h2>
       {% if roots %}{% with pages = roots, current = None %}{% include "wiki/_tree.html" %}{% endwith %}
-      {% else %}<p class="text-body-secondary mb-0">De wiki is nog leeg. Maak de eerste pagina aan!</p>{% endif %}
+      {% else %}<p class="text-body-secondary mb-0">De algemene wiki is nog leeg. Maak de eerste pagina aan!</p>{% endif %}
     </div></div>
   </div>
   <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header fw-semibold">Projectwiki's</div>
+      <div class="list-group list-group-flush">
+        {% for project, count in project_wikis %}
+        <a class="list-group-item list-group-item-action d-flex align-items-center" href="{{ url_for('wiki.project_index', project_id=project.id) }}">
+          <i class="bi bi-kanban me-2"></i>{{ project.display_name }}
+          <span class="badge text-bg-light border ms-auto">{{ count }}</span>
+        </a>
+        {% else %}
+        <div class="list-group-item small text-body-secondary">Nog geen projectwiki's. Start er een vanaf de projectpagina (tab "Wiki").</div>
+        {% endfor %}
+      </div>
+    </div>
     <div class="card">
       <div class="card-header fw-semibold">Recent gewijzigd</div>
       <div class="list-group list-group-flush">
@@ -24,7 +37,8 @@
     </div>
     <div class="card mt-3"><div class="card-body small">
       <strong>Tip:</strong> link naar een andere pagina met <code>[[Titel van de pagina]]</code>.
-      Bestaat die pagina nog niet, dan kan je ze via de link meteen aanmaken.
+      In een projectwiki wordt eerst in hetzelfde project gezocht, daarna in de algemene wiki.
+      Bestaat de pagina nog niet, dan kan je ze via de link meteen aanmaken.
     </div></div>
   </div>
 </div>

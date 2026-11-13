@@ -38,6 +38,7 @@
   <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-tasks">Taken ({{ tasks|length }})</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-orders">Bestellingen ({{ orders|length }})</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-notes">Notities ({{ notes|length }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-wiki">Wiki ({{ wiki_count }})</button></li>
 </ul>
 <div class="tab-content card border-top-0 rounded-top-0">
   <div class="tab-pane fade show active" id="tab-tasks">
@@ -83,6 +84,16 @@
         {% for tag in note.tags %}{{ tag_badge(tag, link=False) }}{% endfor %}
       </a>
       {% endfor %}
+    </div>
+  </div>
+  <div class="tab-pane fade" id="tab-wiki">
+    <div class="p-2 d-flex gap-2">
+      <a class="btn btn-sm btn-primary" href="{{ url_for('wiki.create', project=project.id) }}"><i class="bi bi-plus-lg"></i> Wikipagina</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('wiki.project_index', project_id=project.id) }}"><i class="bi bi-book"></i> Projectwiki openen</a>
+    </div>
+    <div class="px-3 pb-3">
+      {% if wiki_roots %}{% with pages = wiki_roots, current = None %}{% include "wiki/_tree.html" %}{% endwith %}
+      {% else %}<p class="small text-body-secondary mb-0">Nog geen wikipagina's voor dit project.</p>{% endif %}
     </div>
   </div>
 </div>

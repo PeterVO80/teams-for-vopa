@@ -98,7 +98,10 @@ def _register_template_helpers(app: Flask) -> None:
         return text.replace(".", ",")
 
     app.jinja_env.filters["markdown"] = render_markdown
-    app.jinja_env.filters["wiki_markdown"] = lambda text: render_markdown(text, wiki_links=True)
+    # Usage: {{ page.content|wiki_markdown(page.project_id) }}
+    app.jinja_env.filters["wiki_markdown"] = lambda text, project_id=None: render_markdown(
+        text, wiki_links=True, wiki_project_id=project_id
+    )
 
     # Make the status enums available in every template (for labels/colours).
     app.jinja_env.globals.update(

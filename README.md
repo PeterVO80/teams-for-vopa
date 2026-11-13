@@ -9,9 +9,9 @@ assignment is a **project**. All modules hang off that project:
 | **Purchasing** | Purchase orders per project/supplier, order lines pulled from the article database, **delivery tracking per line** (partial deliveries, delivery notes, who received it). Order status updates automatically. A list of all outstanding deliveries. Excel export per order. |
 | **Articles** | Article database with search and filters. **Excel import/export** (round trip: export → edit in Excel → import). |
 | **Punch list** | Kanban board with *New · In progress · On hold · Done · Cancelled*. Drag & drop, filters per project/team member, priority, deadline and estimate. |
-| **Team overview** | Planning grid (people × working days) with load per day and period, absences (leave, sick, training), and open tasks per person. |
+| **Team overview** | Planning grid (people × days, weekends included) with load per day and period, absences (leave, sick, training), and open tasks per person. Plan by clicking a day or click-and-dragging over several days; the form opens in a popup. Weekend days are only planned when "Weekenddagen inplannen" is ticked. |
 | **Notes** | Markdown notes with a WYSIWYG editor, **tags** (e.g. *Status meeting*, *Customer feedback*), optional project link, search and pinning. |
-| **Wiki** | Hierarchical Markdown knowledge base with WYSIWYG editor, `[[Page title]]` links, search and **full version history** (view and restore). |
+| **Wiki** | A general wiki plus **a wiki per project**. Hierarchical Markdown pages with WYSIWYG editor, `[[Page title]]` links (looked up in the same wiki first), search and **full version history** (view and restore). |
 
 The UI is in Dutch; the code, comments and documentation are in English.
 
@@ -220,7 +220,12 @@ Project ──< Note >──< Tag            WikiPage ──< WikiRevision
   *Ordered / Partially delivered / Fully delivered* from the lines.
 * `Assignment` covers a period with `hours_per_day`, so part-time planning
   (e.g. 4h project A + 4h project B) works. Leave, sick and training count
-  as absence.
+  as absence. Saturdays and Sundays in the period only count when
+  `include_weekends` is set; weekend hours come on top of the normal
+  capacity.
+* `WikiPage.project_id` is NULL for the general wiki, or points to the
+  project whose wiki the page belongs to. Sub-pages are always in the same
+  wiki as their parent.
 * On every wiki edit, the *previous* version is saved as a `WikiRevision`.
 
 ---

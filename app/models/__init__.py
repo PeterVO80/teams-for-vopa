@@ -7,7 +7,7 @@ which Flask-Migrate needs to autogenerate migrations.
 from .article import Article
 from .base import LabeledEnum
 from .knowledge import Note, Tag, WikiPage, WikiRevision, note_tags
-from .planning import Assignment, AssignmentKind
+from .planning import Assignment, AssignmentKind, is_weekend
 from .project import Project, ProjectStatus
 from .purchasing import GoodsReceipt, OrderStatus, PurchaseOrder, PurchaseOrderLine
 from .task import OPEN_STATUSES, Task, TaskPriority, TaskStatus
@@ -27,6 +27,7 @@ __all__ = [
     "PurchaseOrder",
     "PurchaseOrderLine",
     "Tag",
+    "is_weekend",
     "Task",
     "TaskPriority",
     "TaskStatus",

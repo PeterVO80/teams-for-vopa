@@ -25,7 +25,7 @@
       <td><span class="badge text-bg-{{ a.kind.css_class }}">{{ a.kind.label }}</span></td>
       <td>{{ a.project.display_name if a.project else '' }}</td>
       <td>{{ a.start_date|date }}</td>
-      <td>{{ a.end_date|date }}</td>
+      <td>{{ a.end_date|date }}{% if a.include_weekends %} <span class="badge text-bg-light border" title="Weekenddagen ingepland">+ weekend</span>{% endif %}</td>
       <td>{{ a.hours_per_day }}</td>
       <td class="small">{{ a.note or '' }}</td>
       <td class="text-end text-nowrap">

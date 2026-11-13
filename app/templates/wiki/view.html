@@ -5,6 +5,7 @@
 <nav aria-label="breadcrumb">
   <ol class="breadcrumb mb-1">
     <li class="breadcrumb-item"><a href="{{ url_for('wiki.index') }}">Wiki</a></li>
+    {% if page.project %}<li class="breadcrumb-item"><a href="{{ url_for('wiki.project_index', project_id=page.project.id) }}">Projectwiki {{ page.project.code }}</a></li>{% endif %}
     {% for crumb in page.breadcrumbs %}<li class="breadcrumb-item"><a href="{{ url_for('wiki.view', slug=crumb.slug) }}">{{ crumb.title }}</a></li>{% endfor %}
   </ol>
 </nav>
@@ -20,7 +21,7 @@
 <div class="row g-3">
   <div class="col-lg-9">
     <div class="card"><div class="card-body markdown-body">
-      {{ page.content|wiki_markdown or '<p class="text-body-secondary">Deze pagina is nog leeg.</p>'|safe }}
+      {{ page.content|wiki_markdown(page.project_id) or '<p class="text-body-secondary">Deze pagina is nog leeg.</p>'|safe }}
     </div></div>
     <div class="small text-body-secondary mt-2 d-flex">
       <span class="me-auto">Laatst gewijzigd {{ page.updated_at|datetime }}{% if page.updated_by %} door {{ page.updated_by.full_name }}{% endif %}</span>
@@ -28,7 +29,13 @@
     </div>
   </div>
   <div class="col-lg-3">
-    {% include "wiki/_sidebar.html" %}
+    {% with project = page.project %}{% include "wiki/_sidebar.html" %}{% endwith %}
+    {% if page.project %}
+    <div class="card mb-3"><div class="card-body small">
+      <i class="bi bi-kanban"></i> Deze pagina hoort bij de projectwiki van
+      <a href="{{ url_for('projects.detail', project_id=page.project.id) }}">{{ page.project.display_name }}</a>.
+    </div></div>
+    {% endif %}
     {% if page.children %}
     <div class="card"><div class="card-body">
       <h2 class="h6">Subpagina's</h2>

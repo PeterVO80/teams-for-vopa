@@ -101,6 +101,8 @@ def edit_assignment(assignment_id: int | None = None):
             if start and end and end < start:  # dragged from right to left
                 start, end = end, start
             form.start_date.data, form.end_date.data = start, end
+            # Dragging onto (or clicking) a Saturday/Sunday means: plan the weekend.
+            form.include_weekends.data = any(d is not None and d.weekday() >= 5 for d in (start, end))
 
     if form.validate_on_submit():
         if assignment is None:

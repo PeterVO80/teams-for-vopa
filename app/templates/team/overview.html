@@ -32,11 +32,11 @@
   <thead>
     <tr>
       <th class="planning-name">Medewerker</th>
-      <th class="text-center small" title="Gemiddelde bezetting over de periode (afwezigheden niet meegeteld)">Bezetting</th>
+      <th class="text-center small" title="Geplande uren t.o.v. de beschikbare werkdagen (afwezigheden niet meegeteld; weekenduren komen erbovenop)">Bezetting</th>
       <th class="text-center small" title="Open taken op de punchlijst">Taken</th>
       {% for day in days %}
-      <th class="text-center small {{ 'today' if day == today() }} {{ 'week-start' if day.weekday() == 0 }}">
-        {{ ['ma','di','wo','do','vr'][day.weekday()] }}<br>{{ day|date('%d/%m') }}
+      <th class="text-center small {{ 'today' if day == today() }} {{ 'week-start' if day.weekday() == 0 }} {{ 'weekend' if day.weekday() >= 5 }}">
+        {{ ['ma','di','wo','do','vr','za','zo'][day.weekday()] }}<br>{{ day|date('%d/%m') }}
       </th>
       {% endfor %}
     </tr>
@@ -53,7 +53,7 @@
         <a href="{{ url_for('tasks.board', assignee=row.user.id) }}" title="{{ row.open_task_hours|round(1) }} geschatte uren">{{ row.open_tasks }}</a>
       </td>
       {% for cell in row.cells %}
-      <td class="planning-cell level-{{ cell.level(workday_hours) }} {{ 'today' if cell.day == today() }} {{ 'week-start' if cell.day.weekday() == 0 }}"
+      <td class="planning-cell level-{{ cell.level(workday_hours) }} {{ 'today' if cell.day == today() }} {{ 'week-start' if cell.day.weekday() == 0 }} {{ 'weekend' if cell.is_weekend }}"
           data-user="{{ row.user.id }}" data-day="{{ cell.day.isoformat() }}"
           title="{{ cell.planned_hours }}u gepland">
         {% for a in cell.assignments %}
@@ -71,6 +71,7 @@
 
 <div class="small text-body-secondary mt-2 d-flex flex-wrap gap-3">
   <span><span class="legend level-free"></span> Vrij</span>
+  <span><span class="legend level-weekend"></span> Weekend</span>
   <span><span class="legend level-partial"></span> Deels ingepland</span>
   <span><span class="legend level-full"></span> Volledig ingepland</span>
   <span><span class="legend level-over"></span> Overboekt</span>

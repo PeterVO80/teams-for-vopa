@@ -1,5 +1,6 @@
 """Functional tests for the business rules of each module."""
 
+import re
 from decimal import Decimal
 from io import BytesIO
 
@@ -153,7 +154,14 @@ def test_workload_levels(app):
     assert by_name["els"].cells[0].planned_hours == 8
     # Tom is on leave from Wednesday.
     assert by_name["tom"].cells[2].level(8) == "absent"
-    assert len(days) == 5
+    # The grid shows the full week; an empty weekend day is "weekend", not "free".
+    assert len(days) == 7
+    assert by_name["els"].cells[6].level(8) == "weekend"
+    # Jan works 6h on Saturday (include_weekends) on top of 5 x 8h -> 46/40.
+    assert by_name["jan"].cells[5].planned_hours == 6
+    assert by_name["jan"].period_load(8) == 115
+    # Tom's leave runs Wed -> next Wed but does not mark his weekend as absent.
+    assert by_name["tom"].cells[5].level(8) == "weekend"
 
 
 # ---------------------------------------------------------- notes & wiki
@@ -170,7 +178,9 @@ def test_note_tags_are_created_and_reused(client):
 def test_wiki_edit_creates_revision_and_restore(client):
     page = db.session.scalar(sa.select(WikiPage).filter_by(slug="naamgeving-tags"))
     original = page.content
-    client.post(f"/wiki/{page.slug}/edit", data={"title": "Naamgeving tags", "parent_id": page.parent_id, "content": "Nieuw"})
+    client.post(f"/wiki/{page.slug}/edit", data={
+        "title": "Naamgeving tags", "project_id": 0, "parent_id": page.parent_id, "content": "Nieuw",
+    })
     db.session.refresh(page)
     assert page.content == "Nieuw" and len(page.revisions) == 1
 
@@ -182,7 +192,9 @@ def test_wiki_edit_creates_revision_and_restore(client):
 def test_wiki_cannot_become_its_own_parent(client):
     root = db.session.scalar(sa.select(WikiPage).filter_by(slug="siemens-tia-portal"))
     child = root.children[0]
-    response = client.post(f"/wiki/{root.slug}/edit", data={"title": root.title, "parent_id": child.id, "content": ""})
+    response = client.post(f"/wiki/{root.slug}/edit", data={
+        "title": root.title, "project_id": 0, "parent_id": child.id, "content": "",
+    })
     assert response.status_code == 200  # form re-rendered with a validation error
     db.session.refresh(root)
     assert root.parent_id is None
@@ -193,11 +205,12 @@ def test_markdown_is_sanitised(app):
         html = str(render_markdown("<script>alert(1)</script>\n\n**ok**"))
         assert "<script>" not in html and "<strong>ok</strong>" in html
         linked = str(render_markdown("Zie \\[\\[Naamgeving tags\\]\\]", wiki_links=True))
-        assert 'href="/wiki/naamgeving-tags"' in linked
+        assert 'href="/wiki/go?title=Naamgeving+tags"' in linked
 
 
 def test_slugify():
     assert slugify("Siemens S7 – Tips & Tricks") == "siemens-s7-tips-tricks"
+    assert slugify("PRJ/2026/0001 Netwerk") == "prj-2026-0001-netwerk"
 
 
 # ------------------------------------------------------- automatic numbering
@@ -316,3 +329,102 @@ def test_planning_popup_delete(client):
     response = client.post(f"/team/assignments/{assignment.id}/delete", headers=MODAL)
     assert response.get_json() == {"ok": True}
     assert db.session.get(Assignment, assignment.id) is None
+
+
+# ------------------------------------------------------------ weekend planning
+def test_assignment_skips_weekends_unless_included(app):
+    from datetime import date
+
+    a = Assignment(start_date=date(2026, 11, 13), end_date=date(2026, 11, 16))  # Fri -> Mon
+    assert a.covers(date(2026, 11, 13)) and not a.covers(date(2026, 11, 14)) and a.planned_days == 2
+    a.include_weekends = True
+    assert a.covers(date(2026, 11, 14)) and a.planned_days == 4
+
+
+def test_planning_popup_preselects_weekends_when_dragging_onto_saturday(client):
+    html = client.get("/team/assignments/new?user=2&start=2026-11-13&end=2026-11-14", headers=MODAL).get_data(as_text=True)
+    checked = re.compile(r'<input checked[^>]*id="include_weekends"')
+    assert checked.search(html)
+    html = client.get("/team/assignments/new?user=2&start=2026-11-16&end=2026-11-18", headers=MODAL).get_data(as_text=True)
+    assert 'id="include_weekends"' in html and not checked.search(html)
+
+
+def test_weekend_only_period_requires_weekend_option(client):
+    data = {"user_id": 2, "kind": "training", "project_id": 0,
+            "start_date": "2026-11-14", "end_date": "2026-11-15", "hours_per_day": 8}
+    response = client.post("/team/assignments/new", headers=MODAL, data=data)
+    assert response.status_code == 422 and "enkel weekenddagen" in response.get_data(as_text=True)
+    response = client.post("/team/assignments/new", headers=MODAL, data={**data, "include_weekends": "y"})
+    assert response.get_json() == {"ok": True}
+
+
+def test_team_grid_shows_weekend_columns(client):
+    html = client.get("/team/?start=2026-11-09&weeks=1").get_data(as_text=True)
+    assert "za<br>14/11" in html and "zo<br>15/11" in html
+
+
+# ------------------------------------------------------------- project wikis
+def _project(code_suffix="0001"):
+    from datetime import date
+
+    from app.models import Project
+
+    return db.session.scalar(sa.select(Project).filter_by(code=f"PRJ/{date.today().year}/{code_suffix}"))
+
+
+def test_create_project_wiki_page(client):
+    project = _project()
+    response = client.post("/wiki/new", data={
+        "title": "I/O-lijst", "project_id": project.id, "parent_id": 0, "content": "DI_ = ingang",
+    })
+    page = db.session.scalar(sa.select(WikiPage).filter_by(title="I/O-lijst"))
+    assert response.status_code == 302 and page.project_id == project.id
+    assert page.slug == f"prj-{project.code.split('/')[1]}-0001-i-o-lijst"
+    # Listed in the project wiki and on the project page, not in the general wiki.
+    assert "I/O-lijst" in client.get(f"/wiki/project/{project.id}").get_data(as_text=True)
+    assert "I/O-lijst" in client.get(f"/projects/{project.id}").get_data(as_text=True)
+    assert "I/O-lijst" not in client.get("/wiki/").get_data(as_text=True).split("Recent gewijzigd")[0]
+
+
+def test_same_title_in_two_project_wikis(client):
+    p1, p2 = _project("0001"), _project("0002")
+    for project in (p1, p2):
+        client.post("/wiki/new", data={"title": "Netwerk", "project_id": project.id, "parent_id": 0, "content": ""})
+    pages = db.session.scalars(sa.select(WikiPage).filter_by(title="Netwerk")).all()
+    assert len(pages) == 2 and len({p.slug for p in pages}) == 2
+
+
+def test_wiki_link_prefers_same_project(client):
+    p1, p2 = _project("0001"), _project("0002")
+    for project in (p1, p2):
+        client.post("/wiki/new", data={"title": "Netwerk", "project_id": project.id, "parent_id": 0, "content": ""})
+    target = db.session.scalar(sa.select(WikiPage).filter_by(title="Netwerk", project_id=p2.id))
+    response = client.get(f"/wiki/go?title=netwerk&project={p2.id}")
+    assert response.headers["Location"].endswith(f"/wiki/{target.slug}")
+    # Falls back to the general wiki ...
+    response = client.get(f"/wiki/go?title=Naamgeving%20tags&project={p2.id}")
+    assert response.headers["Location"].endswith("/wiki/naamgeving-tags")
+    # ... and offers to create unknown pages in the same project wiki.
+    response = client.get(f"/wiki/go?title=Nieuw%20onderwerp&project={p2.id}")
+    assert "/wiki/new?" in response.headers["Location"] and f"project={p2.id}" in response.headers["Location"]
+
+
+def test_parent_must_be_in_same_wiki(client):
+    project = _project()
+    general = db.session.scalar(sa.select(WikiPage).filter_by(slug="siemens-tia-portal"))
+    response = client.post("/wiki/new", data={
+        "title": "Fout", "project_id": project.id, "parent_id": general.id, "content": "",
+    })
+    assert response.status_code == 200 and "dezelfde wiki" in response.get_data(as_text=True)
+    assert db.session.scalar(sa.select(WikiPage).filter_by(title="Fout")) is None
+
+
+def test_moving_page_to_project_wiki_moves_sub_pages(client):
+    project = _project()
+    root = db.session.scalar(sa.select(WikiPage).filter_by(slug="siemens-tia-portal"))
+    client.post(f"/wiki/{root.slug}/edit", data={
+        "title": root.title, "project_id": project.id, "parent_id": 0, "content": root.content,
+    })
+    db.session.refresh(root)
+    assert root.project_id == project.id and root.slug.startswith("prj-")
+    assert all(child.project_id == project.id for child in root.children)

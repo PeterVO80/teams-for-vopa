@@ -18,6 +18,7 @@ import sqlalchemy as sa
 from flask import Flask
 
 from .extensions import db
+from .services.markdown_render import slugify
 from .models import (
     Article,
     Assignment,
@@ -171,6 +172,10 @@ def _seed_demo_data() -> None:
                    start_date=monday + timedelta(days=2), end_date=monday + timedelta(days=8)),
         Assignment(user=team[3], project=p2, kind=AssignmentKind.PROJECT,
                    start_date=monday + timedelta(days=7), end_date=monday + timedelta(days=11)),
+        # Weekend work: commissioning during the customer's production stop.
+        Assignment(user=team[0], project=p1, kind=AssignmentKind.PROJECT, hours_per_day=6,
+                   start_date=monday + timedelta(days=5), end_date=monday + timedelta(days=5),
+                   include_weekends=True, note="Inbedrijfstelling tijdens productiestop"),
     ])
 
     status_tag, feedback_tag = Tag(name="Status meeting", color="#0d6efd"), Tag(name="Klant feedback", color="#fd7e14")
@@ -188,6 +193,11 @@ def _seed_demo_data() -> None:
     root = WikiPage(title="Siemens TIA Portal", slug="siemens-tia-portal",
                     content="Verzamelde kennis over TIA Portal.\n\nZie ook [[Naamgeving tags]].")
     db.session.add(root)
+    db.session.add(WikiPage(
+        title="Netwerkplan en IP-adressen", slug=f"{slugify(p1.code)}-netwerkplan-en-ip-adressen", project=p1,
+        content="| Toestel | IP-adres |\n|---|---|\n| PLC conveyor | 192.168.10.10 |\n| HMI | 192.168.10.20 |\n\n"
+                "Tag-afspraken: zie [[Naamgeving tags]].",
+    ))
     db.session.add(WikiPage(
         title="Naamgeving tags", slug="naamgeving-tags", parent=root,
         content="| Prefix | Betekenis |\n|---|---|\n| `DI_` | Digitale ingang |\n| `DO_` | Digitale uitgang |\n",

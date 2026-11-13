@@ -1,8 +1,13 @@
 """Team workload calculation for the team overview.
 
-The overview is a grid: one row per team member and one column per working
-day. For every cell we collect the assignments that cover that day and sum
-their hours; that sum compared to a standard working day gives the load.
+The overview is a grid: one row per team member and one column per day
+(weekends included, so weekend work can be planned too). For every cell we
+collect the assignments that cover that day and sum their hours; that sum
+compared to a standard working day gives the load.
+
+Capacity is only counted on working days: an empty Saturday is "weekend",
+not "free", and hours planned in the weekend come *on top* of the normal
+capacity (so they can push the period load above 100%).
 """
 
 from __future__ import annotations
@@ -13,7 +18,7 @@ from datetime import date, timedelta
 import sqlalchemy as sa
 
 from ..extensions import db
-from ..models import OPEN_STATUSES, Assignment, Task, User
+from ..models import OPEN_STATUSES, Assignment, Task, User, is_weekend
 
 
 @dataclass
@@ -25,16 +30,20 @@ class DayCell:
     planned_hours: float = 0.0
     is_absent: bool = False
 
+    @property
+    def is_weekend(self) -> bool:
+        return is_weekend(self.day)
+
     def load_percent(self, workday_hours: float) -> int:
         return round(self.planned_hours / workday_hours * 100) if workday_hours else 0
 
     def level(self, workday_hours: float) -> str:
-        """Classify the cell: free / partial / full / over(booked) / absent."""
+        """Classify the cell: free / weekend / partial / full / over(booked) / absent."""
         if self.is_absent:
             return "absent"
         pct = self.load_percent(workday_hours)
         if pct == 0:
-            return "free"
+            return "weekend" if self.is_weekend else "free"
         if pct < 100:
             return "partial"
         if pct == 100:
@@ -52,18 +61,22 @@ class MemberRow:
     open_task_hours: float = 0.0
 
     def period_load(self, workday_hours: float) -> int:
-        """Average load over the whole period, ignoring absence days."""
-        workdays = [c for c in self.cells if not c.is_absent]
-        if not workdays:
+        """Planned hours as a percentage of the available capacity.
+
+        Capacity = working days that are not absence days. Weekend hours count
+        as planned hours but add no capacity (they are extra work).
+        """
+        present = [c for c in self.cells if not c.is_absent]
+        capacity = sum(workday_hours for c in present if not c.is_weekend)
+        if not capacity:
             return 0
-        planned = sum(c.planned_hours for c in workdays)
-        return round(planned / (len(workdays) * workday_hours) * 100)
+        planned = sum(c.planned_hours for c in present)
+        return round(planned / capacity * 100)
 
 
-def working_days(start: date, weeks: int) -> list[date]:
-    """All Monday-Friday dates in ``weeks`` weeks starting at ``start``."""
-    days = (start + timedelta(days=i) for i in range(weeks * 7))
-    return [d for d in days if d.weekday() < 5]
+def period_days(start: date, weeks: int) -> list[date]:
+    """All dates (Monday to Sunday) in ``weeks`` weeks starting at ``start``."""
+    return [start + timedelta(days=i) for i in range(weeks * 7)]
 
 
 def monday_of(day: date) -> date:
@@ -72,7 +85,7 @@ def monday_of(day: date) -> date:
 
 def build_overview(start: date, weeks: int) -> tuple[list[date], list[MemberRow]]:
     """Return the list of days and a row per active user for the given period."""
-    days = working_days(start, weeks)
+    days = period_days(start, weeks)
     end = start + timedelta(days=weeks * 7 - 1)
 
     users = db.session.scalars(
