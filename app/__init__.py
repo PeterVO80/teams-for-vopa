@@ -102,6 +102,16 @@ def _register_template_helpers(app: Flask) -> None:
         decimals = decimals.ljust(2, "0")
         return f"€ {whole.replace(',', '.')},{decimals}"
 
+    @app.template_filter("text_on")
+    def text_color_on(background: str | None) -> str:
+        """Black or white text, whichever reads best on ``background`` (#rrggbb)."""
+        try:
+            r, g, b = (int((background or "#0d6efd")[i:i + 2], 16) for i in (1, 3, 5))
+        except ValueError:
+            return "#fff"
+        # Perceived brightness (ITU-R BT.601).
+        return "#212529" if (r * 299 + g * 587 + b * 114) / 1000 > 150 else "#fff"
+
     @app.template_filter("qty")
     def format_quantity(value: Decimal | float | None) -> str:
         """Show ``5`` instead of ``5.00`` but keep real decimals (``2,5``)."""

@@ -27,46 +27,59 @@
   </div>
 </div>
 
-<div class="card"><div class="table-responsive">
-<table class="table table-bordered planning-grid mb-0" data-new-url="{{ url_for('team.edit_assignment') }}">
-  <thead>
-    <tr>
-      <th class="planning-name">Medewerker</th>
-      <th class="text-center small" title="Geplande uren t.o.v. de beschikbare werkdagen (afwezigheden niet meegeteld; weekenduren komen erbovenop)">Bezetting</th>
-      <th class="text-center small" title="Open taken op de punchlijst">Taken</th>
-      {% for day in days %}
-      <th class="text-center small {{ 'today' if day == today() }} {{ 'week-start' if day.weekday() == 0 }} {{ 'weekend' if day.weekday() >= 5 }}">
-        {{ ['ma','di','wo','do','vr','za','zo'][day.weekday()] }}<br>{{ day|date('%d/%m') }}
-      </th>
-      {% endfor %}
-    </tr>
-  </thead>
-  <tbody>
+{#
+  Planning board, built with CSS grid (one grid per team member, all with
+  the same column template so the columns line up):
+    - background cells: one per day, coloured by load, used for click/drag;
+    - bars: one per run of consecutive planned days of an assignment
+      (services/workload.py: build_segments), spanning those day columns,
+      in the employee's colour. Overlapping bars get their own lane.
+#}
+{% set columns = ['13rem', '5rem', '3.5rem'] %}
+{% for day in days %}{% set _ = columns.append('minmax(2.6rem, .6fr)' if day.weekday() >= 5 else 'minmax(4.2rem, 1fr)') %}{% endfor %}
+<div class="card"><div class="planning-scroll">
+<div class="planning-grid" data-new-url="{{ url_for('team.edit_assignment') }}" style="--planning-columns: {{ columns|join(' ') }}">
+  <div class="planning-row planning-head">
+    <div class="pl-name">Medewerker</div>
+    <div class="pl-meta" title="Geplande uren t.o.v. de beschikbare werkdagen (afwezigheden niet meegeteld; weekenduren komen erbovenop)">Bezetting</div>
+    <div class="pl-meta" title="Open taken op de punchlijst">Taken</div>
+    {% for day in days %}
+    <div class="pl-day {{ 'today' if day == today() }} {{ 'week-start' if day.weekday() == 0 }} {{ 'weekend' if day.weekday() >= 5 }}">
+      {{ ['ma','di','wo','do','vr','za','zo'][day.weekday()] }}<br>{{ day|date('%d/%m') }}
+    </div>
+    {% endfor %}
+  </div>
+
   {% for row in rows %}
-    {% set load = row.period_load(workday_hours) %}
-    <tr>
-      <td class="planning-name text-nowrap">{{ avatar(row.user) }} {{ row.user.full_name }}</td>
-      <td class="text-center align-middle">
-        <span class="badge {{ 'text-bg-danger' if load > 100 else 'text-bg-success' if load >= 80 else 'text-bg-warning' if load > 0 else 'text-bg-light border' }}">{{ load }}%</span>
-      </td>
-      <td class="text-center align-middle">
-        <a href="{{ url_for('tasks.board', assignee=row.user.id) }}" title="{{ row.open_task_hours|round(1) }} geschatte uren">{{ row.open_tasks }}</a>
-      </td>
-      {% for cell in row.cells %}
-      <td class="planning-cell level-{{ cell.level(workday_hours) }} {{ 'today' if cell.day == today() }} {{ 'week-start' if cell.day.weekday() == 0 }} {{ 'weekend' if cell.is_weekend }}"
-          data-user="{{ row.user.id }}" data-day="{{ cell.day.isoformat() }}"
-          title="{{ cell.planned_hours }}u gepland">
-        {% for a in cell.assignments %}
-        <a class="planning-chip bg-{{ a.kind.css_class }}" href="{{ url_for('team.edit_assignment', assignment_id=a.id, next=request.full_path) }}"
-           data-modal-url="{{ url_for('team.edit_assignment', assignment_id=a.id) }}"
-           title="{{ a.label }} · {{ a.hours_per_day }}u/dag{% if a.note %} · {{ a.note }}{% endif %}">{{ a.label }}</a>
-        {% endfor %}
-      </td>
-      {% endfor %}
-    </tr>
+  {% set load = row.period_load(workday_hours) %}
+  <div class="planning-row" style="--lanes: {{ [row.lanes, 1]|max }}">
+    <div class="pl-name text-nowrap">{{ avatar(row.user) }} {{ row.user.full_name }}</div>
+    <div class="pl-meta">
+      <span class="badge {{ 'text-bg-danger' if load > 100 else 'text-bg-success' if load >= 80 else 'text-bg-warning' if load > 0 else 'text-bg-light border' }}">{{ load }}%</span>
+    </div>
+    <div class="pl-meta">
+      <a href="{{ url_for('tasks.board', assignee=row.user.id) }}" title="{{ row.open_task_hours|round(1) }} geschatte uren">{{ row.open_tasks }}</a>
+    </div>
+    {% for cell in row.cells %}
+    <div class="planning-cell level-{{ cell.level(workday_hours) }} {{ 'today' if cell.day == today() }} {{ 'week-start' if cell.day.weekday() == 0 }} {{ 'weekend' if cell.is_weekend }}"
+         style="grid-column: {{ loop.index + 3 }}"
+         data-user="{{ row.user.id }}" data-day="{{ cell.day.isoformat() }}"
+         title="{{ cell.day|date }}: {{ cell.planned_hours|round(1) }}u gepland"></div>
+    {% endfor %}
+    {% for seg in row.segments %}
+    {% set a = seg.assignment %}
+    <a class="planning-chip {{ 'absence' if a.kind.is_absence }} {{ 'continues-before' if seg.continues_before }} {{ 'continues-after' if seg.continues_after }}"
+       style="grid-column: {{ seg.first + 4 }} / span {{ seg.span }}; grid-row: {{ seg.lane + 1 }}; background-color: {{ row.user.color }}; color: {{ row.user.color|text_on }}"
+       href="{{ url_for('team.edit_assignment', assignment_id=a.id, next=request.full_path) }}"
+       data-modal-url="{{ url_for('team.edit_assignment', assignment_id=a.id) }}"
+       title="{{ a.label }}{% if a.project %} ({{ a.project.code }}){% endif %}&#10;{{ a.start_date|date }} – {{ a.end_date|date }} · {{ a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') }}u/dag{% if a.include_weekends %} · incl. weekend{% endif %}{% if a.note and not a.kind.is_absence %}&#10;{{ a.note }}{% endif %}">
+      {%- if a.kind.is_absence %}<i class="bi bi-{{ {'leave': 'sun', 'sick': 'thermometer-half', 'training': 'mortarboard'}[a.kind.value] }}"></i> {% endif -%}
+      {{ a.label }}{% if a.hours_per_day < workday_hours %} <span class="opacity-75">· {{ a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') }}u</span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
   {% endfor %}
-  </tbody>
-</table>
+</div>
 </div></div>
 
 <div class="small text-body-secondary mt-2 d-flex flex-wrap gap-3">
@@ -76,6 +89,7 @@
   <span><span class="legend level-full"></span> Volledig ingepland</span>
   <span><span class="legend level-over"></span> Overboekt</span>
   <span><span class="legend level-absent"></span> Afwezig</span>
+  <span>· Balken hebben de kleur van de medewerker (in te stellen bij Gebruikers).</span>
   <span>· Klik op een dag, of klik en sleep over meerdere dagen, om in te plannen.</span>
 </div>
 {% endblock %}

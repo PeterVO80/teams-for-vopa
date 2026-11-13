@@ -58,9 +58,13 @@
 
     document.addEventListener("pointermove", (event) => {
       if (!selection) return;
-      // elementFromPoint also works for touch, where events stay on the start cell.
-      const cell = document.elementFromPoint(event.clientX, event.clientY)?.closest(".planning-cell");
-      const index = selection.cells.indexOf(cell);         // -1 for other rows: ignored
+      // Find the day column under the pointer by its x position only: this
+      // keeps working while dragging across a planning bar, outside the row,
+      // and on touch screens (where events stay on the start cell).
+      const index = selection.cells.findIndex((cell) => {
+        const rect = cell.getBoundingClientRect();
+        return event.clientX >= rect.left && event.clientX < rect.right;
+      });
       if (index !== -1 && index !== selection.current) {
         selection.current = index;
         highlight();

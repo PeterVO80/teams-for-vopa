@@ -94,6 +94,13 @@ class Assignment(TimestampMixin, db.Model):
 
     @property
     def label(self) -> str:
+        """Short text shown on the planning bar.
+
+        Projects show the customer and the project description (e.g.
+        "Brouwerij De Kroon - Verpakkingslijn L3"); absences show their type.
+        """
         if self.kind == AssignmentKind.PROJECT and self.project:
-            return self.project.code
-        return self.kind.label
+            if self.project.customer:
+                return f"{self.project.customer} - {self.project.name}"
+            return self.project.name
+        return f"{self.kind.label}: {self.note}" if self.note and self.kind != AssignmentKind.PROJECT else self.kind.label

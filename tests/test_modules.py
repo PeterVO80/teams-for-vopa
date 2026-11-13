@@ -9,6 +9,7 @@ from openpyxl import Workbook, load_workbook
 
 from app.extensions import db
 from app.models import (
+    User,
     Article,
     Assignment,
     Note,
@@ -537,3 +538,62 @@ def test_article_page_shows_order_history(client):
     html = client.get(f"/articles/{article.id}/edit").get_data(as_text=True)
     order = db.session.scalar(sa.select(PurchaseOrder))
     assert "Bestelhistoriek" in html and order.number in html
+
+
+
+# ---------------------------------------------- planning bars (team overview)
+def _assignment(start, end, **kwargs):
+    from datetime import date as d
+    return Assignment(id=kwargs.pop("id", None), start_date=d.fromisoformat(start), end_date=d.fromisoformat(end), **kwargs)
+
+
+def test_consecutive_days_become_one_bar(app):
+    from datetime import date, timedelta
+    from app.services.workload import build_segments
+
+    days = [date(2026, 11, 16) + timedelta(days=i) for i in range(14)]   # Mon 16/11 - Sun 29/11
+    segments, lanes = build_segments([_assignment("2026-11-16", "2026-11-18", id=1)], days)
+    assert [(s.first, s.last) for s in segments] == [(0, 2)] and lanes == 1
+
+
+def test_bar_is_split_by_unplanned_weekend(app):
+    from datetime import date, timedelta
+    from app.services.workload import build_segments
+
+    days = [date(2026, 11, 16) + timedelta(days=i) for i in range(14)]
+    two_weeks = _assignment("2026-11-16", "2026-11-27", id=1)
+    segments, _ = build_segments([two_weeks], days)
+    assert [(s.first, s.last) for s in segments] == [(0, 4), (7, 11)]
+    two_weeks.include_weekends = True
+    segments, _ = build_segments([two_weeks], days)
+    assert [(s.first, s.last) for s in segments] == [(0, 11)]
+
+
+def test_overlapping_bars_get_separate_lanes_and_edges(app):
+    from datetime import date, timedelta
+    from app.services.workload import build_segments
+
+    days = [date(2026, 11, 16) + timedelta(days=i) for i in range(7)]
+    a = _assignment("2026-11-10", "2026-11-18", id=1)        # started last week
+    b = _assignment("2026-11-17", "2026-11-25", id=2, include_weekends=True)  # runs on next week
+    c = _assignment("2026-11-20", "2026-11-20", id=3)        # fits in lane 0 after a
+    segments, lanes = build_segments([a, b, c], days)
+    by_id = {s.assignment.id: s for s in segments}
+    assert lanes == 2 and by_id[1].lane == 0 and by_id[2].lane == 1 and by_id[3].lane == 0
+    assert by_id[1].continues_before and not by_id[1].continues_after
+    assert by_id[2].continues_after
+
+
+def test_bar_label_shows_customer_and_project(client):
+    from app.models import Project
+    project = db.session.scalar(sa.select(Project).filter_by(name="Verpakkingslijn L3"))
+    html = client.get("/team/").get_data(as_text=True)
+    assert "Brouwerij De Kroon - Verpakkingslijn L3" in html
+    assert project.code not in html.split("planning-chip", 1)[1].split("</a>", 1)[0]
+    jan = db.session.scalar(sa.select(User).filter_by(username="jan"))
+    assert f"background-color: {jan.color}" in html
+
+
+def test_text_color_on_employee_colour(app):
+    text_on = app.jinja_env.filters["text_on"]
+    assert text_on("#0d6efd") == "#fff" and text_on("#ffc107") == "#212529"

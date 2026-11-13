@@ -52,6 +52,63 @@ class DayCell:
 
 
 @dataclass
+class Segment:
+    """One planning bar: consecutive planned days of one assignment.
+
+    An assignment becomes several segments when it is interrupted, e.g. by a
+    weekend that is not planned (``include_weekends`` off).
+    """
+
+    assignment: Assignment
+    #: Index of the first and last day column covered (inclusive).
+    first: int
+    last: int
+    #: Vertical position within the member's row (0 = top), so overlapping
+    #: bars (e.g. 4h project A + 4h project B) are drawn below each other.
+    lane: int = 0
+    #: The assignment continues before/after the visible period.
+    continues_before: bool = False
+    continues_after: bool = False
+
+    @property
+    def span(self) -> int:
+        return self.last - self.first + 1
+
+
+def build_segments(assignments: list[Assignment], days: list[date]) -> tuple[list[Segment], int]:
+    """Turn assignments into bars per run of consecutive covered days.
+
+    Returns the segments (with a lane each) and the number of lanes needed.
+    """
+    segments: list[Segment] = []
+    for assignment in sorted(assignments, key=lambda a: (a.start_date, a.id or 0)):
+        run_start = None
+        for index, day in enumerate(days + [None]):  # sentinel closes the last run
+            covered = day is not None and assignment.covers(day)
+            if covered and run_start is None:
+                run_start = index
+            elif not covered and run_start is not None:
+                segments.append(Segment(
+                    assignment=assignment, first=run_start, last=index - 1,
+                    continues_before=run_start == 0 and assignment.start_date < days[0],
+                    continues_after=index == len(days) and assignment.end_date > days[-1],
+                ))
+                run_start = None
+
+    # Greedy lane assignment: put each bar in the first lane that is free.
+    lane_ends: list[int] = []
+    for segment in sorted(segments, key=lambda s: (s.first, -s.span)):
+        for lane, end in enumerate(lane_ends):
+            if end < segment.first:
+                segment.lane, lane_ends[lane] = lane, segment.last
+                break
+        else:
+            segment.lane = len(lane_ends)
+            lane_ends.append(segment.last)
+    return segments, len(lane_ends)
+
+
+@dataclass
 class MemberRow:
     """One row in the team overview grid."""
 
@@ -59,6 +116,8 @@ class MemberRow:
     cells: list[DayCell]
     open_tasks: int = 0
     open_task_hours: float = 0.0
+    segments: list[Segment] = field(default_factory=list)
+    lanes: int = 0
 
     def period_load(self, workday_hours: float) -> int:
         """Planned hours as a percentage of the available capacity.
@@ -126,5 +185,7 @@ def build_overview(start: date, weeks: int) -> tuple[list[date], list[MemberRow]
                 )
             )
         count, hours = task_stats.get(user.id, (0, 0.0))
-        rows.append(MemberRow(user=user, cells=cells, open_tasks=count, open_task_hours=hours))
+        segments, lanes = build_segments(by_user.get(user.id, []), days)
+        rows.append(MemberRow(user=user, cells=cells, open_tasks=count, open_task_hours=hours,
+                              segments=segments, lanes=lanes))
     return days, rows
