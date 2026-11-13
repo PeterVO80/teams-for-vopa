@@ -1,0 +1,79 @@
+# ---------------------------------------------------------------------------
+# VOPA Teams - Portainer stack
+#
+# Deploy in Portainer via:  Stacks > Add stack > "Repository"
+#   Repository URL     : https://github.com/petervo80/teams_for_vopa
+#   Repository ref     : refs/heads/main   (or the branch you want to run)
+#   Compose path       : portainer-stack.yml
+#   Authentication     : on, with a GitHub Personal Access Token (private repo)
+#
+# Then set the environment variables under "Environment variables"
+# (see the list below). Portainer clones the repository and builds the image
+# on the Docker host itself, so no image registry is needed.
+#
+# Environment variables (set in Portainer):
+#   SECRET_KEY         required - long random string, e.g. the output of
+#                      python -c "import secrets; print(secrets.token_hex(32))"
+#   POSTGRES_PASSWORD  required - database password
+#   ADMIN_PASSWORD     required - password of the first admin account
+#   POSTGRES_USER      optional (default: vopa)
+#   POSTGRES_DB        optional (default: vopa)
+#   ADMIN_USERNAME     optional (default: admin)
+#   ADMIN_EMAIL        optional
+#   WEB_PORT           optional - port on the Docker host (default: 8000)
+#   WORKDAY_HOURS      optional - hours in a working day for planning (default: 8)
+# ---------------------------------------------------------------------------
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vopa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the stack environment variables}
+      POSTGRES_DB: ${POSTGRES_DB:-vopa}
+    volumes:
+      # Database files. Survives stack updates and re-deploys.
+      - vopa_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vopa} -d ${POSTGRES_DB:-vopa}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+    # No "ports:" on purpose: the database is only reachable from the web container.
+
+  web:
+    # Built from the Dockerfile in the repository. The image gets a fixed name
+    # so it is easy to recognise under Portainer > Images.
+    build: .
+    image: vopa-teams:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-vopa}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vopa}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in the stack environment variables}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in the stack environment variables}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      WORKDAY_HOURS: ${WORKDAY_HOURS:-8}
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    healthcheck:
+      # Shows the container as "healthy" in Portainer once the app answers.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/auth/login', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - backend
+
+volumes:
+  vopa_pgdata:
+
+networks:
+  backend:

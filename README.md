@@ -63,6 +63,36 @@ demo users have the password `demo1234`:
 docker compose exec web flask seed-demo
 ```
 
+### Deploying with Portainer
+
+Use `portainer-stack.yml` for this. Portainer clones the repository and builds
+the image on the Docker host itself.
+
+1. **Stacks → Add stack**, give it a name (e.g. `vopa-teams`), then choose **Repository**.
+2. **Repository URL**: `https://github.com/petervo80/teams_for_vopa`.
+   **Repository reference**: `refs/heads/main` (or the branch you want to run).
+   **Compose path**: `portainer-stack.yml`.
+3. For a private repository, turn on **Authentication**: your GitHub username
+   plus a *Personal Access Token* with read access to the repository.
+4. Under **Environment variables**, add at least:
+   `SECRET_KEY`, `POSTGRES_PASSWORD` and `ADMIN_PASSWORD`. Optional:
+   `WEB_PORT` (default 8000), `ADMIN_USERNAME`, `ADMIN_EMAIL`, `POSTGRES_USER`,
+   `POSTGRES_DB`, `WORKDAY_HOURS`.
+5. **Deploy the stack**. After about 30 seconds the `web` container shows as
+   *healthy* and the app is available at `http://<docker-host>:<WEB_PORT>`.
+
+* **Updating**: open the stack, click **Pull and redeploy**, and turn on
+  *Re-pull image and redeploy*. Migrations run automatically. You can also
+  turn on *GitOps updates* so Portainer polls the repository itself.
+* **Demo data or users**: *Containers → vopa-teams-web-1 → Console* (`/bin/sh`),
+  then for example `flask seed-demo` or `flask create-user jan --name "Jan Peeters"`.
+* **Data** lives in the `<stackname>_vopa_pgdata` volume. Deleting the stack
+  does not delete that volume, unless you remove it yourself under *Volumes*.
+* Don't change `POSTGRES_PASSWORD` after the first deployment: PostgreSQL only
+  sets that password when the database is first created.
+* The *Web editor* method doesn't work here, because it can't build an image
+  from the source code. Use *Repository*.
+
 ### Useful commands
 
 ```bash
