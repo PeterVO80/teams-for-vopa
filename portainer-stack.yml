@@ -20,7 +20,8 @@
 #   POSTGRES_DB        optional (default: vopa)
 #   ADMIN_USERNAME     optional (default: admin)
 #   ADMIN_EMAIL        optional
-#   WEB_PORT           optional - port on the Docker host (default: 8000)
+#   WEB_PORT           optional - port on the Docker host (default: 8080,
+#                      because Portainer itself usually occupies 8000)
 #   WORKDAY_HOURS      optional - hours in a working day for planning (default: 8)
 # ---------------------------------------------------------------------------
 
@@ -61,7 +62,7 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       WORKDAY_HOURS: ${WORKDAY_HOURS:-8}
     ports:
-      - "${WEB_PORT:-8000}:8000"
+      - "${WEB_PORT:-8080}:8000"
     healthcheck:
       # Shows the container as "healthy" in Portainer once the app answers.
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/auth/login', timeout=5)"]

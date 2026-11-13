@@ -76,7 +76,7 @@ the image on the Docker host itself.
    plus a *Personal Access Token* with read access to the repository.
 4. Under **Environment variables**, add at least:
    `SECRET_KEY`, `POSTGRES_PASSWORD` and `ADMIN_PASSWORD`. Optional:
-   `WEB_PORT` (default 8000), `ADMIN_USERNAME`, `ADMIN_EMAIL`, `POSTGRES_USER`,
+   `WEB_PORT` (default 8080; Portainer itself usually occupies port 8000), `ADMIN_USERNAME`, `ADMIN_EMAIL`, `POSTGRES_USER`,
    `POSTGRES_DB`, `WORKDAY_HOURS`.
 5. **Deploy the stack**. After about 30 seconds the `web` container shows as
    *healthy* and the app is available at `http://<docker-host>:<WEB_PORT>`.
