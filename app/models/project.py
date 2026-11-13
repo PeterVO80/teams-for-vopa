@@ -56,6 +56,16 @@ class Project(TimestampMixin, db.Model):
         self.code = next_number(Project.code, current_app.config["PROJECT_CODE_PREFIX"])
 
     @property
+    def customer_label(self) -> str:
+        """Customer and project description, e.g. "Brouwerij De Kroon - Verpakkingslijn L3".
+
+        Used wherever a project is shown in a short label (kanban cards,
+        planning bars), because people know projects by customer and name
+        rather than by project number.
+        """
+        return f"{self.customer} - {self.name}" if self.customer else self.name
+
+    @property
     def display_name(self) -> str:
         return f"{self.code} - {self.name}"
 

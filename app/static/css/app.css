@@ -39,6 +39,9 @@
 .kanban-card:active { cursor: grabbing; }
 .kanban-ghost { opacity: .4; }
 .kanban-card.saving { opacity: .6; }
+/* Customer - project label on a card: wraps onto a second line when it is
+   long, so the full name stays readable (project number in the tooltip). */
+.kanban-project { max-width: 100%; white-space: normal; text-align: left; line-height: 1.3; font-weight: 500; }
 
 /* ---- Team planning board (templates/team/overview.html) ---------------
    Every team member is one CSS grid row-block with the same column template

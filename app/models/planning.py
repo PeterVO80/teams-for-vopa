@@ -100,7 +100,5 @@ class Assignment(TimestampMixin, db.Model):
         "Brouwerij De Kroon - Verpakkingslijn L3"); absences show their type.
         """
         if self.kind == AssignmentKind.PROJECT and self.project:
-            if self.project.customer:
-                return f"{self.project.customer} - {self.project.name}"
-            return self.project.name
+            return self.project.customer_label
         return f"{self.kind.label}: {self.note}" if self.note and self.kind != AssignmentKind.PROJECT else self.kind.label

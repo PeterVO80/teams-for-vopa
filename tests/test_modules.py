@@ -713,3 +713,10 @@ def test_bars_carry_instant_tooltip_content(client):
     assert 'data-tooltip-html="' in html
     attr = html.split('data-tooltip-html="', 1)[1].split('"', 1)[0]
     assert "&lt;div class=&#34;fw-semibold&#34;&gt;" in attr and "<" not in attr
+
+
+def test_kanban_cards_show_customer_and_project(client):
+    html = client.get("/tasks/").get_data(as_text=True)
+    assert 'kanban-project" title="' in html
+    assert ">Brouwerij De Kroon - Verpakkingslijn L3</span>" in html
+    assert ">Aquafin - Waterzuivering SCADA</span>" in html

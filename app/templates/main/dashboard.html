@@ -36,7 +36,7 @@
            href="{{ url_for('tasks.edit', task_id=task.id, next=request.path) }}">
           <div class="me-auto">
             <div>{{ task.title }} {{ priority_badge(task.priority) }}</div>
-            <small class="text-body-secondary">{{ task.project.code if task.project else 'Geen project' }}</small>
+            <small class="text-body-secondary">{{ task.project.customer_label if task.project else 'Geen project' }}</small>
           </div>
           {% if task.due_date %}<small class="{{ 'text-danger fw-semibold' if task.is_overdue else 'text-body-secondary' }}">{{ task.due_date|date }}</small>{% endif %}
           {{ task_status_badge(task.status) }}

@@ -47,7 +47,7 @@
         <div class="card-body p-2">
           <a class="stretched-link text-body text-decoration-none fw-medium" href="{{ url_for('tasks.edit', task_id=task.id, next=request.full_path) }}">{{ task.title }}</a>
           <div class="d-flex flex-wrap align-items-center gap-1 mt-2 small">
-            {% if task.project %}<span class="badge text-bg-light border">{{ task.project.code }}</span>{% endif %}
+            {% if task.project %}<span class="badge text-bg-light border kanban-project" title="{{ task.project.code }} · {{ task.project.customer_label }}">{{ task.project.customer_label }}</span>{% endif %}
             {{ priority_badge(task.priority) }}
             {% if task.due_date %}<span class="text-nowrap {{ 'text-danger fw-semibold' if task.is_overdue else 'text-body-secondary' }}"><i class="bi bi-calendar-event"></i> {{ task.due_date|date('%d/%m') }}</span>{% endif %}
             <span class="ms-auto">{{ avatar(task.assignee) }}</span>
