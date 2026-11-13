@@ -1,5 +1,6 @@
 {#
-  Team planning grid: one row per person, one column per working day.
+  Team planning board: one row per person, one column per day; week view
+  or month view (services/workload.py: PlanningPeriod).
   Cell colour = load level (see services/workload.py).
   Click a day, or click-and-drag over several days in one row, to plan that
   person for that period (static/js/team.js). Planning opens in a popup.
@@ -13,19 +14,9 @@
    data-modal-url="{{ url_for('team.edit_assignment') }}"><i class="bi bi-plus-lg"></i> Inplannen</a>
 {% endblock %}
 {% block content %}
-<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-  <div class="btn-group">
-    <a class="btn btn-outline-secondary" href="{{ url_for('team.overview', start=prev_start.isoformat(), weeks=weeks) }}"><i class="bi bi-chevron-left"></i></a>
-    <a class="btn btn-outline-secondary" href="{{ url_for('team.overview', weeks=weeks) }}">Vandaag</a>
-    <a class="btn btn-outline-secondary" href="{{ url_for('team.overview', start=next_start.isoformat(), weeks=weeks) }}"><i class="bi bi-chevron-right"></i></a>
-  </div>
-  <span class="fw-semibold">{{ days[0]|date }} – {{ days[-1]|date }}</span>
-  <div class="btn-group ms-auto">
-    {% for w in (1, 2, 4, 8) %}
-    <a class="btn btn-sm {{ 'btn-secondary' if weeks == w else 'btn-outline-secondary' }}" href="{{ url_for('team.overview', start=start.isoformat(), weeks=w) }}">{{ w }} w</a>
-    {% endfor %}
-  </div>
-</div>
+{% with nav_endpoint = 'team.overview', nav_args = {}, prefix = '', anchor = '', week_options = (1, 2, 4, 8), extra_start = None %}
+  {% include "team/_period_nav.html" %}
+{% endwith %}
 
 {% include "team/_board.html" %}
 {% endblock %}

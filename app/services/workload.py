@@ -150,10 +150,71 @@ def monday_of(day: date) -> date:
     return day - timedelta(days=day.weekday())
 
 
-def build_overview(start: date, weeks: int) -> tuple[list[date], list[MemberRow]]:
-    """Return the list of days and a row per active user for the given period."""
-    days = period_days(start, weeks)
-    end = start + timedelta(days=weeks * 7 - 1)
+MONTHS_NL = ["januari", "februari", "maart", "april", "mei", "juni", "juli",
+             "augustus", "september", "oktober", "november", "december"]
+
+
+@dataclass
+class PlanningPeriod:
+    """The period shown on a planning board: a number of weeks or one month.
+
+    * ``weeks`` view: ``weeks`` whole weeks starting on a Monday;
+    * ``month`` view: every day of one calendar month, in narrower columns,
+      to see a whole month at a glance.
+    """
+
+    view: str
+    start: date
+    days: list[date]
+    weeks: int
+    prev_start: date
+    next_start: date
+
+    @property
+    def is_month(self) -> bool:
+        return self.view == "month"
+
+    @property
+    def title(self) -> str:
+        if self.is_month:
+            return f"{MONTHS_NL[self.start.month - 1]} {self.start.year}"
+        return f"{self.days[0]:%d/%m/%Y} – {self.days[-1]:%d/%m/%Y}"
+
+
+def _add_months(day: date, months: int) -> date:
+    """First day of the month ``months`` months after the month of ``day``."""
+    index = day.year * 12 + day.month - 1 + months
+    return date(index // 12, index % 12 + 1, 1)
+
+
+def planning_period(view: str | None, start: str | None, weeks: int | None,
+                    default_weeks: int = 2, max_weeks: int = 8) -> PlanningPeriod:
+    """Build the period from query string values (invalid values fall back to today)."""
+    try:
+        anchor = date.fromisoformat(start) if start else date.today()
+    except ValueError:
+        anchor = date.today()
+    if view == "month":
+        first = anchor.replace(day=1)
+        next_first = _add_months(first, 1)
+        days = [first + timedelta(days=i) for i in range((next_first - first).days)]
+        return PlanningPeriod("month", first, days, weeks or default_weeks,
+                              _add_months(first, -1), next_first)
+    weeks = min(max(weeks or default_weeks, 1), max_weeks)
+    monday = monday_of(anchor)
+    return PlanningPeriod("weeks", monday, period_days(monday, weeks), weeks,
+                          monday - timedelta(weeks=weeks), monday + timedelta(weeks=weeks))
+
+
+def build_overview(start: date, weeks: int | None = None, *, days: list[date] | None = None
+                   ) -> tuple[list[date], list[MemberRow]]:
+    """Return the list of days and a row per active user for the given period.
+
+    Pass either ``start`` + ``weeks`` or an explicit list of consecutive ``days``.
+    """
+    if days is None:
+        days = period_days(start, weeks)
+    start, end = days[0], days[-1]
 
     users = db.session.scalars(
         sa.select(User).where(User.active.is_(True)).order_by(User.full_name)

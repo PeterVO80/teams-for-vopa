@@ -8,7 +8,7 @@ from flask import current_app, flash, jsonify, redirect, render_template, reques
 from ..extensions import db
 from ..forms import AssignmentForm, none_if_zero
 from ..models import Assignment, AssignmentKind, Project, User
-from ..services.workload import build_overview, monday_of
+from ..services.workload import build_overview, planning_period
 from ..utils import int_arg, is_modal_request, next_url
 from . import protected_blueprint
 
@@ -17,23 +17,19 @@ bp = protected_blueprint("team", __name__)
 
 @bp.route("/")
 def overview():
-    """Planning grid: team members x working days."""
-    try:
-        start = date.fromisoformat(request.args["start"])
-    except (KeyError, ValueError):
-        start = date.today()
-    start = monday_of(start)
-    weeks = min(max(request.args.get("weeks", 2, type=int), 1), 8)
+    """Planning board: team members x days, as a week view or a month view.
 
-    days, rows = build_overview(start, weeks)
+    Query string: ``view`` (weeks|month), ``start`` (any date in the period),
+    ``weeks`` (number of weeks in the week view).
+    """
+    period = planning_period(request.args.get("view"), request.args.get("start"),
+                             request.args.get("weeks", type=int), default_weeks=2, max_weeks=8)
+    days, rows = build_overview(period.start, days=period.days)
     return render_template(
         "team/overview.html",
+        period=period,
         days=days,
         rows=rows,
-        start=start,
-        weeks=weeks,
-        prev_start=start - timedelta(weeks=weeks),
-        next_start=start + timedelta(weeks=weeks),
         workday_hours=current_app.config["WORKDAY_HOURS"],
     )
 

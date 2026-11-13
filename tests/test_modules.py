@@ -666,3 +666,41 @@ def test_planning_popup_prefills_project(client):
     html = client.get(f"/team/assignments/new?user=2&day=2026-11-16&project={project.id}",
                       headers={"X-Modal": "1"}).get_data(as_text=True)
     assert f'<option selected value="{project.id}">' in html
+
+
+# ------------------------------------------------------- week / month view
+def test_planning_period_month_and_weeks():
+    from datetime import date
+    from app.services.workload import planning_period
+
+    month = planning_period("month", "2026-11-18", None)
+    assert month.start == date(2026, 11, 1) and len(month.days) == 30
+    assert month.prev_start == date(2026, 10, 1) and month.next_start == date(2026, 12, 1)
+    assert month.title == "november 2026"
+    december = planning_period("month", "2026-12-05", None)
+    assert december.next_start == date(2027, 1, 1) and len(december.days) == 31
+    weeks = planning_period("weeks", "2026-11-18", 2)
+    assert weeks.start == date(2026, 11, 16) and len(weeks.days) == 14
+    assert planning_period("weeks", "rubbish", 99, max_weeks=8).weeks == 8
+
+
+def test_team_month_view(client):
+    html = client.get("/team/?view=month&start=2026-02-10").get_data(as_text=True)
+    assert "februari 2026" in html and "planning-compact" in html
+    assert html.count('class="pl-day') == 28
+    # Navigation keeps the month view.
+    assert "view=month&amp;start=2026-01-01" in html and "view=month&amp;start=2026-03-01" in html
+
+
+def test_project_tab_month_view(client):
+    from app.models import Project
+    project = db.session.scalar(sa.select(Project))
+    html = client.get(f"/projects/{project.id}?planning_view=month&planning_start=2026-11-01").get_data(as_text=True)
+    board = html.split('id="tab-planning"', 1)[1]
+    assert "november 2026" in board and board.count('class="pl-day') == 30
+    assert f"/projects/{project.id}?planning_view=month&amp;planning_start=2026-12-01#planning" in board
+
+
+def test_day_columns_have_a_maximum_width(client):
+    html = client.get("/team/?view=weeks&weeks=1").get_data(as_text=True)
+    assert "minmax(2.8rem, 7rem)" in html and "1fr" not in html.split("--planning-columns", 1)[1].split(";", 1)[0]

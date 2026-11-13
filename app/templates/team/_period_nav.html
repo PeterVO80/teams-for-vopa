@@ -1,0 +1,37 @@
+{#
+  Navigation for a planning board: previous / today / next, week or month
+  view and (week view) the number of weeks.
+  Expects: period (services/workload.py: PlanningPeriod), nav_endpoint,
+  nav_args (dict of fixed URL arguments), prefix ('' or 'planning_' - the
+  name prefix of the query parameters), anchor ('' or '#planning'),
+  week_options (tuple of week counts).
+#}
+{% macro nav_url(start=None, view=None, weeks=None) -%}
+  {%- set args = dict(nav_args) -%}
+  {%- set _ = args.update({prefix ~ 'view': view or period.view}) -%}
+  {%- if start %}{% set _ = args.update({prefix ~ 'start': start.isoformat()}) %}{% endif -%}
+  {%- if (view or period.view) == 'weeks' %}{% set _ = args.update({prefix ~ 'weeks': weeks or period.weeks}) %}{% endif -%}
+  {{ url_for(nav_endpoint, **args) }}{{ anchor }}
+{%- endmacro %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <div class="btn-group btn-group-sm">
+    <a class="btn btn-outline-secondary" href="{{ nav_url(start=period.prev_start) }}" title="Vorige {{ 'maand' if period.is_month else 'periode' }}"><i class="bi bi-chevron-left"></i></a>
+    <a class="btn btn-outline-secondary" href="{{ nav_url() }}">Vandaag</a>
+    {% if extra_start %}<a class="btn btn-outline-secondary" href="{{ nav_url(start=extra_start) }}" title="Naar de startdatum van het project">Projectstart</a>{% endif %}
+    <a class="btn btn-outline-secondary" href="{{ nav_url(start=period.next_start) }}" title="Volgende {{ 'maand' if period.is_month else 'periode' }}"><i class="bi bi-chevron-right"></i></a>
+  </div>
+  <span class="fw-semibold {{ 'text-capitalize' if period.is_month }}">{{ period.title }}</span>
+  <div class="ms-auto d-flex gap-2">
+    {% if not period.is_month %}
+    <div class="btn-group btn-group-sm">
+      {% for w in week_options %}
+      <a class="btn {{ 'btn-secondary' if period.weeks == w else 'btn-outline-secondary' }}" href="{{ nav_url(start=period.start, weeks=w) }}">{{ w }} w</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="btn-group btn-group-sm" role="group" aria-label="Weergave">
+      <a class="btn {{ 'btn-secondary' if not period.is_month else 'btn-outline-secondary' }}" href="{{ nav_url(start=period.start, view='weeks') }}"><i class="bi bi-calendar-week"></i> Week</a>
+      <a class="btn {{ 'btn-secondary' if period.is_month else 'btn-outline-secondary' }}" href="{{ nav_url(start=period.start, view='month') }}"><i class="bi bi-calendar3"></i> Maand</a>
+    </div>
+  </div>
+</div>

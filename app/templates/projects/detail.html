@@ -111,23 +111,14 @@
   </div>
   <div class="tab-pane fade p-3" id="tab-planning">
     {# Same board as the team overview, focused on this project (team/_board.html). #}
-    {% set nav = {'project_id': project.id, 'planning_weeks': planning_weeks} %}
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-      <div class="btn-group btn-group-sm">
-        <a class="btn btn-outline-secondary" href="{{ url_for('projects.detail', planning_start=planning_prev.isoformat(), **nav) }}#planning"><i class="bi bi-chevron-left"></i></a>
-        <a class="btn btn-outline-secondary" href="{{ url_for('projects.detail', **nav) }}#planning">Vandaag</a>
-        {% if project.start_date %}<a class="btn btn-outline-secondary" href="{{ url_for('projects.detail', planning_start=project.start_date.isoformat(), **nav) }}#planning" title="Naar de startdatum van het project">Projectstart</a>{% endif %}
-        <a class="btn btn-outline-secondary" href="{{ url_for('projects.detail', planning_start=planning_next.isoformat(), **nav) }}#planning"><i class="bi bi-chevron-right"></i></a>
-      </div>
-      <span class="fw-semibold small">{{ planning_days[0]|date }} – {{ planning_days[-1]|date }}</span>
-      <div class="btn-group btn-group-sm ms-auto">
-        {% for w in (2, 4, 8, 12) %}
-        <a class="btn {{ 'btn-secondary' if planning_weeks == w else 'btn-outline-secondary' }}" href="{{ url_for('projects.detail', project_id=project.id, planning_start=planning_start.isoformat(), planning_weeks=w) }}#planning">{{ w }} w</a>
-        {% endfor %}
-      </div>
+    {% with period = planning_period, nav_endpoint = 'projects.detail', nav_args = {'project_id': project.id},
+            prefix = 'planning_', anchor = '#planning', week_options = (2, 4, 8, 12), extra_start = project.start_date %}
+      {% include "team/_period_nav.html" %}
+    {% endwith %}
+    <div class="text-end mb-2 mt-n2">
       <button class="btn btn-sm btn-primary" data-modal-url="{{ url_for('team.edit_assignment', project=project.id) }}"><i class="bi bi-plus-lg"></i> Inplannen</button>
     </div>
-    {% with days = planning_days, rows = planning_rows, focus_project = project %}{% include "team/_board.html" %}{% endwith %}
+    {% with days = planning_days, rows = planning_rows, focus_project = project, period = planning_period %}{% include "team/_board.html" %}{% endwith %}
 
     <h2 class="h6 mt-4">Alle planning voor dit project</h2>
     {% set ns = namespace(days=0, hours=0) %}
