@@ -5,7 +5,7 @@ assignment is a **project**. All modules hang off that project:
 
 | Module | What it does |
 |---|---|
-| **Projects** | Project card with customer, project manager and timeline, plus an overview of the project's tasks, orders and notes. |
+| **Projects** | Automatic project code (`PRJ/2026/0001`, numbering restarts each year), project card with customer, project manager and timeline, plus an overview of the project's tasks, orders and notes. |
 | **Purchasing** | Purchase orders per project/supplier, order lines pulled from the article database, **delivery tracking per line** (partial deliveries, delivery notes, who received it). Order status updates automatically. A list of all outstanding deliveries. Excel export per order. |
 | **Articles** | Article database with search and filters. **Excel import/export** (round trip: export → edit in Excel → import). |
 | **Punch list** | Kanban board with *New · In progress · On hold · Done · Cancelled*. Drag & drop, filters per project/team member, priority, deadline and estimate. |
@@ -77,7 +77,7 @@ the image on the Docker host itself.
 4. Under **Environment variables**, add at least:
    `SECRET_KEY`, `POSTGRES_PASSWORD` and `ADMIN_PASSWORD`. Optional:
    `WEB_PORT` (default 8080; Portainer itself usually occupies port 8000), `ADMIN_USERNAME`, `ADMIN_EMAIL`, `POSTGRES_USER`,
-   `POSTGRES_DB`, `WORKDAY_HOURS`.
+   `POSTGRES_DB`, `WORKDAY_HOURS`, `PROJECT_CODE_PREFIX`.
 5. **Deploy the stack**. After about 30 seconds the `web` container shows as
    *healthy* and the app is available at `http://<docker-host>:<WEB_PORT>`.
 

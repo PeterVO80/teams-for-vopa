@@ -34,6 +34,7 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      PROJECT_CODE_PREFIX: ${PROJECT_CODE_PREFIX:-PRJ}
     ports:
       - "${WEB_PORT:-8000}:8000"
 

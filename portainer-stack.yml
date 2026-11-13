@@ -23,6 +23,8 @@
 #   WEB_PORT           optional - port on the Docker host (default: 8080,
 #                      because Portainer itself usually occupies 8000)
 #   WORKDAY_HOURS      optional - hours in a working day for planning (default: 8)
+#   PROJECT_CODE_PREFIX optional - prefix of automatic project codes
+#                      (default: PRJ  ->  PRJ/2026/0001)
 # ---------------------------------------------------------------------------
 
 services:
@@ -65,6 +67,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in the stack environment variables}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       WORKDAY_HOURS: ${WORKDAY_HOURS:-8}
+      PROJECT_CODE_PREFIX: ${PROJECT_CODE_PREFIX:-PRJ}
     ports:
       - "${WEB_PORT:-8080}:8000"
     healthcheck:

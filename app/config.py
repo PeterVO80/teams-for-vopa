@@ -28,6 +28,10 @@ class Config:
     #: Number of rows shown per page in paginated list views.
     ITEMS_PER_PAGE = 50
 
+    #: Project codes are generated automatically as ``<prefix>/<year>/<seq>``,
+    #: e.g. ``PRJ/2026/0001``. The sequence restarts every calendar year.
+    PROJECT_CODE_PREFIX = os.environ.get("PROJECT_CODE_PREFIX", "PRJ")
+
     #: Default number of working hours in one day, used by the team planning
     #: to express workload as a percentage.
     WORKDAY_HOURS = float(os.environ.get("WORKDAY_HOURS", 8))

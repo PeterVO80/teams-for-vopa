@@ -18,6 +18,7 @@ from ..models import (
     PurchaseOrder,
     PurchaseOrderLine,
 )
+from ..services.numbering import next_number
 from ..utils import int_arg, next_url
 from . import protected_blueprint
 
@@ -25,19 +26,12 @@ bp = protected_blueprint("purchasing", __name__)
 
 
 def _next_order_number() -> str:
-    """Suggest the next order number in the form ``PO-<year>-<0001>``."""
-    prefix = f"PO-{date.today():%Y}-"
-    last = db.session.scalar(
-        sa.select(PurchaseOrder.number)
-        .where(PurchaseOrder.number.like(f"{prefix}%"))
-        .order_by(PurchaseOrder.number.desc())
-        .limit(1)
-    )
-    try:
-        seq = int(last.removeprefix(prefix)) + 1 if last else 1
-    except ValueError:
-        seq = 1
-    return f"{prefix}{seq:04d}"
+    """Suggest the next order number, e.g. ``PO-2026-0001``.
+
+    Unlike project codes, order numbers stay editable (some customers or
+    suppliers impose their own reference), so this is only a suggestion.
+    """
+    return next_number(PurchaseOrder.number, "PO", separator="-")
 
 
 @bp.route("/")

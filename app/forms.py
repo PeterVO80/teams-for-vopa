@@ -86,7 +86,6 @@ class UserForm(FlaskForm):
 
 # --------------------------------------------------------------- projects
 class ProjectForm(FlaskForm):
-    code = StringField("Projectcode", validators=[DataRequired(), Length(max=30)])
     name = StringField("Naam", validators=[DataRequired(), Length(max=200)])
     customer = StringField("Klant", validators=[Optional(), Length(max=200)])
     status = SelectField("Status", choices=ProjectStatus.choices(), default="active")

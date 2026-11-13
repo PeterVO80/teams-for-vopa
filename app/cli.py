@@ -110,12 +110,15 @@ def _seed_demo_data() -> None:
             db.session.add(user)
         team.append(user)
 
-    p1 = Project(code="P2026-014", name="Verpakkingslijn L3", customer="Brouwerij De Kroon",
+    p1 = Project(name="Verpakkingslijn L3", customer="Brouwerij De Kroon",
                  start_date=monday - timedelta(days=30), end_date=monday + timedelta(days=60),
                  manager=team[0], description="Retrofit van de PLC-sturing van verpakkingslijn 3.")
-    p2 = Project(code="P2026-021", name="Waterzuivering SCADA", customer="Aquafin",
+    p2 = Project(name="Waterzuivering SCADA", customer="Aquafin",
                  start_date=monday, end_date=monday + timedelta(days=90), manager=team[1])
-    db.session.add_all([p1, p2])
+    for project in (p1, p2):  # automatic codes: PRJ/<year>/0001, 0002
+        project.assign_code()
+        db.session.add(project)
+        db.session.flush()
 
     articles = [
         Article(article_number="A-1001", description="Siemens S7-1200 CPU 1214C DC/DC/DC",
@@ -135,7 +138,7 @@ def _seed_demo_data() -> None:
     ]
     db.session.add_all(articles)
 
-    order = PurchaseOrder(number="PO-2026-0101", project=p1, supplier="Rexel",
+    order = PurchaseOrder(number=f"PO-{today:%Y}-0101", project=p1, supplier="Rexel",
                           status=OrderStatus.ORDERED, order_date=today - timedelta(days=7),
                           expected_date=today + timedelta(days=3), created_by=team[0])
     for article, qty in [(articles[0], 2), (articles[1], 1)]:

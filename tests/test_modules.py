@@ -198,3 +198,79 @@ def test_markdown_is_sanitised(app):
 
 def test_slugify():
     assert slugify("Siemens S7 – Tips & Tricks") == "siemens-s7-tips-tricks"
+
+
+# ------------------------------------------------------- automatic numbering
+def test_new_project_gets_next_code_and_ignores_form_input(client):
+    from datetime import date
+
+    from app.models import Project
+
+    year = date.today().year
+    # Demo data already created PRJ/<year>/0001 and 0002.
+    response = client.post("/projects/new", data={
+        "code": "HACK-1", "name": "Nieuwe lijn", "status": "active", "manager_id": 0,
+    })
+    assert response.status_code == 302
+    project = db.session.scalar(sa.select(Project).filter_by(name="Nieuwe lijn"))
+    assert project.code == f"PRJ/{year}/0003"
+
+
+def test_project_code_does_not_change_on_edit(client):
+    from app.models import Project
+
+    project = db.session.scalar(sa.select(Project))
+    original = project.code
+    client.post(f"/projects/{project.id}/edit", data={
+        "name": "Hernoemd", "status": "active", "manager_id": 0,
+    })
+    db.session.refresh(project)
+    assert project.name == "Hernoemd" and project.code == original
+
+
+def test_next_number_sequence_rules(app):
+    from app.models import Project
+    from app.services.numbering import next_number
+
+    db.session.add_all([
+        Project(code="PRJ/2025/0042", name="Vorig jaar"),
+        Project(code="PRJ/2030/9999", name="Hoog"),
+        Project(code="PRJ/2030/10000", name="Voorbij 4 cijfers"),
+        Project(code="P2030-777", name="Oude handmatige code"),
+    ])
+    db.session.commit()
+    # Numbers are compared numerically, old-style codes are ignored.
+    assert next_number(Project.code, "PRJ", year=2030) == "PRJ/2030/10001"
+    # Every year starts again at 0001.
+    assert next_number(Project.code, "PRJ", year=2031) == "PRJ/2031/0001"
+
+
+def test_concurrent_code_collision_is_retried(app):
+    """Simulate a colleague taking the same code between computing and saving."""
+    from datetime import date
+
+    from app.models import Project
+    from app.services.numbering import insert_with_unique_number
+
+    year = date.today().year
+    project = Project(name="Gelijktijdig")
+    attempts = []
+
+    def assign():
+        # First attempt deliberately reuses an existing code -> UNIQUE violation.
+        attempts.append(1)
+        if len(attempts) == 1:
+            project.code = f"PRJ/{year}/0001"
+        else:
+            project.assign_code()
+
+    insert_with_unique_number(project, assign)
+    db.session.commit()
+    assert len(attempts) == 2 and project.code == f"PRJ/{year}/0003"
+
+
+def test_order_number_suggestion(client):
+    from datetime import date
+
+    html = client.get("/purchasing/new").get_data(as_text=True)
+    assert f"PO-{date.today().year}-0102" in html  # demo order is PO-<year>-0101

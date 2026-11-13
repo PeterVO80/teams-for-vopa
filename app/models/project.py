@@ -24,7 +24,9 @@ class Project(TimestampMixin, db.Model):
     __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    #: Short unique reference, e.g. ``P2026-014``.
+    #: Unique reference, generated automatically: ``PRJ/2026/0001`` (see
+    #: :meth:`assign_code`). Projects created before automatic numbering keep
+    #: their original code.
     code: Mapped[str] = mapped_column(sa.String(30), unique=True, index=True)
     name: Mapped[str] = mapped_column(sa.String(200))
     customer: Mapped[str | None] = mapped_column(sa.String(200))
@@ -37,6 +39,19 @@ class Project(TimestampMixin, db.Model):
     manager_id: Mapped[int | None] = mapped_column(sa.ForeignKey("users.id"))
 
     manager = relationship("User")
+
+    def assign_code(self) -> None:
+        """Give this project the next automatic code, e.g. ``PRJ/2026/0001``.
+
+        The code is assigned once, when the project is created, and never
+        changes afterwards (it is printed on documents and used in folder
+        names, so it must stay stable).
+        """
+        from flask import current_app
+
+        from ..services.numbering import next_number
+
+        self.code = next_number(Project.code, current_app.config["PROJECT_CODE_PREFIX"])
 
     @property
     def display_name(self) -> str:
