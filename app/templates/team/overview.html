@@ -52,7 +52,8 @@
 
   {% for row in rows %}
   {% set load = row.period_load(workday_hours) %}
-  <div class="planning-row" style="--lanes: {{ [row.lanes, 1]|max }}">
+  <div class="planning-row" style="--lanes: {{ [row.lanes, 1]|max }}"
+       data-user="{{ row.user.id }}" data-color="{{ row.user.color }}" data-text-color="{{ row.user.color|text_on }}">
     <div class="pl-name text-nowrap">{{ avatar(row.user) }} {{ row.user.full_name }}</div>
     <div class="pl-meta">
       <span class="badge {{ 'text-bg-danger' if load > 100 else 'text-bg-success' if load >= 80 else 'text-bg-warning' if load > 0 else 'text-bg-light border' }}">{{ load }}%</span>
@@ -68,13 +69,19 @@
     {% endfor %}
     {% for seg in row.segments %}
     {% set a = seg.assignment %}
+    {# data-* attributes are used by static/js/team.js to resize and move bars. #}
     <a class="planning-chip {{ 'absence' if a.kind.is_absence }} {{ 'continues-before' if seg.continues_before }} {{ 'continues-after' if seg.continues_after }}"
        style="grid-column: {{ seg.first + 4 }} / span {{ seg.span }}; grid-row: {{ seg.lane + 1 }}; background-color: {{ row.user.color }}; color: {{ row.user.color|text_on }}"
        href="{{ url_for('team.edit_assignment', assignment_id=a.id, next=request.full_path) }}"
        data-modal-url="{{ url_for('team.edit_assignment', assignment_id=a.id) }}"
+       data-assignment="{{ a.id }}" data-start="{{ a.start_date.isoformat() }}" data-end="{{ a.end_date.isoformat() }}"
+       data-first="{{ seg.first }}" data-last="{{ seg.last }}"
+       data-reschedule-url="{{ url_for('team.reschedule_assignment', assignment_id=a.id) }}"
        title="{{ a.label }}{% if a.project %} ({{ a.project.code }}){% endif %}&#10;{{ a.start_date|date }} – {{ a.end_date|date }} · {{ a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') }}u/dag{% if a.include_weekends %} · incl. weekend{% endif %}{% if a.note and not a.kind.is_absence %}&#10;{{ a.note }}{% endif %}">
       {%- if a.kind.is_absence %}<i class="bi bi-{{ {'leave': 'sun', 'sick': 'thermometer-half', 'training': 'mortarboard'}[a.kind.value] }}"></i> {% endif -%}
       {{ a.label }}{% if a.hours_per_day < workday_hours %} <span class="opacity-75">· {{ a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') }}u</span>{% endif %}
+      {%- if seg.is_first and not seg.continues_before %}<span class="bar-handle start" title="Sleep om de startdatum te wijzigen"></span>{% endif %}
+      {%- if seg.is_last and not seg.continues_after %}<span class="bar-handle end" title="Sleep om de einddatum te wijzigen"></span>{% endif %}
     </a>
     {% endfor %}
   </div>
@@ -90,6 +97,7 @@
   <span><span class="legend level-over"></span> Overboekt</span>
   <span><span class="legend level-absent"></span> Afwezig</span>
   <span>· Balken hebben de kleur van de medewerker (in te stellen bij Gebruikers).</span>
+  <span>· Sleep een balk naar andere dagen of een andere medewerker; sleep aan de linker- of rechterrand om de periode in te korten of te verlengen.</span>
   <span>· Klik op een dag, of klik en sleep over meerdere dagen, om in te plannen.</span>
 </div>
 {% endblock %}

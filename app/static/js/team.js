@@ -9,7 +9,16 @@
  *    Pointer events are used, so this works with mouse, pen and touch (on a
  *    touch screen a drag scrolls the table, a tap selects a day).
  *
- * 2. Behaviour of the planning form (popup and full page)
+ * 2. Changing planning bars directly on the board
+ *    - drag the left/right edge of a bar: change the start/end date;
+ *    - drag the bar itself: move it to other days (same duration) and/or to
+ *      another team member's row.
+ *    A preview follows the pointer; on release the change is saved
+ *    (POST data-reschedule-url) and the board reloads. Escape cancels.
+ *    Moving less than a few pixels counts as a click: that still opens the
+ *    edit popup.
+ *
+ * 3. Behaviour of the planning form (popup and full page)
  *    - the project selector is only shown for type "Project";
  *    - moving the start date past the end date moves the end date along;
  *    - choosing a Saturday/Sunday as start or end ticks "plan weekend days".
@@ -77,7 +86,171 @@
     window.ModalForm?.element.addEventListener("hidden.bs.modal", clearSelection);
   }
 
-  // ------------------------------------------------------- 2. the form
+  // ------------------------------------------- 2. resize / move bars
+  const DRAG_THRESHOLD = 5;   // pixels before a press on a bar becomes a drag
+  let drag = null;            // state of the bar being dragged (see pointerdown)
+  let suppressClick = false;  // swallow the click that follows a drag
+
+  const rowOf = (el) => el.closest(".planning-row");
+  const cellsOf = (row) => [...row.querySelectorAll(".planning-cell")];
+
+  /** Day column index under x, clamped to the visible period. */
+  function indexAtX(row, x) {
+    const cells = cellsOf(row);
+    const index = cells.findIndex((c) => {
+      const r = c.getBoundingClientRect();
+      return x >= r.left && x < r.right;
+    });
+    if (index !== -1) return index;
+    return x < cells[0].getBoundingClientRect().left ? 0 : cells.length - 1;
+  }
+
+  /** ISO date plus n days (noon avoids daylight-saving surprises). */
+  function addDays(iso, n) {
+    const d = new Date(`${iso}T12:00:00`);
+    d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  function place(el, first, last) {
+    el.style.gridColumn = `${first + 4} / span ${last - first + 1}`;  // 3 fixed columns before the days
+  }
+
+  function startDrag() {
+    drag.active = true;
+    const { bar } = drag;
+    drag.originalColumn = bar.style.gridColumn;
+    if (drag.mode === "move") {
+      drag.ghost = bar.cloneNode(true);
+      drag.ghost.classList.add("drag-ghost");
+      drag.ghost.removeAttribute("data-modal-url");
+      grid.querySelectorAll(`[data-assignment="${bar.dataset.assignment}"]`)
+        .forEach((b) => b.classList.add("drag-source"));
+      grid.classList.add("dragging");
+    } else {
+      grid.classList.add("resizing");
+    }
+  }
+
+  function updateDrag(event) {
+    const { bar } = drag;
+    const first = Number(bar.dataset.first);
+    const last = Number(bar.dataset.last);
+
+    if (drag.mode === "start" || drag.mode === "end") {
+      const cells = cellsOf(drag.row);
+      const index = indexAtX(drag.row, event.clientX);
+      if (drag.mode === "start") {
+        const newFirst = Math.min(index, last);
+        place(bar, newFirst, last);
+        drag.result = { start: cells[newFirst].dataset.day, end: bar.dataset.end, user: drag.row.dataset.user };
+      } else {
+        const newLast = Math.max(index, first);
+        place(bar, first, newLast);
+        drag.result = { start: bar.dataset.start, end: cells[newLast].dataset.day, user: drag.row.dataset.user };
+      }
+      return;
+    }
+
+    // Move: the row under the pointer is the new team member.
+    const hovered = document.elementFromPoint(event.clientX, event.clientY)?.closest(".planning-row:not(.planning-head)");
+    if (hovered && grid.contains(hovered)) drag.targetRow = hovered;
+    const row = drag.targetRow;
+    const delta = indexAtX(row, event.clientX) - drag.originIndex;  // one column = one day
+    const count = cellsOf(row).length;
+    const ghost = drag.ghost;
+    if (ghost.parentElement !== row) {
+      row.appendChild(ghost);
+      ghost.style.gridRow = "1";
+      ghost.style.backgroundColor = row.dataset.color;
+      ghost.style.color = row.dataset.textColor;
+    }
+    place(ghost, Math.max(0, Math.min(count - 1, first + delta)), Math.max(0, Math.min(count - 1, last + delta)));
+    drag.result = {
+      start: addDays(bar.dataset.start, delta),
+      end: addDays(bar.dataset.end, delta),
+      user: row.dataset.user,
+    };
+  }
+
+  function endDrag(save) {
+    const d = drag;
+    drag = null;
+    grid.classList.remove("dragging", "resizing");
+    if (!d || !d.active) return;
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 0);
+
+    const unchanged = !d.result || (d.result.start === d.bar.dataset.start && d.result.end === d.bar.dataset.end
+      && d.result.user === rowOf(d.bar).dataset.user);
+    if (!save || unchanged) {  // cancelled or nothing changed: restore
+      d.bar.style.gridColumn = d.originalColumn;
+      d.ghost?.remove();
+      grid.querySelectorAll(".drag-source").forEach((b) => b.classList.remove("drag-source"));
+      return;
+    }
+    reschedule(d.bar.dataset.rescheduleUrl, d.result);
+  }
+
+  async function reschedule(url, result) {
+    const token = document.querySelector('meta[name="csrf-token"]').content;
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": token },
+        body: JSON.stringify({ start_date: result.start, end_date: result.end, user_id: Number(result.user) }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) alert(data.error || "Opslaan mislukt.");
+    } catch (error) {
+      alert("Opslaan mislukt - controleer de verbinding.");
+    }
+    window.location.reload();  // redraw bars, lanes and load colours
+  }
+
+  if (grid) {
+    grid.addEventListener("pointerdown", (event) => {
+      const bar = event.target.closest(".planning-chip[data-assignment]");
+      if (!bar || event.button !== 0 || bar.classList.contains("drag-ghost")) return;
+      const handle = event.target.closest(".bar-handle");
+      drag = {
+        bar,
+        mode: handle ? (handle.classList.contains("start") ? "start" : "end") : "move",
+        x: event.clientX,
+        y: event.clientY,
+        active: false,
+        row: rowOf(bar),
+        targetRow: rowOf(bar),
+        originIndex: indexAtX(rowOf(bar), event.clientX),
+      };
+      if (event.pointerType === "mouse") event.preventDefault();  // no text selection / native link drag
+    });
+
+    document.addEventListener("pointermove", (event) => {
+      if (!drag) return;
+      if (!drag.active) {
+        if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < DRAG_THRESHOLD) return;
+        startDrag();
+      }
+      updateDrag(event);
+    });
+    document.addEventListener("pointerup", () => endDrag(true));
+    document.addEventListener("pointercancel", () => endDrag(false));
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape" && drag) endDrag(false); });
+    // A drag ends with a click on the bar: don't let it open the popup.
+    document.addEventListener("click", (event) => {
+      if (suppressClick && event.target.closest(".planning-chip")) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    }, true);
+    // Links are natively draggable; that would interfere with moving bars.
+    grid.addEventListener("dragstart", (event) => {
+      if (event.target.closest?.(".planning-chip")) event.preventDefault();
+    });
+  }
+
+  // ------------------------------------------------------- 3. the form
   function initAssignmentForm(root) {
     const kind = root.querySelector("#kind");
     const projectField = root.querySelector("[data-project-field]");

@@ -69,6 +69,10 @@ class Segment:
     #: The assignment continues before/after the visible period.
     continues_before: bool = False
     continues_after: bool = False
+    #: First / last bar of this assignment in the view. Only these get a
+    #: resize handle (left resp. right), which changes the start / end date.
+    is_first: bool = False
+    is_last: bool = False
 
     @property
     def span(self) -> int:
@@ -82,6 +86,7 @@ def build_segments(assignments: list[Assignment], days: list[date]) -> tuple[lis
     """
     segments: list[Segment] = []
     for assignment in sorted(assignments, key=lambda a: (a.start_date, a.id or 0)):
+        own_segments_from = len(segments)
         run_start = None
         for index, day in enumerate(days + [None]):  # sentinel closes the last run
             covered = day is not None and assignment.covers(day)
@@ -94,6 +99,9 @@ def build_segments(assignments: list[Assignment], days: list[date]) -> tuple[lis
                     continues_after=index == len(days) and assignment.end_date > days[-1],
                 ))
                 run_start = None
+        own = segments[own_segments_from:]
+        if own:
+            own[0].is_first, own[-1].is_last = True, True
 
     # Greedy lane assignment: put each bar in the first lane that is free.
     lane_ends: list[int] = []

@@ -12,6 +12,7 @@ from app.models import (
     User,
     Article,
     Assignment,
+    AssignmentKind,
     Note,
     OrderStatus,
     PurchaseOrder,
@@ -597,3 +598,43 @@ def test_bar_label_shows_customer_and_project(client):
 def test_text_color_on_employee_colour(app):
     text_on = app.jinja_env.filters["text_on"]
     assert text_on("#0d6efd") == "#fff" and text_on("#ffc107") == "#212529"
+
+
+# --------------------------------------- resize / move bars on the planning board
+def test_reschedule_changes_dates_and_person(client):
+    from datetime import date
+    assignment = db.session.scalar(sa.select(Assignment).where(Assignment.kind == AssignmentKind.LEAVE))
+    els = db.session.scalar(sa.select(User).filter_by(username="els"))
+    response = client.post(f"/team/assignments/{assignment.id}/reschedule", json={
+        "start_date": "2026-11-23", "end_date": "2026-11-27", "user_id": els.id})
+    assert response.get_json() == {"ok": True}
+    db.session.refresh(assignment)
+    assert (assignment.start_date, assignment.end_date, assignment.user_id) == (date(2026, 11, 23), date(2026, 11, 27), els.id)
+
+
+def test_reschedule_validation(client):
+    assignment = db.session.scalar(sa.select(Assignment).where(Assignment.kind == AssignmentKind.LEAVE))
+    url = f"/team/assignments/{assignment.id}/reschedule"
+    response = client.post(url, json={"start_date": "2026-11-27", "end_date": "2026-11-23"})
+    assert response.status_code == 400 and "einddatum" in response.get_json()["error"]
+    response = client.post(url, json={"start_date": "2026-11-28", "end_date": "2026-11-29"})   # weekend only
+    assert response.status_code == 400 and "weekenddagen" in response.get_json()["error"]
+    response = client.post(url, json={"start_date": "x", "end_date": "2026-11-29"})
+    assert response.status_code == 400
+    response = client.post(url, json={"start_date": "2026-11-23", "end_date": "2026-11-24", "user_id": 9999})
+    assert response.status_code == 400 and "medewerker" in response.get_json()["error"]
+
+
+def test_only_outer_bars_get_resize_handles(app):
+    from datetime import date, timedelta
+    from app.services.workload import build_segments
+
+    days = [date(2026, 11, 16) + timedelta(days=i) for i in range(14)]
+    segments, _ = build_segments([_assignment("2026-11-16", "2026-11-27", id=1)], days)   # split by weekend
+    assert [(s.is_first, s.is_last) for s in segments] == [(True, False), (False, True)]
+
+
+def test_board_renders_handles_and_reschedule_url(client):
+    html = client.get("/team/").get_data(as_text=True)
+    assert 'class="bar-handle start"' in html and 'class="bar-handle end"' in html
+    assert "/reschedule" in html and "data-assignment=" in html

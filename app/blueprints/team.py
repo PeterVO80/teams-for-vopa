@@ -136,3 +136,40 @@ def delete_assignment(assignment_id: int):
     if is_modal_request():
         return jsonify(ok=True)
     return redirect(next_url(url_for("team.overview", start=start.isoformat())))
+
+
+@bp.route("/assignments/<int:assignment_id>/reschedule", methods=["POST"])
+def reschedule_assignment(assignment_id: int):
+    """Change the period and/or the team member of a planning entry.
+
+    Called by the planning board (static/js/team.js) after a bar was
+    resized at one of its edges or dragged to other days / another person.
+    JSON body: ``{"start_date": "2026-11-16", "end_date": "2026-11-20", "user_id": 3}``.
+    Answers ``{"ok": true}`` or ``{"ok": false, "error": "..."}`` (status 400).
+    """
+    assignment = db.get_or_404(Assignment, assignment_id)
+    data = request.get_json(silent=True) or {}
+
+    def refuse(message: str):
+        return jsonify(ok=False, error=message), 400
+
+    try:
+        start = date.fromisoformat(data["start_date"])
+        end = date.fromisoformat(data["end_date"])
+        user_id = int(data.get("user_id") or assignment.user_id)
+    except (KeyError, TypeError, ValueError):
+        return refuse("Ongeldige datum of medewerker.")
+
+    user = db.session.get(User, user_id)
+    if user is None or not user.active:
+        return refuse("Onbekende of inactieve medewerker.")
+    if end < start:
+        return refuse("De einddatum ligt voor de startdatum.")
+    period = [start + timedelta(days=i) for i in range((end - start).days + 1)]
+    if not assignment.include_weekends and all(day.weekday() >= 5 for day in period):
+        return refuse("Deze periode bevat enkel weekenddagen. Open de planning en vink "
+                      "'Weekenddagen inplannen' aan om in het weekend te plannen.")
+
+    assignment.start_date, assignment.end_date, assignment.user_id = start, end, user.id
+    db.session.commit()
+    return jsonify(ok=True)

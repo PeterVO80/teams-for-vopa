@@ -77,9 +77,25 @@
   font-size: .75rem; line-height: 1.3rem; text-decoration: none;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
-  cursor: pointer;
+  /* Bars can be dragged (move) - a plain click still opens the popup. */
+  cursor: grab; touch-action: none;
 }
 .planning-chip:hover { filter: brightness(.92); }
+/* Resize handles on the outer edges of a bar (static/js/team.js). */
+.bar-handle {
+  position: absolute; top: 0; bottom: 0; width: .55rem; cursor: ew-resize; z-index: 1;
+}
+.bar-handle.start { left: 0; }
+.bar-handle.end { right: 0; }
+.planning-chip:hover .bar-handle::after {
+  content: ""; position: absolute; top: 25%; bottom: 25%; left: 40%; width: 2px;
+  background: currentColor; opacity: .6; border-radius: 1px;
+}
+/* While dragging: the original bar fades, a preview ("ghost") shows the result. */
+.planning-chip.drag-source { opacity: .3; }
+.planning-chip.drag-ghost { opacity: .9; z-index: 4; pointer-events: none; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); outline: 2px dashed rgba(0, 0, 0, .45); }
+.planning-grid.dragging, .planning-grid.dragging * { cursor: grabbing !important; }
+.planning-grid.resizing, .planning-grid.resizing * { cursor: ew-resize !important; }
 /* Absences: same colour, striped, so they stand out from project work. */
 .planning-chip.absence {
   background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .28) 0 6px, transparent 6px 12px);
