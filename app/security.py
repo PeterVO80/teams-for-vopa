@@ -39,8 +39,9 @@ def init_security(app: Flask) -> None:
     if config.get("HTTPS"):
         secret = config.get("SECRET_KEY") or ""
         if secret == DEV_SECRET or len(secret) < 32:
-            raise RuntimeError("SECRET_KEY ontbreekt of is te kort (minstens 32 tekens) - "
-                               "maak er een met: python -c \"import secrets; print(secrets.token_hex(32))\"")
+            raise RuntimeError("SECRET_KEY ontbreekt of is te kort (minstens 32 tekens). "
+                               "Maak er een op de server met: openssl rand -hex 32 "
+                               "en vul die in bij de variabelen van de stack.")
         config.update(SESSION_COOKIE_SECURE=True, REMEMBER_COOKIE_SECURE=True, PREFERRED_URL_SCHEME="https")
 
     proxies = int(config.get("PROXY_COUNT") or (1 if config.get("HTTPS") else 0))
