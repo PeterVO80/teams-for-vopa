@@ -24,6 +24,7 @@ from ..services.workload import build_overview, planning_period
 from ..services.numbering import insert_with_unique_number
 from . import protected_blueprint
 from .relations import add_button as add_relation_button
+from .wiki import wiki_tree
 
 bp = protected_blueprint("projects", __name__)
 
@@ -62,9 +63,7 @@ def detail(project_id: int):
         sa.select(Note).filter_by(project_id=project.id).order_by(Note.updated_at.desc())
     ).all()
     # Project wiki: top-level pages (the template shows the tree) + page count.
-    wiki_roots = db.session.scalars(
-        sa.select(WikiPage).filter_by(project_id=project.id, parent_id=None).order_by(WikiPage.title)
-    ).all()
+    wiki_roots = wiki_tree(project.id)
     wiki_count = db.session.scalar(sa.select(sa.func.count(WikiPage.id)).filter_by(project_id=project.id))
     # Ordered vs. delivered material, grouped per article (services/material.py).
     material = project_material(project.id)

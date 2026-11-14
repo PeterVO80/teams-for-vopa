@@ -720,3 +720,44 @@ def test_kanban_cards_show_customer_and_project(client):
     assert 'kanban-project" title="' in html
     assert ">Brouwerij De Kroon - Verpakkingslijn L3</span>" in html
     assert ">Aquafin - Waterzuivering SCADA</span>" in html
+
+
+# --------------------------------------------------------------- wiki tree
+def _wiki_page(title, parent=None, project=None):
+    from app.services.markdown_render import slugify
+    page = WikiPage(title=title, slug=slugify(title), parent=parent, project=project, content="")
+    db.session.add(page)
+    db.session.flush()
+    return page
+
+
+def test_wiki_tree_structure(app):
+    from app.blueprints.wiki import wiki_tree
+
+    root = db.session.scalar(sa.select(WikiPage).filter_by(slug="siemens-tia-portal"))
+    plc = _wiki_page("PLC programmeren", parent=root)
+    _wiki_page("Safety", parent=plc)
+    _wiki_page("Algemeen", parent=None)
+    db.session.commit()
+    tree = wiki_tree(None)
+    assert [n.page.title for n in tree] == ["Algemeen", "Siemens TIA Portal"]     # sorted by title
+    tia = tree[1]
+    assert [c.page.title for c in tia.children] == ["Naamgeving tags", "PLC programmeren"]
+    assert tia.descendant_count == 3
+    # Project wiki pages are not part of the general tree.
+    assert all(n.page.project_id is None for n in tree)
+
+
+def test_wiki_page_shows_tree_opened_to_current_page(client):
+    root = db.session.scalar(sa.select(WikiPage).filter_by(slug="siemens-tia-portal"))
+    plc = _wiki_page("PLC programmeren", parent=root)
+    safety = _wiki_page("Safety", parent=plc)
+    _wiki_page("Andere tak", parent=None)
+    db.session.commit()
+    html = client.get(f"/wiki/{safety.slug}").get_data(as_text=True)
+    assert "data-wiki-tree" in html and 'aria-current="page"' in html
+    # The ancestors of the current page are open, an unrelated branch is not.
+    assert html.count("<details open>") == 2
+    tree = html.split("data-wiki-tree", 1)[1]
+    assert tree.index("Siemens TIA Portal") < tree.index("PLC programmeren") < tree.index("Safety</a>")
+    assert 'class="wiki-node wiki-leaf current"' in html

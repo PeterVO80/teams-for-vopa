@@ -1,5 +1,6 @@
 {# Start page of the wiki of one project. #}
 {% extends "base.html" %}
+{% from "wiki/_tree.html" import tree_card %}
 {% block title %}Projectwiki {{ project.code }}{% endblock %}
 {% block page_header %}
 <nav aria-label="breadcrumb">
@@ -19,14 +20,14 @@
 <div class="row g-3">
   <div class="col-lg-7">
     {% include "wiki/_sidebar.html" %}
+    {% if tree %}{{ tree_card(tree, 'Projectwiki ' ~ project.code, new_url=url_for('wiki.create', project=project.id)) }}
+    {% else %}
     <div class="card"><div class="card-body">
-      {% if roots %}{% with pages = roots, current = None %}{% include "wiki/_tree.html" %}{% endwith %}
-      {% else %}
       <p class="text-body-secondary">Dit project heeft nog geen wikipagina's.</p>
       <p class="small text-body-secondary mb-3">Ideaal voor kennis die specifiek is voor deze installatie: I/O-afspraken, netwerkplan, IP-adressen, contactpersonen, lessons learned, ...</p>
       <a class="btn btn-primary" href="{{ url_for('wiki.create', project=project.id) }}"><i class="bi bi-plus-lg"></i> Eerste pagina aanmaken</a>
-      {% endif %}
     </div></div>
+    {% endif %}
   </div>
   <div class="col-lg-5">
     <div class="card">
@@ -44,3 +45,4 @@
   </div>
 </div>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/wiki_tree.js') }}"></script>{% endblock %}

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import post_button %}
+{% from "wiki/_tree.html" import tree_card %}
 {% block title %}{{ page.title }}{% endblock %}
 {% block page_header %}
 <nav aria-label="breadcrumb">
@@ -19,7 +20,18 @@
 {% endblock %}
 {% block content %}
 <div class="row g-3">
-  <div class="col-lg-9">
+  <div class="col-lg-3 order-2 order-lg-1">
+    {% with project = page.project %}{% include "wiki/_sidebar.html" %}{% endwith %}
+    {{ tree_card(tree, 'Projectwiki ' ~ page.project.code if page.project else 'Algemene wiki', page.id, open_ids,
+                 url_for('wiki.create', project=page.project_id)) }}
+    {% if page.project %}
+    <div class="small text-body-secondary mt-2 px-1">
+      <i class="bi bi-kanban"></i> Projectwiki van
+      <a href="{{ url_for('projects.detail', project_id=page.project.id) }}">{{ page.project.display_name }}</a>
+    </div>
+    {% endif %}
+  </div>
+  <div class="col-lg-9 order-1 order-lg-2">
     <div class="card"><div class="card-body markdown-body">
       {{ page.content|wiki_markdown(page.project_id) or '<p class="text-body-secondary">Deze pagina is nog leeg.</p>'|safe }}
     </div></div>
@@ -28,20 +40,6 @@
       {% if not page.children %}{{ post_button(url_for('wiki.delete', slug=page.slug), 'Pagina verwijderen', class_='btn btn-sm btn-link text-danger', confirm='Pagina en geschiedenis verwijderen?') }}{% endif %}
     </div>
   </div>
-  <div class="col-lg-3">
-    {% with project = page.project %}{% include "wiki/_sidebar.html" %}{% endwith %}
-    {% if page.project %}
-    <div class="card mb-3"><div class="card-body small">
-      <i class="bi bi-kanban"></i> Deze pagina hoort bij de projectwiki van
-      <a href="{{ url_for('projects.detail', project_id=page.project.id) }}">{{ page.project.display_name }}</a>.
-    </div></div>
-    {% endif %}
-    {% if page.children %}
-    <div class="card"><div class="card-body">
-      <h2 class="h6">Subpagina's</h2>
-      {% with pages = page.children, current = page %}{% include "wiki/_tree.html" %}{% endwith %}
-    </div></div>
-    {% endif %}
-  </div>
 </div>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/wiki_tree.js') }}"></script>{% endblock %}

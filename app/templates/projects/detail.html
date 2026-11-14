@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import project_status_badge, task_status_badge, priority_badge, order_status_badge, tag_badge, avatar %}
+{% from "wiki/_tree.html" import wiki_tree %}
 {% block title %}{{ project.code }}{% endblock %}
 {% block heading %}{{ project.code }} <span class="text-body-secondary fw-normal">{{ project.name }}</span> {{ project_status_badge(project.status) }}{% endblock %}
 {% block page_actions %}
@@ -154,7 +155,7 @@
       <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('wiki.project_index', project_id=project.id) }}"><i class="bi bi-book"></i> Projectwiki openen</a>
     </div>
     <div class="px-3 pb-3">
-      {% if wiki_roots %}{% with pages = wiki_roots, current = None %}{% include "wiki/_tree.html" %}{% endwith %}
+      {% if wiki_roots %}{{ wiki_tree(wiki_roots) }}
       {% else %}<p class="small text-body-secondary mb-0">Nog geen wikipagina's voor dit project.</p>{% endif %}
     </div>
   </div>

@@ -11,6 +11,8 @@ the general wiki. Links to pages that do not exist yet lead to the "new page"
 form with the title already filled in.
 """
 
+from dataclasses import dataclass, field
+
 import sqlalchemy as sa
 from flask import abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user
@@ -116,12 +118,32 @@ def _wiki_url(project_id: int | None) -> str:
     return url_for("wiki.project_index", project_id=project_id) if project_id else url_for("wiki.index")
 
 
-def _roots(project_id: int | None) -> list[WikiPage]:
-    """Top-level pages of one wiki (``None`` = the general wiki)."""
+@dataclass
+class TreeNode:
+    """One page in the wiki tree, with its sub pages."""
+
+    page: WikiPage
+    children: list["TreeNode"] = field(default_factory=list)
+
+    @property
+    def descendant_count(self) -> int:
+        return sum(1 + child.descendant_count for child in self.children)
+
+
+def wiki_tree(project_id: int | None) -> list[TreeNode]:
+    """The page tree of one wiki (``None`` = the general wiki), sorted by title.
+
+    All pages are loaded with a single query and linked in Python, instead of
+    one query per branch.
+    """
     in_wiki = WikiPage.project_id.is_(None) if project_id is None else WikiPage.project_id == project_id
-    return db.session.scalars(
-        sa.select(WikiPage).where(WikiPage.parent_id.is_(None), in_wiki).order_by(WikiPage.title)
-    ).all()
+    pages = db.session.scalars(sa.select(WikiPage).where(in_wiki).order_by(sa.func.lower(WikiPage.title))).all()
+    nodes = {page.id: TreeNode(page) for page in pages}
+    roots: list[TreeNode] = []
+    for page in pages:
+        parent = nodes.get(page.parent_id)
+        (parent.children if parent else roots).append(nodes[page.id])
+    return roots
 
 
 # -------------------------------------------------------------- overviews
@@ -139,7 +161,7 @@ def index():
         .order_by(Project.code.desc())
     ).all()
     return render_template(
-        "wiki/index.html", roots=_roots(None), recent=recent, project_wikis=project_wikis
+        "wiki/index.html", tree=wiki_tree(None), recent=recent, project_wikis=project_wikis
     )
 
 
@@ -150,7 +172,7 @@ def project_index(project_id: int):
     recent = db.session.scalars(
         sa.select(WikiPage).where(WikiPage.project_id == project.id).order_by(WikiPage.updated_at.desc()).limit(10)
     ).all()
-    return render_template("wiki/project.html", project=project, roots=_roots(project.id), recent=recent)
+    return render_template("wiki/project.html", project=project, tree=wiki_tree(project.id), recent=recent)
 
 
 @bp.route("/search")
@@ -232,7 +254,9 @@ def view(slug: str):
     if page is None:
         # Unknown slug: offer to create it instead of showing a plain 404.
         return render_template("wiki/missing.html", slug=slug), 404
-    return render_template("wiki/view.html", page=page)
+    # Tree of the wiki this page belongs to, opened along the path to the page.
+    open_ids = {crumb.id for crumb in page.breadcrumbs} | {page.id}
+    return render_template("wiki/view.html", page=page, tree=wiki_tree(page.project_id), open_ids=open_ids)
 
 
 @bp.route("/<slug>/edit", methods=["GET", "POST"])

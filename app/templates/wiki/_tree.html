@@ -1,11 +1,52 @@
-{# Recursive page tree. Expects `pages` (list) and optional `current` page. #}
-<ul class="wiki-tree list-unstyled">
-  {% for page in pages %}
+{#
+  Wiki tree navigation. Import with
+    {% from "wiki/_tree.html" import wiki_tree %}
+  and call wiki_tree(nodes, current_id, open_ids) with the TreeNode list from
+  blueprints/wiki.py: wiki_tree(). Branches use <details>/<summary>, so they
+  open and close without JavaScript; open_ids are the pages that start open
+  (the path to the current page). static/js/wiki_tree.js adds the
+  "expand / collapse all" buttons.
+#}
+{% macro wiki_tree(nodes, current_id=None, open_ids=(), depth=0) %}
+<ul class="wiki-tree{{ ' wiki-tree-root' if depth == 0 }}">
+  {% for node in nodes %}
+  {% set page = node.page %}
+  {% set is_current = current_id == page.id %}
   <li>
-    <a href="{{ url_for('wiki.view', slug=page.slug) }}" class="{{ 'fw-bold' if current and current.id == page.id }}">
-      <i class="bi bi-{{ 'folder2-open' if page.children else 'file-earmark-text' }}"></i> {{ page.title }}
-    </a>
-    {% if page.children %}{% with pages = page.children %}{% include "wiki/_tree.html" %}{% endwith %}{% endif %}
+    {% if node.children %}
+    <details {{ 'open' if page.id in open_ids }}>
+      <summary class="wiki-node {{ 'current' if is_current }}">
+        <a href="{{ url_for('wiki.view', slug=page.slug) }}" {{ 'aria-current="page"'|safe if is_current }}>
+          <i class="bi bi-journal-text"></i>{{ page.title }}</a>
+        <span class="wiki-count" title="{{ node.descendant_count }} subpagina's">{{ node.descendant_count }}</span>
+      </summary>
+      {{ wiki_tree(node.children, current_id, open_ids, depth + 1) }}
+    </details>
+    {% else %}
+    <div class="wiki-node wiki-leaf {{ 'current' if is_current }}">
+      <a href="{{ url_for('wiki.view', slug=page.slug) }}" {{ 'aria-current="page"'|safe if is_current }}>
+        <i class="bi bi-file-earmark-text"></i>{{ page.title }}</a>
+    </div>
+    {% endif %}
   </li>
   {% endfor %}
 </ul>
+{% endmacro %}
+
+{# Card with title, expand/collapse buttons and the tree. #}
+{% macro tree_card(nodes, title, current_id=None, open_ids=(), new_url=None) %}
+<div class="card wiki-tree-card" data-wiki-tree>
+  <div class="card-header d-flex align-items-center gap-1 py-2">
+    <span class="fw-semibold me-auto small">{{ title }}</span>
+    {% if nodes %}
+    <button type="button" class="btn btn-sm btn-link p-0 px-1" data-tree-expand title="Alles uitklappen"><i class="bi bi-arrows-expand"></i></button>
+    <button type="button" class="btn btn-sm btn-link p-0 px-1" data-tree-collapse title="Alles inklappen"><i class="bi bi-arrows-collapse"></i></button>
+    {% endif %}
+    {% if new_url %}<a class="btn btn-sm btn-link p-0 px-1" href="{{ new_url }}" title="Nieuwe pagina"><i class="bi bi-plus-lg"></i></a>{% endif %}
+  </div>
+  <div class="card-body py-2 px-2">
+    {% if nodes %}{{ wiki_tree(nodes, current_id, open_ids) }}
+    {% else %}<p class="small text-body-secondary mb-0 px-1">Nog geen pagina's.</p>{% endif %}
+  </div>
+</div>
+{% endmacro %}

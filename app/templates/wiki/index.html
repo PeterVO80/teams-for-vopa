@@ -1,15 +1,12 @@
 {% extends "base.html" %}
+{% from "wiki/_tree.html" import tree_card %}
 {% block title %}Wiki{% endblock %}
 {% block page_actions %}<a class="btn btn-primary" href="{{ url_for('wiki.create') }}"><i class="bi bi-plus-lg"></i> Nieuwe pagina</a>{% endblock %}
 {% block content %}
 <div class="row g-3">
   <div class="col-lg-7">
     {% with project = None %}{% include "wiki/_sidebar.html" %}{% endwith %}
-    <div class="card"><div class="card-body">
-      <h2 class="h6">Algemene wiki</h2>
-      {% if roots %}{% with pages = roots, current = None %}{% include "wiki/_tree.html" %}{% endwith %}
-      {% else %}<p class="text-body-secondary mb-0">De algemene wiki is nog leeg. Maak de eerste pagina aan!</p>{% endif %}
-    </div></div>
+    {{ tree_card(tree, 'Algemene wiki', new_url=url_for('wiki.create')) }}
   </div>
   <div class="col-lg-5">
     <div class="card mb-3">
@@ -43,3 +40,4 @@
   </div>
 </div>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/wiki_tree.js') }}"></script>{% endblock %}
