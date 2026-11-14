@@ -292,6 +292,8 @@ class ImportResult:
     unchanged: int = 0
     skipped: int = 0
     errors: list[str] = field(default_factory=list)
+    #: Articles created by this import (e.g. to fetch their details afterwards).
+    created_articles: list = field(default_factory=list)
 
     @property
     def summary(self) -> str:
@@ -316,6 +318,10 @@ def _apply(article: Article, item: CatalogItem, catalog: SupplierCatalog) -> boo
         "ean": item.ean,
         "url": item.url,
     }
+    if article.details_status == "done":
+        # The description was replaced by the extended description from the
+        # product page (services/rexel_details.py): don't put the short one back.
+        values.pop("description")
     changed = False
     for attr, value in values.items():
         if getattr(article, attr) != value:
@@ -382,6 +388,7 @@ def import_items(
         used_numbers.add(number)
         by_ref[item.supplier_ref] = article
         result.created += 1
+        result.created_articles.append(article)
     return result
 
 

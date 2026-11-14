@@ -1,0 +1,15 @@
+{# Progress panel: fetches queued extended descriptions from Rexel in small
+   batches (static/js/article_details.js). Expects `pending` and `autostart`. #}
+<div class="card mb-3 border-info {{ 'd-none' if not pending }}" data-details-runner
+     data-url="{{ url_for('catalog.details_run') }}" data-autostart="{{ '1' if autostart else '' }}">
+  <div class="card-body py-2">
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <i class="bi bi-cloud-download text-info"></i>
+      <span class="me-auto">Uitgebreide omschrijving ophalen bij Rexel: <strong data-remaining>{{ pending }}</strong> te gaan</span>
+      <button type="button" class="btn btn-sm btn-info" data-start>Starten</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary d-none" data-stop>Pauzeren</button>
+    </div>
+    <div class="progress mb-1" style="height: 6px"><div class="progress-bar bg-info" data-bar style="width: 0%"></div></div>
+    <ul class="list-unstyled small mb-0 details-log" data-log></ul>
+  </div>
+</div>

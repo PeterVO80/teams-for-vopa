@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import render_field, order_status_badge %}
+{% from "_macros.html" import render_field, order_status_badge, post_button %}
 {% block page_actions %}
 {% if article %}
 <button class="btn btn-outline-primary" data-modal-url="{{ url_for('stock.move', article_id=article.id) }}"><i class="bi bi-arrow-left-right"></i> Stockbeweging</button>
@@ -21,6 +21,30 @@
   </div>
   {% if article %}
   <div class="col-xl-6">
+    {% if article.url and 'netstore.rexel.be' in article.url.lower() or article.specifications %}
+    <div class="card mb-3">
+      <div class="card-header d-flex align-items-center gap-2">
+        <span class="fw-semibold me-auto">Kenmerken (Rexel)</span>
+        {% if article.url %}<a class="small" href="{{ article.url }}" target="_blank" rel="noopener">productpagina <i class="bi bi-box-arrow-up-right"></i></a>{% endif %}
+        {{ post_button(url_for('articles.fetch_details', article_id=article.id), 'Ophalen', class_='btn btn-sm btn-outline-primary', icon='cloud-download') }}
+      </div>
+      {% set specs = article.specification_list %}
+      {% if specs %}
+      <div class="card-body p-0" style="max-height: 22rem; overflow-y: auto">
+        <table class="table table-sm small mb-0">
+          {% for label, value in specs %}<tr><td class="text-body-secondary ps-3">{{ label }}</td><td>{{ value }}</td></tr>{% endfor %}
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body small text-body-secondary">
+        {% if article.details_status == 'pending' %}Staat klaar om opgehaald te worden.
+        {% elif article.details_status in ('not_found', 'error') %}Rexel had geen uitgebreide gegevens bij de laatste poging.
+        {% else %}Nog niet opgehaald. Klik op <em>Ophalen</em> voor de uitgebreide omschrijving en de kenmerken.{% endif %}
+      </div>
+      {% endif %}
+      {% if article.details_fetched_at %}<div class="card-footer small text-body-secondary py-1">Opgehaald op {{ article.details_fetched_at|datetime }}</div>{% endif %}
+    </div>
+    {% endif %}
     <div class="card mb-3">
       <div class="card-header d-flex align-items-center">
         <span class="fw-semibold me-auto">Stock</span>

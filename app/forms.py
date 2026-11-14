@@ -149,7 +149,8 @@ class ProjectForm(FlaskForm):
 # --------------------------------------------------------------- articles
 class ArticleForm(FlaskForm):
     article_number = StringField("Artikelnummer", validators=[DataRequired(), Length(max=64)])
-    description = StringField("Omschrijving", validators=[DataRequired(), Length(max=300)])
+    #: Multi-line: extended descriptions from Rexel can be up to 250 characters.
+    description = TextAreaField("Omschrijving", validators=[DataRequired(), Length(max=300)], render_kw={"rows": 3})
     manufacturer = StringField("Fabrikant", validators=[Optional(), Length(max=120)])
     manufacturer_ref = StringField("Bestelcode fabrikant", validators=[Optional(), Length(max=120)])
     supplier_id = SelectField("Leverancier", coerce=int)
@@ -192,6 +193,7 @@ class CatalogImportForm(FlaskForm):
     update_existing = BooleanField(
         "Bestaande artikelen bijwerken (omschrijving, prijs, ...)", default=True
     )
+    fetch_details = BooleanField("Uitgebreide omschrijving ophalen bij Rexel", default=True)
 
 
 class ImportForm(FlaskForm):

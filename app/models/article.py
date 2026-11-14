@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 
 import sqlalchemy as sa
@@ -42,8 +43,25 @@ class Article(TimestampMixin, db.Model):
     #: Obsolete articles stay in the database for history but are hidden by default.
     active: Mapped[bool] = mapped_column(default=True)
 
+    # --- Details from the supplier's product page (services/rexel_details.py)
+    #: Specifications as JSON: [["Breedte", "100 mm"], ["Hoogte", "117 mm"], ...]
+    specifications: Mapped[str | None] = mapped_column(sa.Text)
+    #: None = never fetched, or pending / done / not_found / error.
+    details_status: Mapped[str | None] = mapped_column(sa.String(20), index=True)
+    details_fetched_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+
     #: Usual supplier (a relation marked as supplier, see models/company.py).
     supplier = relationship("Company")
+
+    @property
+    def specification_list(self) -> list[tuple[str, str]]:
+        """The stored specifications as (label, value) pairs."""
+        import json
+
+        try:
+            return [tuple(pair) for pair in json.loads(self.specifications or "[]")]
+        except (ValueError, TypeError):
+            return []
 
     @property
     def label(self) -> str:

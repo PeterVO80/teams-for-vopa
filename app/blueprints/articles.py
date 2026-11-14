@@ -8,6 +8,7 @@ from flask import current_app, flash, jsonify, redirect, render_template, reques
 from ..extensions import db
 from ..forms import ArticleForm, ImportForm, none_if_zero
 from ..models import Article, Company, PurchaseOrder, PurchaseOrderLine, StockLocation, StockMovement
+from ..services import rexel_details
 from ..services import stock as stock_svc
 from ..services import excel
 from . import protected_blueprint
@@ -82,6 +83,7 @@ def edit(article_id: int | None = None):
                 db.session.add(article)
             form.populate_obj(article)
             article.supplier_id = none_if_zero(form.supplier_id.data)
+            article.description = " ".join(article.description.split())  # one line, no double spaces
             article.article_number = article.article_number.strip()
             db.session.commit()
             flash(f"Artikel {article.article_number} opgeslagen.", "success")
@@ -210,3 +212,17 @@ def search_json():
             for a in articles
         ]
     )
+
+
+@bp.route("/<int:article_id>/details", methods=["POST"])
+def fetch_details(article_id: int):
+    """Fetch the extended description and specifications from the Rexel page now."""
+    article = db.get_or_404(Article, article_id)
+    details = rexel_details.fetch(article)
+    rexel_details.apply(article, details)
+    db.session.commit()
+    if details.found:
+        flash("Uitgebreide omschrijving en kenmerken opgehaald bij Rexel.", "success")
+    else:
+        flash(details.error or "Rexel heeft geen uitgebreide gegevens voor dit artikel.", "warning")
+    return redirect(url_for("articles.edit", article_id=article.id))

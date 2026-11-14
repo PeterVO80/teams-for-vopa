@@ -169,3 +169,6 @@
 .planning-tooltip .tooltip-inner { max-width: 22rem; text-align: left; padding: .45rem .6rem; font-size: .8rem; }
 .planning-tooltip .tooltip-inner .bi { opacity: .7; margin-right: .2rem; }
 body.planning-dragging .tooltip { display: none !important; }
+
+/* Live log of fetching Rexel details (static/js/article_details.js). */
+.details-log li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

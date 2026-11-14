@@ -5,12 +5,13 @@ the screens.
 """
 
 import sqlalchemy as sa
-from flask import current_app, flash, redirect, render_template, request, url_for
+from flask import current_app, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from ..extensions import db
 from ..forms import CatalogImportForm, CatalogUploadForm
 from ..models import Article, CatalogItem, Company, SupplierCatalog
+from ..services import rexel_details
 from ..services import supplier_catalog as svc
 from . import protected_blueprint
 from .relations import add_button as add_relation_button
@@ -129,6 +130,10 @@ def detail(catalog_id: int):
         groups=groups,
         import_form=import_form,
         categories=categories,
+        pending_details=rexel_details.pending_count(),
+        missing_details=db.session.scalar(sa.select(sa.func.count(Article.id)).where(
+            Article.supplier_id == catalog.supplier_id, Article.active.is_(True),
+            Article.url.ilike("%netstore.rexel.be%"), Article.details_status.is_(None))),
     )
 
 
@@ -160,13 +165,17 @@ def import_selected(catalog_id: int):
         catalog, items, number_source=form.number_source.data,
         category=form.category.data, update_existing=form.update_existing.data,
     )
+    queued = rexel_details.queue(result.created_articles) if form.fetch_details.data else 0
     db.session.commit()
     flash(f"Import klaar: {result.summary}.", "warning" if result.errors else "success")
+    if queued:
+        flash(f"De uitgebreide omschrijving wordt opgehaald bij Rexel voor {queued} nieuwe artikelen.", "info")
     for error in result.errors[:10]:
         flash(error, "warning")
     if len(result.errors) > 10:
         flash(f"... en nog {len(result.errors) - 10} meldingen.", "warning")
-    # done=1 tells static/js/catalog.js to clear the selection.
+    # done=1 tells static/js/catalog.js to clear the selection, and makes the
+    # details panel start fetching (static/js/article_details.js).
     return redirect(back + ("&" if "?" in back else "?") + "done=1")
 
 
@@ -188,3 +197,28 @@ def delete(catalog_id: int):
     db.session.commit()
     flash("Catalogus verwijderd. Geïmporteerde artikelen blijven behouden.", "success")
     return redirect(url_for("catalog.index"))
+
+
+# ------------------------------------------- details from the Rexel product page
+@bp.route("/details/run", methods=["POST"])
+def details_run():
+    """Fetch the next batch of queued articles (called repeatedly by article_details.js)."""
+    processed = rexel_details.process_pending()
+    return jsonify(processed=processed, remaining=rexel_details.pending_count())
+
+
+@bp.route("/<int:catalog_id>/details/queue", methods=["POST"])
+def details_queue(catalog_id: int):
+    """Queue every article of this supplier whose details were never fetched (or failed)."""
+    catalog = db.get_or_404(SupplierCatalog, catalog_id)
+    articles = db.session.scalars(sa.select(Article).where(
+        Article.supplier_id == catalog.supplier_id,
+        Article.active.is_(True),
+        sa.or_(Article.details_status.is_(None),
+               Article.details_status.in_([rexel_details.ERROR, rexel_details.NOT_FOUND])),
+    ))
+    queued = rexel_details.queue(articles)
+    db.session.commit()
+    flash(f"{queued} artikelen klaargezet om de uitgebreide omschrijving op te halen." if queued
+          else "Alle artikelen hebben hun uitgebreide omschrijving al.", "info")
+    return redirect(url_for("catalog.detail", catalog_id=catalog.id, details=1))

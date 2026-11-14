@@ -24,7 +24,7 @@
           {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
         </div>
       {% elif field.type == "TextAreaField" %}
-        {{ field(class_=css + (" is-invalid" if field.errors else ""), rows=5) }}
+        {{ field(class_=css + (" is-invalid" if field.errors else ""), rows=field.render_kw.get('rows', 5) if field.render_kw else 5) }}
       {% elif field.name == "color" %}
         {{ field(class_="form-control form-control-color" + (" is-invalid" if field.errors else ""), type="color") }}
       {% else %}
