@@ -298,3 +298,15 @@ def test_moving_planning_to_other_day_and_person_moves_appointment(configured, c
     assert any(c[1].endswith(f"jan@example.com/events/{old_event}") for c in graph.deletes())   # old one removed
     post = next(c for c in graph.posts() if "els@example.com" in c[1] and c[2]["start"]["dateTime"].startswith(new_day.isoformat()))
     assert post[2]["categories"] == ["VOPA Teams"]
+
+
+def test_subject_contains_remark(app):
+    from app.models import Project
+    project = db.session.scalar(sa.select(Project).filter_by(name="Waterzuivering SCADA"))
+    a = Assignment(start_date=date(2026, 11, 16), end_date=date(2026, 11, 16), project=project, kind=AssignmentKind.PROJECT,
+                   note="FAT bij klant", hours_per_day=8)
+    assert outlook._subject(a) == "Aquafin - Waterzuivering SCADA - FAT bij klant"
+    assert outlook._subject(a, 4) == "Aquafin - Waterzuivering SCADA - FAT bij klant (4u/dag)"
+    leave = Assignment(start_date=date(2026, 11, 16), end_date=date(2026, 11, 16),
+                       kind=AssignmentKind.LEAVE, note="tandarts")
+    assert outlook._subject(leave) == "Verlof: tandarts"                   # remark not repeated

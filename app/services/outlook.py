@@ -219,10 +219,25 @@ def _runs(assignment: Assignment) -> list[tuple[date, date]]:
     return runs
 
 
+def _subject(assignment: Assignment, part_time_hours: float | bool = False) -> str:
+    """Appointment title: what is planned, the remark, and the hours if part-time.
+
+    E.g. "Kemisol - Blokvorm A fase 2 - FAT bij klant (4u/dag)". Absences
+    already carry their remark in the label ("Verlof: tandarts").
+    """
+    subject = assignment.label
+    note = (assignment.note or "").strip()
+    if note and note not in subject:
+        subject += f" - {note}"
+    if part_time_hours:
+        subject += f" ({part_time_hours:g}u/dag)"
+    return subject[:255]
+
+
 def _event_payload(assignment: Assignment, first: date, last: date, timezone: str, app_url: str) -> dict:
     workday = current_app.config["WORKDAY_HOURS"]
     hours = assignment.hours_per_day
-    subject = assignment.label + (f" ({hours:g}u/dag)" if hours < workday else "")
+    subject = _subject(assignment, hours < workday and hours)
     lines = []
     if assignment.project:
         lines.append(f"Project: {assignment.project.code} - {assignment.project.name}")
