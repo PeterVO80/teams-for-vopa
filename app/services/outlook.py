@@ -328,25 +328,31 @@ def sync_all(client: GraphClient | None = None) -> SyncReport:
     except GraphError as exc:
         db.session.rollback()
         report.errors.append(f"Opruimen: {exc}")
+    # Write errors per user, kept so they are shown on the status page even
+    # when reading that user's calendar works.
+    write_errors: dict[int, str] = {}
     for assignment in pending_assignments(start, end):
+        user_id, name = assignment.user_id, assignment.user.full_name
         try:
             push_assignment(client, assignment)
             db.session.commit()
             report.written += 1
         except GraphError as exc:
             db.session.rollback()
-            report.errors.append(f"Planning {assignment.id} ({assignment.user.full_name}): {exc}")
+            write_errors.setdefault(user_id, f"Schrijven naar Outlook: {exc}")
+            report.errors.append(f"Planning {assignment.id} ({name}): {exc}")
 
     users = db.session.scalars(sa.select(User).where(
         User.active.is_(True), User.outlook_sync.is_(True), User.email.is_not(None), User.email != "")).all()
     for user in users:
         try:
             report.read += pull_user(client, user, start, end)
-            user.outlook_synced_at, user.outlook_error = utcnow(), None
+            user.outlook_synced_at = utcnow()
+            user.outlook_error = write_errors.get(user.id, "")[:300] or None
             db.session.commit()
         except GraphError as exc:
             db.session.rollback()
-            user.outlook_error = str(exc)[:300]
+            user.outlook_error = f"Lezen uit Outlook: {exc}"[:300]
             db.session.commit()
             report.errors.append(f"{user.full_name}: {exc}")
     return report

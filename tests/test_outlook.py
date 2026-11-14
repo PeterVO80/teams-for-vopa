@@ -176,7 +176,7 @@ def test_sync_all_reports_errors_per_user(configured):
     report = outlook.sync_all(graph)
     assert report.read == 1 and report.written >= 1
     assert any("Els" in error for error in report.errors)
-    assert "Access is denied" in _user("els").outlook_error
+    assert _user("els").outlook_error.startswith("Lezen uit Outlook:")
     assert _user("jan").outlook_synced_at is not None and _user("jan").outlook_error is None
     # Nothing is pending afterwards for people without errors.
     jan_pending = [a for a in outlook.pending_assignments(today - timedelta(days=30), today + timedelta(days=183))
@@ -238,3 +238,16 @@ def test_user_form_and_status_page(configured, client):
 def test_status_page_explains_missing_configuration(client):
     html = client.get("/users/outlook").get_data(as_text=True)
     assert "nog niet ingesteld" in html and "Synchroniseer nu" not in html
+
+
+def test_write_errors_are_shown_per_user(configured):
+    class ReadOnly(FakeGraph):
+        def request(self, method, url, payload=None):
+            if method == "POST":
+                raise outlook.GraphError("ErrorAccessDenied: Access is denied.")
+            return super().request(method, url, payload)
+
+    jan = _user("jan")
+    _plan(jan, date.today(), date.today(), include_weekends=True)
+    outlook.sync_all(ReadOnly())
+    assert _user("jan").outlook_error.startswith("Schrijven naar Outlook: ErrorAccessDenied")
