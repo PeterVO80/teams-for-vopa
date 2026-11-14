@@ -196,5 +196,5 @@ body.planning-dragging .tooltip { display: none !important; }
 .planning-cell { position: relative; }
 
 /* Company logo in the title bar (white logo, made for a dark background). */
-.brand-logo { height: 40px; width: auto; display: block; }
+.brand-logo { height: 28px; width: auto; display: block; }
 .brand-name { border-left: 1px solid rgba(255,255,255,.35); padding-left: .6rem; font-weight: 400; letter-spacing: .02em; }
