@@ -42,6 +42,7 @@ services:
       MS365_CLIENT_SECRET: ${MS365_CLIENT_SECRET:-}
       MS365_TIMEZONE: ${MS365_TIMEZONE:-Romance Standard Time}
       MS365_CATEGORY_COLOR: ${MS365_CATEGORY_COLOR:-oranje}
+      MICROSOFT_LOGIN: ${MICROSOFT_LOGIN:-off}
       APP_URL: ${APP_URL:-}
     ports:
       - "${WEB_PORT:-8000}:8000"
@@ -66,6 +67,7 @@ services:
       MS365_CLIENT_SECRET: ${MS365_CLIENT_SECRET:-}
       MS365_TIMEZONE: ${MS365_TIMEZONE:-Romance Standard Time}
       MS365_CATEGORY_COLOR: ${MS365_CATEGORY_COLOR:-oranje}
+      MICROSOFT_LOGIN: ${MICROSOFT_LOGIN:-off}
       APP_URL: ${APP_URL:-}
 
 volumes:

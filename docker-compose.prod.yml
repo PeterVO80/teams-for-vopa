@@ -23,6 +23,7 @@
 #   ADMIN_PASSWORD     required - first admin account (change it after logging in)
 #   POSTGRES_USER / POSTGRES_DB / ADMIN_USERNAME / ADMIN_EMAIL / WORKDAY_HOURS /
 #   PROJECT_CODE_PREFIX / MAX_UPLOAD_MB / MS365_* : as in portainer-stack.yml
+#   MICROSOFT_LOGIN    optional - off / on / required: log in with Microsoft 365 (see README)
 #   BACKUP_KEEP_DAYS   optional - days of daily database backups to keep (default 14)
 # ---------------------------------------------------------------------------
 
@@ -38,6 +39,7 @@ x-app-env: &app-env
   MS365_CLIENT_SECRET: ${MS365_CLIENT_SECRET:-}
   MS365_TIMEZONE: ${MS365_TIMEZONE:-Romance Standard Time}
   MS365_CATEGORY_COLOR: ${MS365_CATEGORY_COLOR:-oranje}
+  MICROSOFT_LOGIN: ${MICROSOFT_LOGIN:-off}
   APP_URL: https://${DOMAIN}
 
 services:

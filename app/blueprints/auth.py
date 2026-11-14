@@ -3,13 +3,14 @@
 from datetime import timedelta
 
 import sqlalchemy as sa
-from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
 from ..extensions import db, login_manager
 from ..forms import ChangePasswordForm, LoginForm
 from ..models import LoginAttempt, User
 from ..models.base import utcnow
+from ..services import microsoft_login
 from ..utils import next_url
 
 bp = Blueprint("auth", __name__)
@@ -35,6 +36,11 @@ def login():
             return render_template("auth/login.html", form=form), 429
         user = db.session.scalar(sa.select(User).filter_by(username=username))
         ok = user is not None and user.active and user.check_password(form.password.data)
+        if ok and microsoft_login.required() and not user.is_admin:
+            # Only Microsoft (with its two-step verification); administrators
+            # keep their password as an emergency entrance.
+            flash("Meld je aan met je Microsoft-account.", "warning")
+            return render_template("auth/login.html", form=form, microsoft=microsoft_login.mode())
         db.session.add(LoginAttempt(username=username.lower()[:150], ip=ip[:64], success=ok))
         # Keep the log small: 90 days is plenty to look back at suspicious attempts.
         db.session.execute(sa.delete(LoginAttempt).where(LoginAttempt.created_at < utcnow() - timedelta(days=90)))
@@ -48,7 +54,42 @@ def login():
             session.clear()   # fresh session after login (no session fixation)
             login_user(user, remember=form.remember.data)
             return redirect(next_url(url_for("main.dashboard")))
-    return render_template("auth/login.html", form=form)
+    return render_template("auth/login.html", form=form, microsoft=microsoft_login.mode())
+
+
+@bp.route("/microsoft")
+def microsoft():
+    """Start "Aanmelden met Microsoft": redirect to Microsoft's sign-in page."""
+    if not microsoft_login.enabled():
+        abort(404)
+    url, flow = microsoft_login.authorize_url()
+    flow["next"] = next_url(url_for("main.dashboard"))
+    session["ms_login"] = flow
+    return redirect(url)
+
+
+@bp.route("/microsoft/callback")
+def microsoft_callback():
+    """Microsoft sends the user back here after signing in."""
+    if not microsoft_login.enabled():
+        abort(404)
+    flow = session.pop("ms_login", None)
+    try:
+        user = microsoft_login.complete_login(request.args, flow)
+    except microsoft_login.LoginError as exc:
+        db.session.rollback()
+        current_app.logger.warning("Microsoft-aanmelding mislukt vanaf %s: %s", request.remote_addr, exc)
+        flash(str(exc), "danger")
+        return redirect(url_for("auth.login"))
+    db.session.add(LoginAttempt(username=user.username.lower()[:150], ip=(request.remote_addr or "?")[:64], success=True))
+    db.session.commit()
+    session.clear()   # fresh session after login (no session fixation)
+    # No "remember me": a new browser session asks Microsoft again, so an
+    # account disabled in Microsoft 365 loses access quickly.
+    login_user(user, remember=False)
+    target = flow.get("next") if flow else None
+    return redirect(target if target and target.startswith("/") and not target.startswith("//")
+                    else url_for("main.dashboard"))
 
 
 #: Login protection: after MAX_USER_FAILURES wrong passwords for one user name

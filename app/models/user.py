@@ -45,6 +45,9 @@ class User(UserMixin, TimestampMixin, db.Model):
     outlook_synced_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     #: Last synchronisation problem for this person (None = OK).
     outlook_error: Mapped[str | None] = mapped_column(sa.String(300))
+    #: Object id of the linked Microsoft 365 account (set at the first
+    #: "Aanmelden met Microsoft", see services/microsoft_login.py).
+    ms_oid: Mapped[str | None] = mapped_column(sa.String(64), unique=True)
     #: Result of setting the colour of the "VOPA Teams" category in Outlook.
     outlook_category: Mapped[str | None] = mapped_column(sa.String(300))
 

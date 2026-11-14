@@ -26,6 +26,10 @@ class Config:
     #: well over 100 MB, hence the generous default.
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_UPLOAD_MB", 300)) * 1024 * 1024
 
+    #: Log in with the Microsoft 365 account: off / on / required
+    #: (services/microsoft_login.py). Uses the MS365_* app registration.
+    MICROSOFT_LOGIN = os.environ.get("MICROSOFT_LOGIN", "off")
+
     #: Production on the internet behind an HTTPS reverse proxy (see security.py).
     HTTPS = os.environ.get("HTTPS", "0").lower() in ("1", "true", "yes")
 

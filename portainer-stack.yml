@@ -30,6 +30,7 @@
 #                      optional - Outlook calendar link (see README "Outlook")
 #   MS365_TIMEZONE     optional - Windows time zone (default: Romance Standard Time)
 #   MS365_CATEGORY_COLOR optional - colour of the "VOPA Teams" category in Outlook (default: oranje)
+#   MICROSOFT_LOGIN    optional - off / on / required: log in with Microsoft 365 (see README)
 #   APP_URL            optional - address of the app, linked in Outlook appointments
 # ---------------------------------------------------------------------------
 
@@ -81,6 +82,7 @@ services:
       MS365_CLIENT_SECRET: ${MS365_CLIENT_SECRET:-}
       MS365_TIMEZONE: ${MS365_TIMEZONE:-Romance Standard Time}
       MS365_CATEGORY_COLOR: ${MS365_CATEGORY_COLOR:-oranje}
+      MICROSOFT_LOGIN: ${MICROSOFT_LOGIN:-off}
       APP_URL: ${APP_URL:-}
     ports:
       - "${WEB_PORT:-8080}:8000"
@@ -115,6 +117,7 @@ services:
       MS365_CLIENT_SECRET: ${MS365_CLIENT_SECRET:-}
       MS365_TIMEZONE: ${MS365_TIMEZONE:-Romance Standard Time}
       MS365_CATEGORY_COLOR: ${MS365_CATEGORY_COLOR:-oranje}
+      MICROSOFT_LOGIN: ${MICROSOFT_LOGIN:-off}
       APP_URL: ${APP_URL:-}
     networks:
       - backend

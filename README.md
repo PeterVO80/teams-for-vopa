@@ -153,6 +153,41 @@ all mailboxes of the organisation. To limit it to the employees' mailboxes, an
 Exchange administrator can add an [application access policy](https://learn.microsoft.com/graph/auth-limit-mailbox-access)
 (`New-ApplicationAccessPolicy -AccessRight RestrictAccess -AppId <client id> -PolicyScopeGroupId <mail-enabled security group>`).
 
+### Log in with Microsoft 365
+
+With `MICROSOFT_LOGIN` the employees log in with their Microsoft 365 account
+(`app/services/microsoft_login.py`, OpenID Connect with PKCE). The company's
+Microsoft security then also protects this app: two-step verification
+(Authenticator), conditional access, and someone whose Microsoft account is
+disabled can no longer log in.
+
+| `MICROSOFT_LOGIN` | Login page |
+|---|---|
+| `off` (default) | user name + password |
+| `on` | "Aanmelden met Microsoft" button, passwords still work - use this to try it out |
+| `required` | only Microsoft. Administrators keep their password as an emergency entrance (e.g. Microsoft outage) - give them a long password |
+
+Set-up (same app registration as the Outlook link):
+
+1. Entra → your app → *Authentication* → *Add a platform* → **Web**.
+   Redirect URI: `https://<DOMAIN>/auth/microsoft/callback`
+   (Microsoft only accepts `https://`, except for `http://localhost`).
+   Leave "Access tokens" and "ID tokens" unticked (not needed).
+2. *API permissions*: the delegated **User.Read** that is there by default is
+   enough (`openid`, `profile` and `email` are included).
+3. Set `MICROSOFT_LOGIN=on` and `APP_URL=https://<DOMAIN>`, redeploy, try it,
+   then switch to `required`.
+4. In *Gebruikersbeheer* every employee needs their Microsoft 365 e-mail
+   address. At the first Microsoft login the account is linked by e-mail
+   address; afterwards by the Microsoft account's id. People without a user
+   in VOPA Teams get no access: an administrator creates them first (with
+   Microsoft login on, the password field may stay empty). Changing a
+   user's e-mail address unlinks the Microsoft account.
+
+Microsoft logins are not remembered beyond the browser session: after
+closing the browser the user clicks the button again (usually without typing
+anything, Microsoft still knows them).
+
 ### Useful commands
 
 ```bash

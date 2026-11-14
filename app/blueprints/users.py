@@ -1,10 +1,13 @@
 """User management (administrators only)."""
 
+import secrets
+
 import sqlalchemy as sa
 from flask import abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from ..extensions import db
+from ..services import microsoft_login
 from ..forms import UserForm
 from ..models import User, UserRole
 from ..utils import admin_required
@@ -34,7 +37,7 @@ def edit(user_id: int | None = None):
         )
         if duplicate:
             form.username.errors.append("Deze gebruikersnaam bestaat al.")
-        elif user is None and not form.password.data:
+        elif user is None and not form.password.data and not microsoft_login.enabled():
             form.password.errors.append("Een wachtwoord is verplicht voor een nieuwe gebruiker.")
         elif user is not None and user.id == current_user.id and (
             not form.active.data or form.role.data != UserRole.ADMIN.value
@@ -48,6 +51,8 @@ def edit(user_id: int | None = None):
             user.username = form.username.data.strip()
             user.full_name = form.full_name.data
             outlook_before = (user.email, user.outlook_sync, user.active)
+            if (form.email.data or None) != user.email:
+                user.ms_oid = None     # new address = link to (possibly) another Microsoft account
             user.email = form.email.data or None
             user.role = UserRole(form.role.data)
             user.color = form.color.data
@@ -58,6 +63,9 @@ def edit(user_id: int | None = None):
                 outlook.mark_user_pending(user)   # (re)write their planning to the right mailbox
             if form.password.data:
                 user.set_password(form.password.data)
+            elif not user.password_hash:
+                # Logs in with Microsoft only: a random password nobody knows.
+                user.set_password(secrets.token_urlsafe(32))
             db.session.commit()
             flash(f"Gebruiker {user.full_name} opgeslagen.", "success")
             return redirect(url_for("users.index"))

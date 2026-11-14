@@ -2,17 +2,35 @@
 {% from "_macros.html" import render_field %}
 {% block title %}Aanmelden{% endblock %}
 {% block page_header %}{% endblock %}
-{% block content %}
-<div class="login-box card shadow-sm mx-auto mt-5">
-  <div class="card-body p-4">
-    <h1 class="h4 mb-4 text-center"><i class="bi bi-gear-wide-connected"></i> VOPA Teams</h1>
+{% macro password_form() %}
     <form method="post" novalidate>
       {{ form.hidden_tag() }}
       {{ render_field(form.username) }}
       {{ render_field(form.password) }}
       {{ render_field(form.remember) }}
-      <button class="btn btn-primary w-100" type="submit">Aanmelden</button>
+      <button class="btn {{ 'btn-outline-secondary' if microsoft != 'off' else 'btn-primary' }} w-100" type="submit">Aanmelden</button>
     </form>
+{% endmacro %}
+{% block content %}
+<div class="login-box card shadow-sm mx-auto mt-5">
+  <div class="card-body p-4">
+    <h1 class="h4 mb-4 text-center"><i class="bi bi-gear-wide-connected"></i> VOPA Teams</h1>
+    {% if microsoft != 'off' %}
+    <a class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2" href="{{ url_for('auth.microsoft', next=request.args.get('next')) }}">
+      <i class="bi bi-microsoft"></i> Aanmelden met Microsoft
+    </a>
+    {% if microsoft == 'required' %}
+    <details class="mt-4 small" {{ 'open' if form.errors or form.is_submitted() }}>
+      <summary class="text-body-secondary">Beheerder: aanmelden met wachtwoord</summary>
+      <div class="mt-3">{{ password_form() }}</div>
+    </details>
+    {% else %}
+    <div class="text-center text-body-secondary small my-3">of met gebruikersnaam en wachtwoord</div>
+    {{ password_form() }}
+    {% endif %}
+    {% else %}
+    {{ password_form() }}
+    {% endif %}
   </div>
 </div>
 {% endblock %}
