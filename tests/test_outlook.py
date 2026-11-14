@@ -383,3 +383,35 @@ def test_project_page_with_outlook_appointments(configured, client):
     db.session.commit()
     project = db.session.scalar(sa.select(Project))
     assert client.get(f"/projects/{project.id}?planning_start={monday}").status_code == 200
+
+
+def test_category_status_is_stored_and_failures_are_retried(configured, monkeypatch):
+    jan = _user("jan")
+
+    class Denied(FakeGraph):
+        def get_all(self, url):
+            if "masterCategories" in url:
+                raise outlook.GraphError("ErrorAccessDenied: Access is denied.")
+            return super().get_all(url)
+
+    with pytest.raises(outlook.GraphError):
+        outlook.ensure_category(Denied(), jan)
+    assert jan.outlook_category.startswith("Fout: ErrorAccessDenied")
+
+    graph = FakeGraph()
+    outlook.ensure_category(graph, jan)                 # within the hour: not retried yet
+    assert graph.calls == []
+    clock = outlook.time.time() + outlook.CATEGORY_RECHECK_FAILED + 1
+    monkeypatch.setattr(outlook.time, "time", lambda: clock)
+    graph.categories["jan@example.com"] = [{"id": "c1", "displayName": "VOPA teams", "color": "preset7"}]
+    outlook.ensure_category(graph, jan)                 # retried, existing "VOPA teams" recoloured
+    assert ("PATCH", "/users/jan@example.com/outlook/masterCategories/c1", {"color": "preset1"}) in graph.calls
+    assert jan.outlook_category.startswith("oranje")
+
+
+def test_status_page_shows_category_status(configured, client):
+    jan = _user("jan")
+    jan.outlook_category = "Fout: ErrorAccessDenied: Access is denied."
+    db.session.commit()
+    html = client.get("/users/outlook").get_data(as_text=True)
+    assert "Kleur categorie" in html and "Fout: ErrorAccessDenied" in html

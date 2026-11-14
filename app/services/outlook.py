@@ -333,9 +333,12 @@ def mark_synced(assignment: Assignment) -> None:
     db.session.expire(assignment, ["outlook_synced_at", "updated_at"])
 
 
-#: (mailbox, colour) pairs already checked by this process; a newly chosen
-#: colour is therefore applied by every process at its next run.
-_category_done: set[tuple[str, str]] = set()
+#: (mailbox, colour) -> when this process last checked it. A newly chosen
+#: colour is applied by every process at its next run; a successful check is
+#: repeated every few hours (e.g. someone changed the colour in Outlook), a
+#: failed one every hour (e.g. the permission was granted in the meantime).
+_category_done: dict[tuple[str, str], tuple[float, bool]] = {}
+CATEGORY_RECHECK_OK, CATEGORY_RECHECK_FAILED = 6 * 3600, 3600
 
 
 def ensure_category(client: GraphClient, user: User) -> None:
@@ -344,18 +347,34 @@ def ensure_category(client: GraphClient, user: User) -> None:
     Outlook categories (and their colour) belong to each mailbox. This needs
     the application permission ``MailboxSettings.ReadWrite``; without it a
     :class:`GraphError` is raised and the category keeps Outlook's own colour.
-    Checked once per mailbox per process (and again after a restart).
+    The outcome is stored in ``user.outlook_category`` for the status page.
     """
     color = settings()["category_color"]
-    if not color or not user.email or (user.email.lower(), color) in _category_done:
+    if not color or not user.email:
         return
-    base = f"/users/{urllib.parse.quote(user.email)}/outlook/masterCategories"
-    existing = [c for c in client.get_all(base) if c.get("displayName", "").lower() == CATEGORY.lower()]
-    if not existing:
-        client.request("POST", base, {"displayName": CATEGORY, "color": color})
-    elif existing[0].get("color") != color:
-        client.request("PATCH", f"{base}/{existing[0]['id']}", {"color": color})
-    _category_done.add((user.email.lower(), color))
+    key = (user.email.lower(), color)
+    checked = _category_done.get(key)
+    if checked and time.time() - checked[0] < (CATEGORY_RECHECK_OK if checked[1] else CATEGORY_RECHECK_FAILED):
+        return
+    name = next((nl for preset, nl, *_ in CATEGORY_PALETTE if preset == color), color)
+    try:
+        base = f"/users/{urllib.parse.quote(user.email)}/outlook/masterCategories"
+        existing = [c for c in client.get_all(base)
+                    if (c.get("displayName") or "").strip().lower() == CATEGORY.lower()]
+        if not existing:
+            client.request("POST", base, {"displayName": CATEGORY, "color": color})
+            done = f"aangemaakt in {name}"
+        else:
+            for category in existing:            # also "VOPA teams" in another letter case
+                if category.get("color") != color:
+                    client.request("PATCH", f"{base}/{category['id']}", {"color": color})
+            done = f"{name}"
+        user.outlook_category = f"{done} ({datetime.now():%d/%m %H:%M})"
+        _category_done[key] = (time.time(), True)
+    except GraphError as exc:
+        user.outlook_category = f"Fout: {exc}"[:300]
+        _category_done[key] = (time.time(), False)
+        raise
 
 
 def remove_orphans(client: GraphClient) -> int:
@@ -430,9 +449,9 @@ def sync_all(client: GraphClient | None = None) -> SyncReport:
             ensure_category(client, user)
         except GraphError as exc:
             # Not fatal: the appointments are written anyway, only the colour is missing.
-            _category_done.add((user.email.lower(), settings()["category_color"]))  # don't retry every 5 minutes
             report.errors.append(f"Kleur categorie '{CATEGORY}' ({user.full_name}): {exc} "
                                  "- machtiging MailboxSettings.ReadWrite toegekend?")
+    db.session.commit()   # keep the colour status for the status page
     # Planning -> Outlook first, so freshly written appointments are known
     # (and skipped) when the calendars are read.
     try:
