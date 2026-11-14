@@ -1,8 +1,9 @@
 """Security settings for running the application on the internet.
 
-* ``HTTPS=1`` (production behind a reverse proxy such as Caddy):
-  - trusts the ``X-Forwarded-*`` headers of exactly one proxy (real client IP
-    for the login protection, ``https`` scheme for redirects/cookies);
+* ``PROXY_COUNT`` (1 behind Caddy, implied by ``HTTPS=1``): trusts the
+  ``X-Forwarded-*`` headers of that many proxies (real client IP for the
+  login protection, ``https`` scheme for redirects/cookies).
+* ``HTTPS=1`` (on by default when ``DOMAIN`` is set):
   - sends cookies only over HTTPS (session and "remember me");
   - refuses to start with a missing or weak ``SECRET_KEY``.
 * Always: security headers on every response, including a Content Security
@@ -41,8 +42,12 @@ def init_security(app: Flask) -> None:
             raise RuntimeError("SECRET_KEY ontbreekt of is te kort (minstens 32 tekens) - "
                                "maak er een met: python -c \"import secrets; print(secrets.token_hex(32))\"")
         config.update(SESSION_COOKIE_SECURE=True, REMEMBER_COOKIE_SECURE=True, PREFERRED_URL_SCHEME="https")
-        # One proxy (Caddy) in front of the app: trust its X-Forwarded-For/-Proto/-Host.
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    proxies = int(config.get("PROXY_COUNT") or (1 if config.get("HTTPS") else 0))
+    if proxies:
+        # Caddy in front of the app: trust its X-Forwarded-For/-Proto/-Host
+        # (and only those of that many proxies, so clients can't fake them).
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=proxies, x_proto=proxies, x_host=proxies)
 
     app.jinja_env.globals["csp_nonce"] = csp_nonce
 

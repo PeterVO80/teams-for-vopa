@@ -1,12 +1,11 @@
-# Caddy configuration for production (docker-compose.prod.yml).
-# DOMAIN and ACME_EMAIL come from the stack's environment variables.
-# Caddy requests and renews the HTTPS certificate itself and redirects
-# http:// to https://.
-{
-	email {$ACME_EMAIL}
-}
+# Caddy configuration of the stack (portainer-stack.yml).
+#
+# SITE_ADDRESS is the stack's DOMAIN (e.g. teams.vopa.be): Caddy then
+# requests and renews a Let's Encrypt certificate itself and redirects
+# http:// to https://. Without a DOMAIN it is ":80": plain http, for a test
+# server on the local network.
 
-{$DOMAIN} {
+{$SITE_ADDRESS::80} {
 	encode zstd gzip
 
 	# Supplier price lists (DBF) can be large.
@@ -15,7 +14,6 @@
 	}
 
 	header {
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		-Server
 	}
 

@@ -1,5 +1,10 @@
 # ---------------------------------------------------------------------------
-# VOPA Teams - Portainer stack
+# VOPA Teams - Portainer stack (the same file for the test server on the
+# local network and for the server on the internet, e.g. Hetzner)
+#
+#   caddy (ports 80/443)  ->  web (gunicorn)  ->  db (PostgreSQL)
+#                             outlook-sync    ->  db
+#                             backup (daily pg_dump)
 #
 # Deploy in Portainer via:  Stacks > Add stack > "Repository"
 #   Repository URL     : https://github.com/petervo80/teams-for-vopa
@@ -7,21 +12,31 @@
 #   Compose path       : portainer-stack.yml
 #   Authentication     : on, with a GitHub Personal Access Token (private repo)
 #
-# Then set the environment variables under "Environment variables"
-# (see the list below). Portainer clones the repository and builds the image
-# on the Docker host itself, so no image registry is needed.
+# Then set the environment variables under "Environment variables" (list
+# below). Portainer clones the repository and builds the images on the
+# Docker host itself, so no image registry is needed.
+#
+# * On the internet: set DOMAIN (e.g. teams.vopa.be). Caddy gets a Let's
+#   Encrypt certificate for it automatically (the DNS record must point to the
+#   server, ports 80 and 443 must be open) and the app runs in HTTPS mode
+#   (secure cookies, strict SECRET_KEY check, see app/security.py).
+# * Test server on the local network: leave DOMAIN empty -> plain http on
+#   WEB_PORT (e.g. 8080).
 #
 # Environment variables (set in Portainer):
-#   SECRET_KEY         required - long random string, e.g. the output of
-#                      python -c "import secrets; print(secrets.token_hex(32))"
+#   SECRET_KEY         required - random string of at least 32 characters, e.g.
+#                      python3 -c "import secrets; print(secrets.token_hex(32))"
 #   POSTGRES_PASSWORD  required - database password
 #   ADMIN_PASSWORD     required - password of the first admin account
+#                      (at least 12 characters when DOMAIN is set)
+#   DOMAIN             on the internet: domain name, e.g. teams.vopa.be
+#   WEB_PORT           optional - http port on the host (default: 80; e.g. 8080 on
+#                      a test server where 80 is taken). Keep 80 when DOMAIN is set.
+#   HTTPS_PORT         optional - https port on the host (default: 443)
 #   POSTGRES_USER      optional (default: vopa)
 #   POSTGRES_DB        optional (default: vopa)
 #   ADMIN_USERNAME     optional (default: admin)
 #   ADMIN_EMAIL        optional
-#   WEB_PORT           optional - port on the Docker host (default: 8080,
-#                      because Portainer itself usually occupies 8000)
 #   WORKDAY_HOURS      optional - hours in a working day for planning (default: 8)
 #   PROJECT_CODE_PREFIX optional - prefix of automatic project codes
 #                      (default: PRJ  ->  PRJ/2026/0001)
@@ -29,12 +44,97 @@
 #   MS365_TENANT_ID, MS365_CLIENT_ID, MS365_CLIENT_SECRET
 #                      optional - Outlook calendar link (see README "Outlook")
 #   MS365_TIMEZONE     optional - Windows time zone (default: Romance Standard Time)
-#   MS365_CATEGORY_COLOR optional - colour of the "VOPA Teams" category in Outlook (default: oranje)
+#   MS365_CATEGORY_COLOR optional - default colour of the "VOPA Teams" category (default: oranje)
 #   MICROSOFT_LOGIN    optional - off / on / required: log in with Microsoft 365 (see README)
-#   APP_URL            optional - address of the app, linked in Outlook appointments
+#   APP_URL            optional - address of the app (default: https://<DOMAIN>)
+#   BACKUP_KEEP_DAYS   optional - days of daily database backups to keep (default: 14)
 # ---------------------------------------------------------------------------
 
+x-app-env: &app-env
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-vopa}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vopa}
+  SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in the stack environment variables}
+  DOMAIN: ${DOMAIN:-}
+  PROXY_COUNT: "1"          # Caddy in front of the app
+  WORKDAY_HOURS: ${WORKDAY_HOURS:-8}
+  PROJECT_CODE_PREFIX: ${PROJECT_CODE_PREFIX:-PRJ}
+  MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-300}
+  MS365_TENANT_ID: ${MS365_TENANT_ID:-}
+  MS365_CLIENT_ID: ${MS365_CLIENT_ID:-}
+  MS365_CLIENT_SECRET: ${MS365_CLIENT_SECRET:-}
+  MS365_TIMEZONE: ${MS365_TIMEZONE:-Romance Standard Time}
+  MS365_CATEGORY_COLOR: ${MS365_CATEGORY_COLOR:-oranje}
+  MICROSOFT_LOGIN: ${MICROSOFT_LOGIN:-off}
+  APP_URL: ${APP_URL:-}
+
 services:
+  caddy:
+    # Reverse proxy: HTTPS with automatic certificates when DOMAIN is set,
+    # plain http otherwise (docker/caddy/Caddyfile).
+    build: ./docker/caddy
+    pull_policy: build
+    restart: unless-stopped
+    depends_on:
+      - web
+    environment:
+      SITE_ADDRESS: ${DOMAIN:-:80}
+    ports:
+      - "${WEB_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"   # HTTP/3
+    volumes:
+      - caddy_data:/data      # certificates - keep this volume
+      - caddy_config:/config
+    networks:
+      - frontend
+
+  web:
+    # Built from the Dockerfile in the repository on the Docker host itself.
+    # There is deliberately no "image:" line: this image does not exist in
+    # any registry, so Portainer must never try to pull it.
+    # "pull_policy: build" makes "docker compose pull" (Portainer's "Re-pull
+    # image") skip this service, and rebuilds it from the latest code on
+    # every (re)deploy.
+    build: .
+    pull_policy: build
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in the stack environment variables}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+    # No "ports:": only reachable through Caddy.
+    healthcheck:
+      # Shows the container as "healthy" in Portainer once the app answers.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/auth/login', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - frontend
+      - backend
+
+  outlook-sync:
+    # Synchronises the team planning with the Outlook calendars every 5
+    # minutes (services/outlook.py). Same image as "web"; it does nothing
+    # but wait as long as the MS365_* variables are not set.
+    build: .
+    pull_policy: build
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_started
+    command: ["flask", "outlook-sync", "--loop", "300"]
+    environment:
+      <<: *app-env
+      RUN_MIGRATIONS: "0"
+    networks:
+      - frontend   # needs the internet (Microsoft Graph)
+      - backend
+
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -52,78 +152,48 @@ services:
       retries: 10
     networks:
       - backend
-    # No "ports:" on purpose: the database is only reachable from the web container.
+    # No "ports:": the database is never reachable from outside.
 
-  web:
-    # Built from the Dockerfile in the repository on the Docker host itself.
-    # There is deliberately no "image:" line: this image does not exist in
-    # any registry, so Portainer must never try to pull it.
-    # "pull_policy: build" makes "docker compose pull" (Portainer's "Re-pull
-    # image") skip this service, and rebuilds it from the latest code on
-    # every (re)deploy.
-    build: .
-    pull_policy: build
+  backup:
+    # Daily compressed database dump into the "vopa_backups" volume; dumps
+    # older than BACKUP_KEEP_DAYS are deleted. Also copy them off the server
+    # (see README): a backup on the same server doesn't survive losing it.
+    image: postgres:16-alpine
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-vopa}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vopa}
-      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in the stack environment variables}
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in the stack environment variables}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      WORKDAY_HOURS: ${WORKDAY_HOURS:-8}
-      PROJECT_CODE_PREFIX: ${PROJECT_CODE_PREFIX:-PRJ}
-      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-300}
-      # Outlook / Microsoft 365 calendar link (optional, see README).
-      MS365_TENANT_ID: ${MS365_TENANT_ID:-}
-      MS365_CLIENT_ID: ${MS365_CLIENT_ID:-}
-      MS365_CLIENT_SECRET: ${MS365_CLIENT_SECRET:-}
-      MS365_TIMEZONE: ${MS365_TIMEZONE:-Romance Standard Time}
-      MS365_CATEGORY_COLOR: ${MS365_CATEGORY_COLOR:-oranje}
-      MICROSOFT_LOGIN: ${MICROSOFT_LOGIN:-off}
-      APP_URL: ${APP_URL:-}
-    ports:
-      - "${WEB_PORT:-8080}:8000"
-    healthcheck:
-      # Shows the container as "healthy" in Portainer once the app answers.
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/auth/login', timeout=5)"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - backend
-
-  outlook-sync:
-    # Synchronises the team planning with the Outlook calendars every 5
-    # minutes (services/outlook.py). Same image as "web"; it does nothing
-    # but wait as long as the MS365_* variables are not set.
-    build: .
-    pull_policy: build
-    restart: unless-stopped
-    depends_on:
-      web:
-        condition: service_started
-    command: ["flask", "outlook-sync", "--loop", "300"]
-    environment:
-      RUN_MIGRATIONS: "0"
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-vopa}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vopa}
-      SECRET_KEY: ${SECRET_KEY}
-      WORKDAY_HOURS: ${WORKDAY_HOURS:-8}
-      MS365_TENANT_ID: ${MS365_TENANT_ID:-}
-      MS365_CLIENT_ID: ${MS365_CLIENT_ID:-}
-      MS365_CLIENT_SECRET: ${MS365_CLIENT_SECRET:-}
-      MS365_TIMEZONE: ${MS365_TIMEZONE:-Romance Standard Time}
-      MS365_CATEGORY_COLOR: ${MS365_CATEGORY_COLOR:-oranje}
-      MICROSOFT_LOGIN: ${MICROSOFT_LOGIN:-off}
-      APP_URL: ${APP_URL:-}
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-vopa}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-vopa}
+      KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          name=vopa-$$(date +%Y-%m-%d_%H%M).sql.gz
+          if pg_dump --no-owner | gzip > /backups/partial.tmp; then
+            mv /backups/partial.tmp "/backups/$$name" && echo "backup: $$name"
+          else
+            echo "backup: FAILED"
+          fi
+          find /backups -name 'vopa-*.sql.gz' -mtime +$$KEEP_DAYS -delete
+          sleep 86400
+        done
+    volumes:
+      - vopa_backups:/backups
     networks:
       - backend
 
 volumes:
   vopa_pgdata:
+  vopa_backups:
+  caddy_data:
+  caddy_config:
 
 networks:
+  frontend:
   backend:
+    internal: true   # the database network has no route to the internet

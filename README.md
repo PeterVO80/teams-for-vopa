@@ -356,12 +356,19 @@ Project ──< Note >──< Tag            WikiPage ──< WikiRevision
 
 ## Running on the internet (e.g. Hetzner Cloud)
 
-`docker-compose.prod.yml` is the set-up for a server that is reachable from
-the internet: [Caddy](https://caddyserver.com) in front with HTTPS (automatic
-Let's Encrypt certificate), the app in "HTTPS mode", no other open ports and
-a daily database backup.
+`portainer-stack.yml` is used both for a test server on the local network
+and for a server on the internet: [Caddy](https://caddyserver.com) in front,
+no other open ports, and a daily database backup. Set **`DOMAIN`** (e.g.
+`teams.vopa.be`) and Caddy gets a Let's Encrypt certificate for it
+automatically, redirects http to https, and the app runs in "HTTPS mode".
+Without `DOMAIN` it is plain http on `WEB_PORT` (test server).
 
-### What the application does in HTTPS mode (`HTTPS=1`)
+`DOMAIN` and `APP_URL`: `DOMAIN` is the bare name Caddy needs for the
+certificate; `APP_URL` (the full address, used in links in Outlook
+appointments and for the Microsoft login) defaults to `https://<DOMAIN>`,
+so it only needs to be set without a domain, e.g. `http://192.168.1.10:8080`.
+
+### What the application does in HTTPS mode (automatic with `DOMAIN`)
 
 * Cookies (session, "remember me") are only sent over HTTPS, are not
   readable by JavaScript and are `SameSite=Lax`; sessions expire after 12
@@ -408,10 +415,10 @@ a daily database backup.
 git clone https://github.com/petervo80/teams-for-vopa.git /opt/vopa-teams
 cd /opt/vopa-teams
 cp .env.example .env
-nano .env        # DOMAIN, ACME_EMAIL, SECRET_KEY, POSTGRES_PASSWORD, ADMIN_PASSWORD, MS365_*
+nano .env        # DOMAIN, SECRET_KEY, POSTGRES_PASSWORD, ADMIN_PASSWORD, MS365_*
 chmod 600 .env
-docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml logs -f caddy web   # certificate + start-up
+docker compose -f portainer-stack.yml up -d --build
+docker compose -f portainer-stack.yml logs -f caddy web   # certificate + start-up
 ```
 
 Generate the secrets with `openssl rand -hex 32`. Log in at
@@ -422,11 +429,11 @@ Updating to a new version:
 
 ```bash
 cd /opt/vopa-teams && git pull
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f portainer-stack.yml up -d --build
 ```
 
 With **Portainer** instead: deploy the stack from the repository with
-compose path `docker-compose.prod.yml` and the variables above. Don't
+compose path `portainer-stack.yml` and the variables above. Don't
 expose Portainer itself to the internet: keep its port closed in the firewall
 and reach it through an SSH tunnel
 (`ssh -L 9443:localhost:9443 user@server`, then `https://localhost:9443`).
@@ -438,14 +445,14 @@ The `backup` container writes a compressed `pg_dump` every 24 hours to the
 them off the server regularly, e.g. to a Hetzner Storage Box or your office:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec backup ls -l /backups
-docker compose -f docker-compose.prod.yml cp backup:/backups/. ./backups/
+docker compose -f portainer-stack.yml exec backup ls -l /backups
+docker compose -f portainer-stack.yml cp backup:/backups/. ./backups/
 ```
 
 Restore a dump into an empty database:
 
 ```bash
-gunzip -c vopa-2026-11-14_0300.sql.gz | docker compose -f docker-compose.prod.yml exec -T db psql -U vopa vopa
+gunzip -c vopa-2026-11-14_0300.sql.gz | docker compose -f portainer-stack.yml exec -T db psql -U vopa vopa
 ```
 
 Test a restore now and then - a backup that was never restored is a hope,
@@ -472,9 +479,9 @@ database; nothing is stored in files. Moving = one database dump.
 
    ```bash
    cd /opt/vopa-teams
-   docker compose -f docker-compose.prod.yml up -d db
-   docker compose -f docker-compose.prod.yml exec -T db pg_restore -U vopa -d vopa --clean --if-exists --no-owner < vopa-teams.dump
-   docker compose -f docker-compose.prod.yml up -d --build
+   docker compose -f portainer-stack.yml up -d db
+   docker compose -f portainer-stack.yml exec -T db pg_restore -U vopa -d vopa --clean --if-exists --no-owner < vopa-teams.dump
+   docker compose -f portainer-stack.yml up -d --build
    ```
 
    The web container then upgrades the database to the current version

@@ -167,3 +167,43 @@ def test_https_mode_requires_strong_secret_and_secures_cookies():
         db.create_all()
         response = app.test_client().get("/auth/login", headers={"X-Forwarded-Proto": "https"})
         assert "max-age=31536000" in response.headers["Strict-Transport-Security"]
+
+
+def test_domain_turns_on_https_mode_and_app_url(monkeypatch):
+    import importlib
+    import app.config as config_module
+
+    monkeypatch.setenv("DOMAIN", "teams.example.com")
+    monkeypatch.delenv("HTTPS", raising=False)
+    monkeypatch.delenv("APP_URL", raising=False)
+    config = importlib.reload(config_module)
+    try:
+        assert config.Config.HTTPS is True
+        assert config.Config.APP_URL == "https://teams.example.com"
+        monkeypatch.setenv("APP_URL", "https://andere.example.com")
+        assert importlib.reload(config_module).Config.APP_URL == "https://andere.example.com"
+    finally:
+        monkeypatch.delenv("DOMAIN")
+        monkeypatch.delenv("APP_URL")
+        reloaded = importlib.reload(config_module)
+        assert reloaded.Config.HTTPS is False
+
+
+def test_proxy_count_gives_real_client_address_without_https():
+    from app import create_app
+    from app.config import TestConfig
+
+    class BehindCaddy(TestConfig):
+        PROXY_COUNT = 1
+
+    app = create_app(BehindCaddy)
+    seen = {}
+
+    @app.route("/_ip")
+    def _ip():
+        from flask import request
+        seen["ip"] = request.remote_addr
+        return "ok"
+
+    app.test_client().get("/_ip", headers={"X-Forwarded-For": "203.0.113.7"})
+    assert seen["ip"] == "203.0.113.7"

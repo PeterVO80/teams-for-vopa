@@ -30,8 +30,14 @@ class Config:
     #: (services/microsoft_login.py). Uses the MS365_* app registration.
     MICROSOFT_LOGIN = os.environ.get("MICROSOFT_LOGIN", "off")
 
-    #: Production on the internet behind an HTTPS reverse proxy (see security.py).
-    HTTPS = os.environ.get("HTTPS", "0").lower() in ("1", "true", "yes")
+    #: Public domain name (e.g. teams.vopa.be) when running on the internet.
+    DOMAIN = os.environ.get("DOMAIN", "").strip()
+    #: Production on the internet behind an HTTPS reverse proxy (see
+    #: security.py). Defaults to on as soon as a DOMAIN is set.
+    HTTPS = os.environ.get("HTTPS", "1" if DOMAIN else "0").lower() in ("1", "true", "yes")
+    #: Number of reverse proxies in front of the app (Caddy in the stack = 1):
+    #: their X-Forwarded-* headers give the real client address and scheme.
+    PROXY_COUNT = int(os.environ.get("PROXY_COUNT", "0") or 0)
 
     #: Number of rows shown per page in paginated list views.
     ITEMS_PER_PAGE = 50
@@ -51,7 +57,7 @@ class Config:
     #: or an Outlook preset such as "preset1"). Empty = leave the colour alone.
     MS365_CATEGORY_COLOR = os.environ.get("MS365_CATEGORY_COLOR", "oranje")
     #: Public address of the application, used for links in Outlook appointments.
-    APP_URL = os.environ.get("APP_URL", "")
+    APP_URL = os.environ.get("APP_URL", "") or (f"https://{DOMAIN}" if DOMAIN else "")
 
     #: Default number of working hours in one day, used by the team planning
     #: to express workload as a percentage.
