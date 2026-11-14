@@ -17,6 +17,7 @@ import sqlalchemy as sa
 from flask import abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
+from ..access import project_scope, require_project, visible_project_ids, visible_projects_condition
 from ..extensions import db
 from ..forms import WikiPageForm, none_if_zero
 from ..models import Project, ProjectStatus, WikiPage, WikiRevision
@@ -56,11 +57,15 @@ def _wiki_choices(current_project_id: int | None) -> list[tuple[int, str]]:
     Closed projects are only listed when the page already belongs to one,
     so new pages are not added to finished projects by accident.
     """
-    projects = db.session.scalars(
+    query = (
         sa.select(Project)
         .where(sa.or_(Project.status != ProjectStatus.CLOSED, Project.id == (current_project_id or 0)))
         .order_by(Project.code.desc())
     )
+    visible = visible_projects_condition()
+    if visible is not None:
+        query = query.where(visible)
+    projects = db.session.scalars(query)
     return [(0, "Algemene wiki")] + [(p.id, f"Projectwiki {p.display_name}") for p in projects]
 
 
@@ -80,11 +85,14 @@ def _parent_choices(exclude: WikiPage | None = None) -> list[tuple]:
     ).all()
 
     choices: list[tuple] = [(0, "- hoofdniveau -", {"data-project": "any"})]
+    visible = visible_project_ids()
 
     def walk(pages, depth):
         for page in pages:
             if page.id in excluded:
                 continue
+            if visible is not None and page.project_id and page.project_id not in visible:
+                continue  # page of a project wiki the user may not see
             choices.append(
                 (page.id, "   " * depth + page.title, {"data-project": str(page.project_id or 0)})
             )
@@ -111,6 +119,13 @@ def _validate_parent(form: WikiPageForm) -> WikiPage | None | bool:
         form.parent_id.errors.append("De bovenliggende pagina moet in dezelfde wiki staan.")
         return False
     return parent
+
+
+def _page(slug: str) -> WikiPage:
+    """The page with this slug, if the current user may see its wiki (404 otherwise)."""
+    page = db.first_or_404(sa.select(WikiPage).filter_by(slug=slug))
+    require_project(page.project)
+    return page
 
 
 def _wiki_url(project_id: int | None) -> str:
@@ -154,12 +169,16 @@ def index():
         sa.select(WikiPage).where(WikiPage.project_id.is_(None)).order_by(WikiPage.updated_at.desc()).limit(10)
     ).all()
     # Projects that have a wiki, with their number of pages.
-    project_wikis = db.session.execute(
+    query = (
         sa.select(Project, sa.func.count(WikiPage.id))
         .join(WikiPage, WikiPage.project_id == Project.id)
         .group_by(Project.id)
         .order_by(Project.code.desc())
-    ).all()
+    )
+    visible = visible_projects_condition()
+    if visible is not None:
+        query = query.where(visible)
+    project_wikis = db.session.execute(query).all()
     return render_template(
         "wiki/index.html", tree=wiki_tree(None), recent=recent, project_wikis=project_wikis
     )
@@ -169,6 +188,7 @@ def index():
 def project_index(project_id: int):
     """Start page of the wiki of one project."""
     project = db.get_or_404(Project, project_id)
+    require_project(project)
     recent = db.session.scalars(
         sa.select(WikiPage).where(WikiPage.project_id == project.id).order_by(WikiPage.updated_at.desc()).limit(10)
     ).all()
@@ -183,7 +203,8 @@ def search():
     results = []
     if term:
         pattern = f"%{term}%"
-        query = sa.select(WikiPage).where(sa.or_(WikiPage.title.ilike(pattern), WikiPage.content.ilike(pattern)))
+        query = sa.select(WikiPage).where(sa.or_(WikiPage.title.ilike(pattern), WikiPage.content.ilike(pattern)),
+                                          project_scope(WikiPage.project_id))
         if project:
             query = query.where(WikiPage.project_id == project.id)
         results = db.session.scalars(query.order_by(WikiPage.title).limit(100)).all()
@@ -254,6 +275,7 @@ def view(slug: str):
     if page is None:
         # Unknown slug: offer to create it instead of showing a plain 404.
         return render_template("wiki/missing.html", slug=slug), 404
+    require_project(page.project)
     # Tree of the wiki this page belongs to, opened along the path to the page.
     open_ids = {crumb.id for crumb in page.breadcrumbs} | {page.id}
     return render_template("wiki/view.html", page=page, tree=wiki_tree(page.project_id), open_ids=open_ids)
@@ -261,7 +283,7 @@ def view(slug: str):
 
 @bp.route("/<slug>/edit", methods=["GET", "POST"])
 def edit(slug: str):
-    page = db.first_or_404(sa.select(WikiPage).filter_by(slug=slug))
+    page = _page(slug)
     form = WikiPageForm(obj=page)
     _prepare_form(form, page)
     if not form.is_submitted():
@@ -300,19 +322,22 @@ def edit(slug: str):
 # ------------------------------------------------------------------ history
 @bp.route("/<slug>/history")
 def history(slug: str):
-    page = db.first_or_404(sa.select(WikiPage).filter_by(slug=slug))
+    page = _page(slug)
     return render_template("wiki/history.html", page=page)
 
 
 @bp.route("/revision/<int:revision_id>")
 def revision(revision_id: int):
-    return render_template("wiki/revision.html", revision=db.get_or_404(WikiRevision, revision_id))
+    revision = db.get_or_404(WikiRevision, revision_id)
+    require_project(revision.page.project)
+    return render_template("wiki/revision.html", revision=revision)
 
 
 @bp.route("/revision/<int:revision_id>/restore", methods=["POST"])
 def restore(revision_id: int):
     """Make an old revision the current content (the current one is kept too)."""
     rev = db.get_or_404(WikiRevision, revision_id)
+    require_project(rev.page.project)
     page = rev.page
     page.revisions.append(WikiRevision(title=page.title, content=page.content, author_id=page.updated_by_id))
     if rev.title != page.title:
@@ -326,7 +351,7 @@ def restore(revision_id: int):
 # ------------------------------------------------------------ delete / export
 @bp.route("/<slug>/delete", methods=["POST"])
 def delete(slug: str):
-    page = db.first_or_404(sa.select(WikiPage).filter_by(slug=slug))
+    page = _page(slug)
     if page.children:
         flash("Deze pagina heeft subpagina's. Verplaats of verwijder die eerst.", "danger")
         return redirect(url_for("wiki.view", slug=page.slug))
@@ -339,7 +364,7 @@ def delete(slug: str):
 
 @bp.route("/<slug>/download")
 def download(slug: str):
-    page = db.first_or_404(sa.select(WikiPage).filter_by(slug=slug))
+    page = _page(slug)
     return current_app.response_class(
         f"# {page.title}\n\n{page.content}",
         mimetype="text/markdown",

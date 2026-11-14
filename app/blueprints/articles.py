@@ -5,6 +5,7 @@ from datetime import date
 import sqlalchemy as sa
 from flask import current_app, flash, jsonify, redirect, render_template, request, send_file, url_for
 
+from ..access import project_scope
 from ..extensions import db
 from ..forms import ArticleForm, ImportForm, none_if_zero
 from ..models import Article, Company, PurchaseOrder, PurchaseOrderLine, StockLocation, StockMovement
@@ -94,7 +95,7 @@ def edit(article_id: int | None = None):
         order_lines = db.session.scalars(
             sa.select(PurchaseOrderLine)
             .join(PurchaseOrder)
-            .where(PurchaseOrderLine.article_id == article.id)
+            .where(PurchaseOrderLine.article_id == article.id, project_scope(PurchaseOrder.project_id))
             .order_by(PurchaseOrder.id.desc())
             .limit(100)
         ).all()

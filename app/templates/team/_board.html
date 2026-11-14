@@ -21,6 +21,8 @@
   The month view uses narrow columns to show a whole month at a glance.
 #}
 {% set compact = period is defined and period.is_month %}
+{# Projects the viewer may see (None = everything, e.g. administrators). #}
+{% set visible_ids = visible_project_ids() %}
 {% set sizes = {'weekday': (1.7, 3.2), 'weekend': (1.3, 2.2)} if compact else {'weekday': (2.8, 7), 'weekend': (2, 4.5)} %}
 {% set fixed = [11 if compact else 13, 4.5, 3.2] %}
 {% set columns = [] %}
@@ -68,33 +70,38 @@
     {% for seg in row.segments %}
     {% set a = seg.assignment %}
     {% set muted = focus_project and a.project_id != focus_project.id %}
+    {# Planning on a project the viewer is not linked to: only "Ingepland",
+       no customer/project/note, and it cannot be opened or dragged. #}
+    {% set hidden = visible_ids is not none and a.project_id and a.project_id not in visible_ids %}
+    {% set locked = muted or hidden %}
+    {% set label = 'Ingepland' if hidden else a.label %}
     {% set hours = a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') %}
     {# Content of the instant tooltip (static/js/team.js). The values are
        escaped here; forceescape below escapes the whole HTML once more for
        the attribute, the browser undoes that when reading it. #}
     {% set tooltip %}
-      <div class="fw-semibold">{{ a.label }}</div>
-      {% if a.project %}<div class="opacity-75">{{ a.project.code }}</div>{% endif %}
+      <div class="fw-semibold">{{ label }}</div>
+      {% if a.project and not hidden %}<div class="opacity-75">{{ a.project.code }}</div>{% endif %}
       <div><i class="bi bi-person"></i> {{ row.user.full_name }}</div>
       <div><i class="bi bi-calendar-range"></i> {{ a.start_date|date }} – {{ a.end_date|date }}</div>
       <div><i class="bi bi-clock"></i> {{ hours }} u/dag · {{ a.planned_days }} dag{{ 'en' if a.planned_days != 1 }}{% if a.include_weekends %} · incl. weekend{% endif %}</div>
-      {% if a.note %}<div class="mt-1 fst-italic">{{ a.note }}</div>{% endif %}
+      {% if a.note and not hidden %}<div class="mt-1 fst-italic">{{ a.note }}</div>{% endif %}
     {% endset %}
     {# data-* attributes are used by static/js/team.js to resize and move bars;
        muted bars (other planning on the project page) are not draggable. #}
-    <a class="planning-chip {{ 'absence' if a.kind.is_absence }} {{ 'muted' if muted }} {{ 'continues-before' if seg.continues_before }} {{ 'continues-after' if seg.continues_after }}"
+    <a class="planning-chip {{ 'absence' if a.kind.is_absence }} {{ 'muted' if muted }} {{ 'locked' if hidden }} {{ 'continues-before' if seg.continues_before }} {{ 'continues-after' if seg.continues_after }}"
        style="grid-column: {{ seg.first + 4 }} / span {{ seg.span }}; grid-row: {{ seg.lane + 2 }};{% if not muted %} background-color: {{ row.user.color }}; color: {{ row.user.color|text_on }}{% endif %}"
-       href="{{ url_for('team.edit_assignment', assignment_id=a.id, next=request.full_path) }}"
-       data-modal-url="{{ url_for('team.edit_assignment', assignment_id=a.id) }}"
-       {% if not muted %}data-assignment="{{ a.id }}" data-start="{{ a.start_date.isoformat() }}" data-end="{{ a.end_date.isoformat() }}"
+       {% if not hidden %}href="{{ url_for('team.edit_assignment', assignment_id=a.id, next=request.full_path) }}"
+       data-modal-url="{{ url_for('team.edit_assignment', assignment_id=a.id) }}"{% endif %}
+       {% if not locked %}data-assignment="{{ a.id }}" data-start="{{ a.start_date.isoformat() }}" data-end="{{ a.end_date.isoformat() }}"
        data-first="{{ seg.first }}" data-last="{{ seg.last }}"
        data-reschedule-url="{{ url_for('team.reschedule_assignment', assignment_id=a.id) }}"{% endif %}
        data-tooltip-html="{{ tooltip|forceescape }}"
-       title="{{ a.label }}{% if a.project %} ({{ a.project.code }}){% endif %}&#10;{{ a.start_date|date }} – {{ a.end_date|date }} · {{ hours }}u/dag{% if a.include_weekends %} · incl. weekend{% endif %}{% if a.note and not a.kind.is_absence %}&#10;{{ a.note }}{% endif %}">
+       title="{{ label }}{% if a.project and not hidden %} ({{ a.project.code }}){% endif %}&#10;{{ a.start_date|date }} – {{ a.end_date|date }} · {{ hours }}u/dag{% if a.include_weekends %} · incl. weekend{% endif %}{% if a.note and not a.kind.is_absence and not hidden %}&#10;{{ a.note }}{% endif %}">
       {%- if a.kind.is_absence %}<i class="bi bi-{{ {'leave': 'sun', 'sick': 'thermometer-half', 'training': 'mortarboard'}[a.kind.value] }}"></i> {% endif -%}
-      {{ a.label }}{% if a.hours_per_day < workday_hours %} <span class="opacity-75">· {{ a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') }}u</span>{% endif %}
-      {%- if not muted and seg.is_first and not seg.continues_before %}<span class="bar-handle start" title="Sleep om de startdatum te wijzigen"></span>{% endif %}
-      {%- if not muted and seg.is_last and not seg.continues_after %}<span class="bar-handle end" title="Sleep om de einddatum te wijzigen"></span>{% endif %}
+      {{ label }}{% if a.hours_per_day < workday_hours %} <span class="opacity-75">· {{ a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') }}u</span>{% endif %}
+      {%- if not locked and seg.is_first and not seg.continues_before %}<span class="bar-handle start" title="Sleep om de startdatum te wijzigen"></span>{% endif %}
+      {%- if not locked and seg.is_last and not seg.continues_after %}<span class="bar-handle end" title="Sleep om de einddatum te wijzigen"></span>{% endif %}
     </a>
     {% endfor %}
   </div>

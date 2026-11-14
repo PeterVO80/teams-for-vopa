@@ -75,6 +75,7 @@ def _register_blueprints(app: Flask) -> None:
 def _register_template_helpers(app: Flask) -> None:
     """Jinja filters and globals used by the templates."""
     from . import models
+    from .access import visible_project_ids
     from .services.markdown_render import render_markdown
 
     @app.template_filter("date")
@@ -137,6 +138,7 @@ def _register_template_helpers(app: Flask) -> None:
         ProjectStatus=models.ProjectStatus,
         AssignmentKind=models.AssignmentKind,
         today=date.today,
+        visible_project_ids=visible_project_ids,
     )
 
 

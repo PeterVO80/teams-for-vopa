@@ -9,6 +9,7 @@ new option, which static/js/modal_form.js adds to the select and selects.
 import sqlalchemy as sa
 from flask import abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 
+from ..access import project_scope, visible_projects_condition
 from ..extensions import db
 from ..forms import CompanyForm
 from ..models import Article, Company, Project, PurchaseOrder, SupplierCatalog
@@ -57,11 +58,14 @@ def index():
 @bp.route("/<int:company_id>")
 def detail(company_id: int):
     company = db.get_or_404(Company, company_id)
-    projects = db.session.scalars(
-        sa.select(Project).filter_by(customer_id=company.id).order_by(Project.code.desc())
-    ).all()
+    visible = visible_projects_condition()
+    projects_query = sa.select(Project).filter_by(customer_id=company.id).order_by(Project.code.desc())
+    if visible is not None:
+        projects_query = projects_query.where(visible)
+    projects = db.session.scalars(projects_query).all()
     orders = db.session.scalars(
-        sa.select(PurchaseOrder).filter_by(supplier_id=company.id).order_by(PurchaseOrder.id.desc()).limit(25)
+        sa.select(PurchaseOrder).filter_by(supplier_id=company.id).where(project_scope(PurchaseOrder.project_id))
+        .order_by(PurchaseOrder.id.desc()).limit(25)
     ).all()
     article_count = db.session.scalar(sa.select(sa.func.count(Article.id)).filter_by(supplier_id=company.id))
     catalogs = db.session.scalars(sa.select(SupplierCatalog).filter_by(supplier_id=company.id)).all()

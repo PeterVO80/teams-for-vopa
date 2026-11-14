@@ -5,7 +5,7 @@ assignment is a **project**. All modules hang off that project:
 
 | Module | What it does |
 |---|---|
-| **Projects** | Automatic project code (`PRJ/2026/0001`, numbering restarts each year), project card with customer, project manager and timeline, plus an overview of the project's tasks, orders and notes. |
+| **Projects** | Automatic project code (`PRJ/2026/0001`, numbering restarts each year), project card with customer, project manager and timeline, plus an overview of the project's tasks, orders and notes. **Project team**: employees are linked to projects; non-admin employees only see the projects they are linked to (or manage) - everywhere in the app - and other projects' planning shows as "Ingepland". Administrators see everything. |
 | **Relations** | Customers and suppliers (one company can be both) with address, VAT number and contact details. Projects, articles, purchase orders and supplier price lists choose a relation from a list instead of typing a name, so spelling mistakes can't create duplicates; a "+" next to the list creates a new relation in a popup. Relations in use can't be deleted, only deactivated. |
 | **Purchasing** | Purchase orders per project/supplier. Order lines are **linked to the article database** (search on the order, "add to order" from the article list, or link a free-text line afterwards). **Delivery tracking per line** (partial deliveries, delivery notes, who received it); order status updates automatically. **Material overview per project**: per article, what is in draft, ordered, delivered and still outstanding across all the project's orders (project tab + page + Excel export). List of all outstanding deliveries, Excel export per order. |
 | **Articles** | Article database with search and filters, order history per article. **Excel import/export** (round trip: export → edit in Excel → import). **Supplier catalogue**: load a supplier price list (Rexel DBF, hundreds of thousands of articles), filter by manufacturer / product group / search text, select articles across pages (or a whole filter) and import them; a new price list updates the prices of imported articles in one click. Prices with up to 4 decimals (cable per metre). During the Rexel import the **extended description** and the **specifications** are fetched from each article's Rexel Netstore product page (in batches with a progress bar); a new price list keeps that description. |
@@ -235,6 +235,13 @@ Project ──< Note >──< Tag            WikiPage ──< WikiRevision
   and `supplier_ref`, so a newer price list finds it again for price updates.
   Another supplier's file format can be added in
   `services/supplier_catalog.py` (a `CatalogFormat` + an entry in `FORMATS`).
+* Access to projects is decided in one place, `app/access.py`: admins see
+  everything, other employees only projects where they are a member
+  (`project_members`) or the manager. Lists use `project_scope()` /
+  `visible_projects_condition()`, single records `require_project()` (404).
+  Being planned on, getting a task in, or creating a project links the
+  person automatically. Migration 0007 gave existing projects a team based
+  on their tasks and planning.
 * Customers and suppliers are `Company` records (`models/company.py`);
   `Project.customer`, `Article.supplier`, `PurchaseOrder.supplier` and
   `SupplierCatalog.supplier` are relationships to it. Migration 0005 turned

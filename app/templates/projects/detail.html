@@ -14,6 +14,34 @@
         <dt class="col-5">Klant</dt><dd class="col-7">{% if project.customer %}<a href="{{ url_for('relations.detail', company_id=project.customer.id) }}">{{ project.customer }}</a>{% else %}-{% endif %}</dd>
         <dt class="col-5">Projectleider</dt><dd class="col-7">{{ project.manager.full_name if project.manager else '-' }}</dd>
         <dt class="col-5">Periode</dt><dd class="col-7">{{ project.start_date|date or '?' }} – {{ project.end_date|date or '?' }}</dd>
+        <dt class="col-5" title="Medewerkers die dit project zien. Beheerders zien alle projecten.">Team</dt>
+        <dd class="col-7">
+          <div class="d-flex flex-wrap gap-1 project-team">
+            {% for person in project.team %}
+            <span class="badge text-bg-light border fw-normal d-inline-flex align-items-center gap-1">
+              {{ avatar(person) }} {{ person.full_name }}
+              {% if person == project.manager %}<small class="text-body-secondary">(projectleider)</small>
+              {% elif can_manage_team %}
+              <form method="post" action="{{ url_for('projects.remove_member', project_id=project.id, user_id=person.id) }}" class="d-inline"
+                    data-confirm="{{ person.full_name }} loskoppelen? Taken en planning blijven bestaan, maar {{ person.full_name.split()[0] }} ziet het project niet meer.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-link btn-sm p-0 text-danger" title="Loskoppelen"><i class="bi bi-x-lg"></i></button>
+              </form>
+              {% endif %}
+            </span>
+            {% else %}<span class="text-body-secondary">Nog niemand gekoppeld.</span>{% endfor %}
+          </div>
+          {% if can_manage_team and addable_users %}
+          <form method="post" action="{{ url_for('projects.add_member', project_id=project.id) }}" class="d-flex gap-1 mt-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <select name="user_id" class="form-select form-select-sm" aria-label="Medewerker toevoegen">
+              <option value="">+ medewerker toevoegen...</option>
+              {% for u in addable_users %}<option value="{{ u.id }}">{{ u.full_name }}</option>{% endfor %}
+            </select>
+            <button class="btn btn-sm btn-outline-primary">Toevoegen</button>
+          </form>
+          {% endif %}
+        </dd>
       </dl>
       {% if project.description %}<hr><div class="small">{{ project.description|markdown }}</div>{% endif %}
     </div></div>

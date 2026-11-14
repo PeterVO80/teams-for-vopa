@@ -128,6 +128,9 @@ def _seed_demo_data() -> None:
                  manager=team[0], description="Retrofit van de PLC-sturing van verpakkingslijn 3.")
     p2 = Project(name="Waterzuivering SCADA", customer=aquafin,
                  start_date=monday, end_date=monday + timedelta(days=90), manager=team[1])
+    # Project teams: who sees which project (the manager always does).
+    p1.members.extend([team[1], team[2]])   # Els, Tom   (Jan is manager)
+    p2.members.extend([team[3]])            # Lies       (Els is manager)
     for project in (p1, p2):  # automatic codes: PRJ/<year>/0001, 0002
         project.assign_code()
         db.session.add(project)

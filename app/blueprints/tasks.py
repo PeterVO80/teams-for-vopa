@@ -11,6 +11,7 @@ import sqlalchemy as sa
 from flask import abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user
 
+from ..access import link_user, project_scope, require_project
 from ..extensions import db
 from ..forms import TaskForm, none_if_zero
 from ..models import Project, Task, TaskPriority, TaskStatus, User
@@ -29,7 +30,8 @@ def board():
     assignee = request.args.get("assignee", "")
     show_all = bool(request.args.get("all"))
 
-    query = sa.select(Task).order_by(Task.position, Task.id)
+    # Employees only see tasks without a project or of their own projects.
+    query = sa.select(Task).where(project_scope(Task.project_id)).order_by(Task.position, Task.id)
     if project_id:
         query = query.where(Task.project_id == project_id)
     if assignee == "me":
@@ -66,6 +68,7 @@ def board():
 @bp.route("/<int:task_id>/edit", methods=["GET", "POST"])
 def edit(task_id: int | None = None):
     task = db.get_or_404(Task, task_id) if task_id else None
+    require_project(task.project if task else None)
     form = TaskForm(obj=task)
     form.project_id.choices = Project.open_choices()
     form.assignee_id.choices = [(0, "- niet toegewezen -")] + User.active_choices()
@@ -95,6 +98,9 @@ def edit(task_id: int | None = None):
         task.priority = TaskPriority(form.priority.data)
         task.project_id = none_if_zero(form.project_id.data)
         task.assignee_id = none_if_zero(form.assignee_id.data)
+        if task.project_id and task.assignee_id:
+            # Whoever gets a task in a project must be able to see that project.
+            link_user(db.session.get(Project, task.project_id), db.session.get(User, task.assignee_id))
         db.session.commit()
         flash("Taak opgeslagen.", "success")
         return redirect(next_url(url_for("tasks.board")))
@@ -110,6 +116,7 @@ def edit(task_id: int | None = None):
 @bp.route("/<int:task_id>/delete", methods=["POST"])
 def delete(task_id: int):
     task = db.get_or_404(Task, task_id)
+    require_project(task.project)
     db.session.delete(task)
     db.session.commit()
     flash("Taak verwijderd.", "success")
@@ -128,6 +135,7 @@ def move(task_id: int):
     order; their ``position`` is rewritten to match.
     """
     task = db.get_or_404(Task, task_id)
+    require_project(task.project)
     payload = request.get_json(silent=True) or {}
     try:
         status = TaskStatus(payload.get("status"))

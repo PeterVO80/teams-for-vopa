@@ -1,9 +1,11 @@
 """Projects: list, create/edit and a detail page tying all modules together."""
 
 import sqlalchemy as sa
-from flask import current_app, flash, redirect, render_template, request, url_for
+from flask import abort, current_app, flash, redirect, render_template, request, url_for
+from flask_login import current_user
 from markupsafe import Markup
 
+from ..access import can_manage_team, link_user, require_project, visible_projects_condition
 from ..extensions import db
 from ..forms import ProjectForm, none_if_zero
 from ..models import (
@@ -37,6 +39,9 @@ def index():
         query = query.where(Project.status != ProjectStatus.CLOSED)
     elif status in ProjectStatus._value2member_map_:
         query = query.where(Project.status == ProjectStatus(status))
+    visible = visible_projects_condition()  # employees: only their own projects
+    if visible is not None:
+        query = query.where(visible)
     projects = db.session.scalars(query).all()
 
     # Open task counts per project in a single grouped query.
@@ -53,6 +58,7 @@ def index():
 @bp.route("/<int:project_id>")
 def detail(project_id: int):
     project = db.get_or_404(Project, project_id)
+    require_project(project)
     tasks = db.session.scalars(
         sa.select(Task).filter_by(project_id=project.id).order_by(Task.status, Task.position)
     ).all()
@@ -84,8 +90,15 @@ def detail(project_id: int):
     status_counts = {s: 0 for s in TaskStatus}
     for task in tasks:
         status_counts[task.status] += 1
+    can_manage = can_manage_team(project)
+    addable_users = [
+        u for u in db.session.scalars(sa.select(User).where(User.active.is_(True)).order_by(User.full_name))
+        if not project.has_member(u)
+    ] if can_manage else []
     return render_template(
         "projects/detail.html",
+        can_manage_team=can_manage,
+        addable_users=addable_users,
         project=project,
         tasks=tasks,
         orders=orders,
@@ -112,6 +125,7 @@ def edit(project_id: int | None = None):
     next automatic code (see :meth:`Project.assign_code`) when it is saved.
     """
     project = db.get_or_404(Project, project_id) if project_id else None
+    require_project(project)
     form = ProjectForm(obj=project)
     form.manager_id.choices = [(0, "- geen -")] + User.active_choices()
     form.customer_id.choices = Company.choices("customer", project.customer_id if project else None, empty="- geen klant -")
@@ -129,6 +143,9 @@ def edit(project_id: int | None = None):
         project.manager_id = none_if_zero(form.manager_id.data)
         project.customer_id = none_if_zero(form.customer_id.data)
         if is_new:
+            # The creator is linked, otherwise an employee couldn't see the
+            # project they just made.
+            link_user(project, current_user)
             # Retries automatically if a colleague saved a project with the
             # same code at the same moment.
             insert_with_unique_number(project, project.assign_code)
@@ -153,3 +170,35 @@ def edit(project_id: int | None = None):
         intro=Markup(intro),
         cancel_url=url_for("projects.detail", project_id=project.id) if project else url_for("projects.index"),
     )
+
+
+# ------------------------------------------------------------------- team
+@bp.route("/<int:project_id>/members", methods=["POST"])
+def add_member(project_id: int):
+    """Link an employee to the project (admins and the project manager)."""
+    project = db.get_or_404(Project, project_id)
+    require_project(project)
+    if not can_manage_team(project):
+        abort(403)
+    user = db.session.get(User, request.form.get("user_id", type=int) or 0)
+    if user is None or not user.active:
+        flash("Kies een medewerker.", "warning")
+    elif project.add_member(user):
+        db.session.commit()
+        flash(f"{user.full_name} is toegevoegd aan het project.", "success")
+    return redirect(url_for("projects.detail", project_id=project.id))
+
+
+@bp.route("/<int:project_id>/members/<int:user_id>/remove", methods=["POST"])
+def remove_member(project_id: int, user_id: int):
+    """Unlink an employee. Their tasks and planning stay, but they no longer see the project."""
+    project = db.get_or_404(Project, project_id)
+    require_project(project)
+    if not can_manage_team(project):
+        abort(403)
+    user = db.get_or_404(User, user_id)
+    if user in project.members:
+        project.members.remove(user)
+        db.session.commit()
+        flash(f"{user.full_name} is niet langer gekoppeld aan het project.", "success")
+    return redirect(url_for("projects.detail", project_id=project.id))

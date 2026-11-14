@@ -18,6 +18,16 @@ class ProjectStatus(LabeledEnum):
     CLOSED = ("closed", "Afgesloten")
 
 
+#: Team members of a project (many-to-many). Employees who are not an admin
+#: only see the projects they are a member of (or manage) - see app/access.py.
+project_members = sa.Table(
+    "project_members",
+    db.metadata,
+    sa.Column("project_id", sa.ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True),
+    sa.Column("user_id", sa.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
 class Project(TimestampMixin, db.Model):
     """A customer assignment. Orders, tasks, planning and notes link to it."""
 
@@ -39,8 +49,27 @@ class Project(TimestampMixin, db.Model):
     manager_id: Mapped[int | None] = mapped_column(sa.ForeignKey("users.id"))
 
     manager = relationship("User")
+    #: Employees linked to the project (the manager always counts as linked too).
+    members = relationship("User", secondary=project_members, order_by="User.full_name")
     #: The customer (a relation marked as customer, see models/company.py).
     customer = relationship("Company")
+
+    def has_member(self, user) -> bool:
+        """True when ``user`` is linked to this project (member or manager)."""
+        return user is not None and (self.manager_id == user.id or user in self.members)
+
+    def add_member(self, user) -> bool:
+        """Link ``user`` to the project; returns True when newly added."""
+        if user is None or self.has_member(user):
+            return False
+        self.members.append(user)
+        return True
+
+    @property
+    def team(self) -> list:
+        """Manager + members, without duplicates (for display)."""
+        people = ([self.manager] if self.manager else []) + [m for m in self.members if m != self.manager]
+        return people
 
     def assign_code(self) -> None:
         """Give this project the next automatic code, e.g. ``PRJ/2026/0001``.
@@ -73,14 +102,18 @@ class Project(TimestampMixin, db.Model):
     def open_choices(cls, include_empty: bool = True) -> list[tuple[int, str]]:
         """Select options for every project that is not closed.
 
+        Only projects the logged-in user may see are offered (app/access.py),
+        so every project selection list in the application respects access.
         ``0`` is used as the "no project" value because WTForms coerces the
         submitted value with ``int`` and cannot represent ``None``.
         """
-        projects = db.session.scalars(
-            sa.select(cls)
-            .where(cls.status != ProjectStatus.CLOSED)
-            .order_by(cls.code)
-        )
+        from ..access import visible_projects_condition
+
+        query = sa.select(cls).where(cls.status != ProjectStatus.CLOSED).order_by(cls.code)
+        condition = visible_projects_condition()
+        if condition is not None:
+            query = query.where(condition)
+        projects = db.session.scalars(query)
         options = [(p.id, p.display_name) for p in projects]
         return ([(0, "- geen project -")] if include_empty else []) + options
 

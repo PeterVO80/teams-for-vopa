@@ -89,6 +89,9 @@
   cursor: grab; touch-action: none;
 }
 .planning-chip:hover { filter: brightness(.92); }
+/* "Ingepland": planning on a project the viewer is not linked to. */
+.planning-chip.locked { cursor: default; opacity: .75; }
+.planning-chip.locked:hover { filter: none; }
 /* Resize handles on the outer edges of a bar (static/js/team.js). */
 .bar-handle {
   position: absolute; top: 0; bottom: 0; width: .55rem; cursor: ew-resize; z-index: 1;

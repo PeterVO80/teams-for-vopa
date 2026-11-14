@@ -2,6 +2,7 @@
 {% from "_macros.html" import pagination %}
 {% block title %}Stockbewegingen{% endblock %}
 {% block content %}
+{% set visible_ids = visible_project_ids() %}
 {% include "stock/_tabs.html" %}
 <form class="row g-2 mb-3" method="get">
   {% if article %}
@@ -41,7 +42,7 @@
       <td>{{ m.location.name }}</td>
       <td><span class="badge text-bg-{{ m.kind.css_class }}">{{ m.kind.label }}</span></td>
       <td class="text-end text-nowrap fw-semibold {{ 'text-success' if m.quantity > 0 else 'text-danger' }}">{{ '+' if m.quantity > 0 }}{{ m.quantity|qty }} {{ m.article.unit }}</td>
-      <td class="small">{% if m.project %}<a href="{{ url_for('projects.detail', project_id=m.project.id) }}">{{ m.project.code }}</a>{% endif %}</td>
+      <td class="small">{% if m.project and (visible_ids is none or m.project.id in visible_ids) %}<a href="{{ url_for('projects.detail', project_id=m.project.id) }}">{{ m.project.code }}</a>{% elif m.project %}<span class="text-body-secondary">project</span>{% endif %}</td>
       <td class="small">{{ m.user.full_name if m.user else '' }}</td>
       <td class="small">{{ m.note or '' }}{% if m.goods_receipt %} <a href="{{ url_for('purchasing.detail', order_id=m.goods_receipt.line.order_id) }}"><i class="bi bi-truck"></i></a>{% endif %}</td>
     </tr>

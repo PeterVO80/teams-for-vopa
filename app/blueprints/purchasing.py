@@ -9,6 +9,7 @@ from flask import flash, jsonify, redirect, render_template, request, send_file,
 from flask_login import current_user
 from openpyxl import Workbook
 
+from ..access import project_scope, require_project
 from ..extensions import db
 from ..forms import AddArticleToOrderForm, OrderLineForm, PurchaseOrderForm, ReceiptForm, none_if_zero
 from ..models import (
@@ -42,7 +43,7 @@ def _next_order_number() -> str:
 
 @bp.route("/")
 def index():
-    query = sa.select(PurchaseOrder).order_by(PurchaseOrder.id.desc())
+    query = sa.select(PurchaseOrder).where(project_scope(PurchaseOrder.project_id)).order_by(PurchaseOrder.id.desc())
     status = request.args.get("status", "open")
     if status == "open":
         query = query.where(PurchaseOrder.status.in_([OrderStatus.DRAFT, OrderStatus.ORDERED, OrderStatus.PARTIAL]))
@@ -67,7 +68,8 @@ def deliveries():
     lines = db.session.scalars(
         sa.select(PurchaseOrderLine)
         .join(PurchaseOrder)
-        .where(PurchaseOrder.status.in_([OrderStatus.ORDERED, OrderStatus.PARTIAL]))
+        .where(PurchaseOrder.status.in_([OrderStatus.ORDERED, OrderStatus.PARTIAL]),
+               project_scope(PurchaseOrder.project_id))
         .order_by(PurchaseOrder.expected_date.is_(None), PurchaseOrder.expected_date, PurchaseOrder.number)
     ).all()
     outstanding = [line for line in lines if not line.is_complete]
@@ -77,6 +79,7 @@ def deliveries():
 @bp.route("/<int:order_id>")
 def detail(order_id: int):
     order = db.get_or_404(PurchaseOrder, order_id)
+    require_project(order.project)
     return render_template(
         "purchasing/detail.html",
         order=order,
@@ -89,6 +92,7 @@ def detail(order_id: int):
 @bp.route("/<int:order_id>/edit", methods=["GET", "POST"])
 def edit(order_id: int | None = None):
     order = db.get_or_404(PurchaseOrder, order_id) if order_id else None
+    require_project(order.project if order else None)
     form = PurchaseOrderForm(obj=order)
     form.project_id.choices = Project.open_choices()
     form.stock_location_id.choices = StockLocation.choices(include_empty="- niet op stock (projectmateriaal) -")
@@ -138,6 +142,7 @@ def edit(order_id: int | None = None):
 def set_status(order_id: int, status: str):
     """Quick action buttons: mark as ordered, cancel, reopen, ..."""
     order = db.get_or_404(PurchaseOrder, order_id)
+    require_project(order.project)
     order.status = OrderStatus(status)
     if order.status == OrderStatus.ORDERED and not order.order_date:
         order.order_date = date.today()
@@ -150,6 +155,7 @@ def set_status(order_id: int, status: str):
 @bp.route("/<int:order_id>/delete", methods=["POST"])
 def delete(order_id: int):
     order = db.get_or_404(PurchaseOrder, order_id)
+    require_project(order.project)
     if any(line.receipts for line in order.lines):
         flash("Deze bestelling heeft al leveringen; annuleer ze in plaats van te verwijderen.", "danger")
         return redirect(url_for("purchasing.detail", order_id=order.id))
@@ -163,6 +169,7 @@ def delete(order_id: int):
 @bp.route("/<int:order_id>/lines", methods=["POST"])
 def add_line(order_id: int):
     order = db.get_or_404(PurchaseOrder, order_id)
+    require_project(order.project)
     form = OrderLineForm()
     if form.validate_on_submit():
         article = db.session.get(Article, int(form.article_id.data)) if form.article_id.data else None
@@ -186,6 +193,7 @@ def add_line(order_id: int):
 @bp.route("/lines/<int:line_id>/delete", methods=["POST"])
 def delete_line(line_id: int):
     line = db.get_or_404(PurchaseOrderLine, line_id)
+    require_project(line.order.project)
     order = line.order
     if line.receipts:
         flash("Lijn heeft al leveringen en kan niet verwijderd worden.", "danger")
@@ -201,6 +209,7 @@ def delete_line(line_id: int):
 def edit_line(line_id: int):
     """Edit an order line in a popup, e.g. to link a free-text line to an article."""
     line = db.get_or_404(PurchaseOrderLine, line_id)
+    require_project(line.order.project)
     # The prefix keeps the field ids unique next to the "add line" form.
     form = OrderLineForm(obj=line, prefix="edit")
     if not form.is_submitted():
@@ -227,7 +236,8 @@ def edit_line(line_id: int):
 def _open_order_choices(project_id: int | None = None) -> list[tuple[int, str]]:
     """Orders that can still receive lines (draft, ordered, partially delivered)."""
     query = sa.select(PurchaseOrder).where(
-        PurchaseOrder.status.in_([OrderStatus.DRAFT, OrderStatus.ORDERED, OrderStatus.PARTIAL])
+        PurchaseOrder.status.in_([OrderStatus.DRAFT, OrderStatus.ORDERED, OrderStatus.PARTIAL]),
+        project_scope(PurchaseOrder.project_id),
     )
     if project_id:
         query = query.where(PurchaseOrder.project_id == project_id)
@@ -256,6 +266,7 @@ def add_article(article_id: int):
 
     if form.validate_on_submit():
         order = db.session.get(PurchaseOrder, form.order_id.data)
+        require_project(order.project)
         existing = next((l for l in order.lines if l.article_id == article.id and l.unit == article.unit), None)
         if existing:
             existing.quantity += form.quantity.data
@@ -286,6 +297,7 @@ def material():
     """Material overview per project: ordered vs. delivered, per article."""
     project_id = int_arg("project")
     project = db.session.get(Project, project_id) if project_id else None
+    require_project(project)
     overview = project_material(project.id, only_open=bool(request.args.get("open"))) if project else None
     return render_template(
         "purchasing/material.html",
@@ -298,6 +310,7 @@ def material():
 @bp.route("/material/<int:project_id>.xlsx")
 def material_export(project_id: int):
     project = db.get_or_404(Project, project_id)
+    require_project(project)
     overview = project_material(project.id, only_open=bool(request.args.get("open")))
     return send_file(
         export_material(project, overview),
@@ -312,6 +325,7 @@ def material_export(project_id: int):
 def receive(line_id: int):
     """Register a (partial) delivery for an order line."""
     line = db.get_or_404(PurchaseOrderLine, line_id)
+    require_project(line.order.project)
     form = ReceiptForm()
     if form.validate_on_submit():
         receipt = GoodsReceipt(
@@ -339,6 +353,7 @@ def receive(line_id: int):
 def receive_all(order_id: int):
     """Shortcut: mark every outstanding quantity on the order as received today."""
     order = db.get_or_404(PurchaseOrder, order_id)
+    require_project(order.project)
     for line in order.lines:
         if line.quantity_outstanding > 0:
             receipt = GoodsReceipt(
@@ -361,6 +376,7 @@ def receive_all(order_id: int):
 def delete_receipt(receipt_id: int):
     """Undo a wrongly registered delivery."""
     receipt = db.get_or_404(GoodsReceipt, receipt_id)
+    require_project(receipt.line.order.project)
     order = receipt.line.order
     receipt.line.receipts.remove(receipt)
     order.refresh_status()
@@ -373,6 +389,7 @@ def delete_receipt(receipt_id: int):
 def export(order_id: int):
     """Export a single order to Excel, e.g. to mail it to the supplier."""
     order = db.get_or_404(PurchaseOrder, order_id)
+    require_project(order.project)
     wb = Workbook()
     ws = wb.active
     ws.title = order.number

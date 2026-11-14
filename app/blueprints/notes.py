@@ -4,6 +4,7 @@ import sqlalchemy as sa
 from flask import current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
+from ..access import project_scope, require_project
 from ..extensions import db
 from ..forms import NoteForm, TagForm, none_if_zero
 from ..models import Note, Project, Tag, note_tags
@@ -13,9 +14,16 @@ from . import protected_blueprint
 bp = protected_blueprint("notes", __name__)
 
 
+def _note(note_id: int) -> Note:
+    """The note, if the current user may see its project (404 otherwise)."""
+    note = db.get_or_404(Note, note_id)
+    require_project(note.project)
+    return note
+
+
 @bp.route("/")
 def index():
-    query = sa.select(Note).order_by(Note.pinned.desc(), Note.updated_at.desc())
+    query = sa.select(Note).where(project_scope(Note.project_id)).order_by(Note.pinned.desc(), Note.updated_at.desc())
 
     search = request.args.get("q", "").strip()
     if search:
@@ -52,13 +60,13 @@ def index():
 
 @bp.route("/<int:note_id>")
 def view(note_id: int):
-    return render_template("notes/view.html", note=db.get_or_404(Note, note_id))
+    return render_template("notes/view.html", note=_note(note_id))
 
 
 @bp.route("/new", methods=["GET", "POST"])
 @bp.route("/<int:note_id>/edit", methods=["GET", "POST"])
 def edit(note_id: int | None = None):
-    note = db.get_or_404(Note, note_id) if note_id else None
+    note = _note(note_id) if note_id else None
     form = NoteForm(obj=note)
     form.project_id.choices = Project.open_choices()
     if not form.is_submitted():
@@ -93,7 +101,7 @@ def edit(note_id: int | None = None):
 
 @bp.route("/<int:note_id>/delete", methods=["POST"])
 def delete(note_id: int):
-    db.session.delete(db.get_or_404(Note, note_id))
+    db.session.delete(_note(note_id))
     db.session.commit()
     flash("Notitie verwijderd.", "success")
     return redirect(url_for("notes.index"))
@@ -102,7 +110,7 @@ def delete(note_id: int):
 @bp.route("/<int:note_id>/download")
 def download(note_id: int):
     """Download a note as a plain ``.md`` file."""
-    note = db.get_or_404(Note, note_id)
+    note = _note(note_id)
     body = f"# {note.title}\n\n{note.content}"
     return current_app.response_class(
         body,

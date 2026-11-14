@@ -10,7 +10,7 @@ from .catalog import CatalogItem, SupplierCatalog
 from .company import Company
 from .knowledge import Note, Tag, WikiPage, WikiRevision, note_tags
 from .planning import Assignment, AssignmentKind, is_weekend
-from .project import Project, ProjectStatus
+from .project import Project, ProjectStatus, project_members
 from .stock import MovementKind, StockLocation, StockMovement
 from .purchasing import GoodsReceipt, OrderStatus, PurchaseOrder, PurchaseOrderLine
 from .task import OPEN_STATUSES, Task, TaskPriority, TaskStatus
@@ -45,4 +45,5 @@ __all__ = [
     "WikiPage",
     "WikiRevision",
     "note_tags",
+    "project_members",
 ]

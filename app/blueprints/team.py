@@ -5,6 +5,7 @@ from datetime import date, timedelta
 import sqlalchemy as sa
 from flask import current_app, flash, jsonify, redirect, render_template, request, url_for
 
+from ..access import link_user, require_project
 from ..extensions import db
 from ..forms import AssignmentForm, none_if_zero
 from ..models import Assignment, AssignmentKind, Project, User
@@ -74,6 +75,7 @@ def edit_assignment(assignment_id: int | None = None):
     * ``?project=5``                           - the project (project page)
     """
     assignment = db.get_or_404(Assignment, assignment_id) if assignment_id else None
+    require_project(assignment.project if assignment else None)
     form = AssignmentForm(obj=assignment)
     form.user_id.choices = User.active_choices()
     form.project_id.choices = Project.open_choices()
@@ -102,6 +104,9 @@ def edit_assignment(assignment_id: int | None = None):
         assignment.project_id = (
             none_if_zero(form.project_id.data) if assignment.kind == AssignmentKind.PROJECT else None
         )
+        # Whoever is planned on a project must be able to see that project.
+        if assignment.project_id:
+            link_user(db.session.get(Project, assignment.project_id), db.session.get(User, assignment.user_id))
         db.session.commit()
         flash("Planning opgeslagen.", "success")
         if is_modal_request():
@@ -127,6 +132,7 @@ def edit_assignment(assignment_id: int | None = None):
 @bp.route("/assignments/<int:assignment_id>/delete", methods=["POST"])
 def delete_assignment(assignment_id: int):
     assignment = db.get_or_404(Assignment, assignment_id)
+    require_project(assignment.project)
     start = assignment.start_date
     db.session.delete(assignment)
     db.session.commit()
@@ -146,6 +152,7 @@ def reschedule_assignment(assignment_id: int):
     Answers ``{"ok": true}`` or ``{"ok": false, "error": "..."}`` (status 400).
     """
     assignment = db.get_or_404(Assignment, assignment_id)
+    require_project(assignment.project)
     data = request.get_json(silent=True) or {}
 
     def refuse(message: str):
@@ -169,5 +176,6 @@ def reschedule_assignment(assignment_id: int):
                       "'Weekenddagen inplannen' aan om in het weekend te plannen.")
 
     assignment.start_date, assignment.end_date, assignment.user_id = start, end, user.id
+    link_user(assignment.project, user)  # moved to another person: they now see the project
     db.session.commit()
     return jsonify(ok=True)
