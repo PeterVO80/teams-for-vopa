@@ -319,13 +319,106 @@ Project ──< Note >──< Tag            WikiPage ──< WikiRevision
 
 ---
 
-## Security notes for production
+## Running on the internet (e.g. Hetzner Cloud)
 
-* Set a long random `SECRET_KEY` and strong database and admin passwords in `.env`.
-* Put the application behind a reverse proxy with HTTPS (e.g. Traefik,
-  nginx or Caddy), and don't expose PostgreSQL to the outside world (the
-  compose file doesn't publish a DB port).
-* Schedule regular `pg_dump` backups of the database.
-* Behind a reverse proxy, allow large uploads for supplier price lists
+`docker-compose.prod.yml` is the set-up for a server that is reachable from
+the internet: [Caddy](https://caddyserver.com) in front with HTTPS (automatic
+Let's Encrypt certificate), the app in "HTTPS mode", no other open ports and
+a daily database backup.
+
+### What the application does in HTTPS mode (`HTTPS=1`)
+
+* Cookies (session, "remember me") are only sent over HTTPS, are not
+  readable by JavaScript and are `SameSite=Lax`; sessions expire after 12
+  hours, "Aangemeld blijven" after 14 days.
+* Refuses to start without a strong `SECRET_KEY` (at least 32 characters).
+* Trusts the `X-Forwarded-*` headers of exactly one proxy (Caddy), so the
+  real client address is known.
+* Security headers on every page (also without HTTPS mode): a Content
+  Security Policy that only runs the app's own scripts, no framing
+  (clickjacking), `nosniff`, no caching of pages, HSTS.
+* Login protection (always): after 5 wrong passwords for a user name, or 20
+  from one IP address, logging in is refused for 15 minutes. Failed logins
+  are logged. New passwords must have at least 10 characters.
+* Already present: CSRF protection on every form and AJAX call, passwords
+  stored as salted hashes, Markdown output sanitised (XSS), access control per
+  project, PostgreSQL not reachable from outside, the app runs as a non-root
+  user in its container.
+
+### Setting up the server (once)
+
+1. **DNS**: create an `A` record (and `AAAA` for IPv6) for e.g.
+   `teams.vopa.be` pointing to the server's IP address.
+2. **Hetzner Cloud Firewall** (Cloud Console → *Firewalls*), attached to the
+   server. Inbound only:
+   * TCP 22 (SSH) - **only from your own office/home IP address**;
+   * TCP 80 and TCP 443, UDP 443 - from anywhere;
+   * nothing else (in particular not Portainer's 9443/9000 and not 5432).
+
+   Use the Hetzner firewall rather than `ufw`: Docker publishes ports past
+   `ufw`'s rules.
+3. **SSH**: log in with an SSH key only. In `/etc/ssh/sshd_config` set
+   `PasswordAuthentication no` and `PermitRootLogin prohibit-password`
+   (or create a normal user with `sudo` and use `PermitRootLogin no`), then
+   `systemctl restart ssh`. Optionally `apt install fail2ban`.
+4. **Automatic security updates**:
+   `apt install unattended-upgrades && dpkg-reconfigure -plow unattended-upgrades`.
+5. **Backups**: enable *Backups* for the server in the Hetzner Cloud Console
+   (daily server images, 7 kept) and/or copy the database dumps off the
+   server (see below).
+
+### Starting the application
+
+```bash
+git clone https://github.com/petervo80/teams-for-vopa.git /opt/vopa-teams
+cd /opt/vopa-teams
+cp .env.example .env
+nano .env        # DOMAIN, ACME_EMAIL, SECRET_KEY, POSTGRES_PASSWORD, ADMIN_PASSWORD, MS365_*
+chmod 600 .env
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml logs -f caddy web   # certificate + start-up
+```
+
+Generate the secrets with `openssl rand -hex 32`. Log in at
+`https://<DOMAIN>`, **change the admin password immediately** and give every
+employee their own account with a strong password.
+
+Updating to a new version:
+
+```bash
+cd /opt/vopa-teams && git pull
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+With **Portainer** instead: deploy the stack from the repository with
+compose path `docker-compose.prod.yml` and the variables above. Don't
+expose Portainer itself to the internet: keep its port closed in the firewall
+and reach it through an SSH tunnel
+(`ssh -L 9443:localhost:9443 user@server`, then `https://localhost:9443`).
+
+### Backups
+
+The `backup` container writes a compressed `pg_dump` every 24 hours to the
+`vopa_backups` volume and keeps `BACKUP_KEEP_DAYS` (default 14) days. Copy
+them off the server regularly, e.g. to a Hetzner Storage Box or your office:
+
+```bash
+docker compose -f docker-compose.prod.yml exec backup ls -l /backups
+docker compose -f docker-compose.prod.yml cp backup:/backups/. ./backups/
+```
+
+Restore a dump into an empty database:
+
+```bash
+gunzip -c vopa-2026-11-14_0300.sql.gz | docker compose -f docker-compose.prod.yml exec -T db psql -U vopa vopa
+```
+
+Test a restore now and then - a backup that was never restored is a hope,
+not a backup.
+
+### Security notes for the local (Portainer) set-up
+
+* Set a long random `SECRET_KEY` and strong database and admin passwords.
+* Behind your own reverse proxy, allow large uploads for supplier price lists
   (e.g. nginx `client_max_body_size 300m;` and a read timeout of a few
   minutes). The app itself accepts `MAX_UPLOAD_MB` (default 300).

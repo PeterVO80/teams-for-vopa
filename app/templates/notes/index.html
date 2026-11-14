@@ -11,7 +11,7 @@
     <form method="get" class="mb-3">
       {% if tag_id %}<input type="hidden" name="tag" value="{{ tag_id }}">{% endif %}
       <input class="form-control mb-2" type="search" name="q" value="{{ search }}" placeholder="Zoeken in notities...">
-      <select class="form-select" name="project" onchange="this.form.submit()">
+      <select class="form-select" name="project" data-autosubmit>
         <option value="">Alle projecten</option>
         {% for id, label in projects %}<option value="{{ id }}" {{ 'selected' if project_id == id }}>{{ label }}</option>{% endfor %}
       </select>

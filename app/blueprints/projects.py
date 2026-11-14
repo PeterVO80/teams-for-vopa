@@ -80,7 +80,7 @@ def detail(project_id: int):
                              request.args.get("planning_weeks", type=int), default_weeks=4, max_weeks=12)
     planning_days, planning_rows = build_overview(period.start, days=period.days)
     # Team members planned on this project in the period first, then the others.
-    planning_rows.sort(key=lambda r: not any(s.assignment.project_id == project.id for s in r.segments))
+    planning_rows.sort(key=lambda r: not any(s.assignment and s.assignment.project_id == project.id for s in r.segments))
     project_assignments = db.session.scalars(
         sa.select(Assignment).filter_by(project_id=project.id).order_by(Assignment.start_date)
     ).all()

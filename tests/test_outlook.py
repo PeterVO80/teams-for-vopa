@@ -371,3 +371,15 @@ def test_choose_category_colour_on_outlook_page(configured, client):
     client.post("/users/outlook", data={"action": "color", "color": ""})   # "Niet aanpassen"
     assert outlook.category_color() is None
     assert client.post("/users/outlook", data={"action": "color", "color": "fuchsia"}).status_code == 400
+
+
+def test_project_page_with_outlook_appointments(configured, client):
+    from app.models import Project
+    jan = _user("jan")
+    monday = date.today() - timedelta(days=date.today().weekday())
+    db.session.add(CalendarEvent(user_id=jan.id, external_id="x", subject="Beurs", is_all_day=True,
+                                 start=datetime.combine(monday, datetime.min.time()),
+                                 end=datetime.combine(monday + timedelta(days=1), datetime.min.time())))
+    db.session.commit()
+    project = db.session.scalar(sa.select(Project))
+    assert client.get(f"/projects/{project.id}?planning_start={monday}").status_code == 200

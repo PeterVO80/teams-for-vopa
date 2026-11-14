@@ -81,7 +81,7 @@ class LoginForm(FlaskForm):
 
 class ChangePasswordForm(FlaskForm):
     current_password = PasswordField("Huidig wachtwoord", validators=[DataRequired()])
-    new_password = PasswordField("Nieuw wachtwoord", validators=[DataRequired(), Length(min=8)])
+    new_password = PasswordField("Nieuw wachtwoord", validators=[DataRequired(), Length(min=10, message="Minstens 10 tekens.")])
     confirm = PasswordField(
         "Herhaal nieuw wachtwoord",
         validators=[EqualTo("new_password", message="Wachtwoorden komen niet overeen.")],
@@ -106,7 +106,7 @@ class UserForm(FlaskForm):
     password = PasswordField(
         "Wachtwoord",
         description="Laat leeg om het huidige wachtwoord te behouden.",
-        validators=[Optional(), Length(min=8)],
+        validators=[Optional(), Length(min=10, message="Minstens 10 tekens.")],
     )
 
 

@@ -4,7 +4,7 @@
 {% include "purchasing/_tabs.html" %}
 <form class="row g-2 mb-3" method="get">
   <div class="col-md-5">
-    <select class="form-select" name="project" onchange="this.form.submit()">
+    <select class="form-select" name="project" data-autosubmit>
       <option value="">- kies een project -</option>
       {% for id, label in projects %}<option value="{{ id }}" {{ 'selected' if project and project.id == id }}>{{ label }}</option>{% endfor %}
     </select>
@@ -12,7 +12,7 @@
   {% if project %}
   <div class="col-md-4 d-flex align-items-center">
     <div class="form-check">
-      <input class="form-check-input" type="checkbox" name="open" value="1" id="only-open" {{ 'checked' if request.args.open }} onchange="this.form.submit()">
+      <input class="form-check-input" type="checkbox" name="open" value="1" id="only-open" {{ 'checked' if request.args.open }} data-autosubmit>
       <label class="form-check-label" for="only-open">Enkel nog niet volledig geleverd</label>
     </div>
   </div>

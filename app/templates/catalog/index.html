@@ -55,7 +55,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce() }}">
   // Large price lists take a while to load: show that the upload is busy.
   document.querySelector("[data-upload-form]").addEventListener("submit", (event) => {
     const button = event.target.querySelector("[data-loading-text]");

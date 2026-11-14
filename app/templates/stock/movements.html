@@ -13,19 +13,19 @@
   </div>
   {% endif %}
   <div class="col-md-3">
-    <select class="form-select" name="location" onchange="this.form.submit()">
+    <select class="form-select" name="location" data-autosubmit>
       <option value="">Alle locaties</option>
       {% for loc in locations %}<option value="{{ loc.id }}" {{ 'selected' if location_id == loc.id }}>{{ loc.name }}</option>{% endfor %}
     </select>
   </div>
   <div class="col-md-3">
-    <select class="form-select" name="project" onchange="this.form.submit()">
+    <select class="form-select" name="project" data-autosubmit>
       <option value="">Alle projecten</option>
       {% for id, label in projects %}<option value="{{ id }}" {{ 'selected' if project_id == id }}>{{ label }}</option>{% endfor %}
     </select>
   </div>
   <div class="col-md-2">
-    <select class="form-select" name="kind" onchange="this.form.submit()">
+    <select class="form-select" name="kind" data-autosubmit>
       <option value="">Alle soorten</option>
       {% for k in ['receipt', 'issue', 'transfer', 'count', 'correction'] %}<option value="{{ k }}" {{ 'selected' if kind == k }}>{{ {'receipt': 'Ontvangst', 'issue': 'Uitgifte', 'transfer': 'Verplaatsing', 'count': 'Inventaris', 'correction': 'Correctie'}[k] }}</option>{% endfor %}
     </select>

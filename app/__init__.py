@@ -27,6 +27,10 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     login_manager.init_app(app)
     csrf.init_app(app)
 
+    from .security import init_security
+
+    init_security(app)
+
     from . import models  # noqa: F401  (registers models for migrations)
 
     _register_blueprints(app)

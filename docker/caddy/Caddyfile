@@ -1,0 +1,28 @@
+# Caddy configuration for production (docker-compose.prod.yml).
+# DOMAIN and ACME_EMAIL come from the stack's environment variables.
+# Caddy requests and renews the HTTPS certificate itself and redirects
+# http:// to https://.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Supplier price lists (DBF) can be large.
+	request_body {
+		max_size 300MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	reverse_proxy web:8000
+
+	log {
+		output stdout
+		format console
+	}
+}

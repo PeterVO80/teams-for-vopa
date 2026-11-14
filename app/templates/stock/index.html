@@ -17,19 +17,19 @@
 <form class="row g-2 mb-3" method="get">
   <div class="col-md-4"><input class="form-control" type="search" name="q" value="{{ filters.search }}" placeholder="Zoek op nummer, omschrijving, fabrikant..."></div>
   <div class="col-md-2">
-    <select class="form-select" name="location" onchange="this.form.submit()">
+    <select class="form-select" name="location" data-autosubmit>
       <option value="">Alle locaties</option>
       {% for loc in locations %}<option value="{{ loc.id }}" {{ 'selected' if filters.location_id == loc.id }}>{{ loc.name }}</option>{% endfor %}
     </select>
   </div>
   <div class="col-md-2">
-    <select class="form-select" name="category" onchange="this.form.submit()">
+    <select class="form-select" name="category" data-autosubmit>
       <option value="">Alle categorieën</option>
       {% for c in categories %}<option {{ 'selected' if filters.category == c }}>{{ c }}</option>{% endfor %}
     </select>
   </div>
   <div class="col-md-2 d-flex align-items-center">
-    <div class="form-check"><input class="form-check-input" type="checkbox" name="below" value="1" id="below" {{ 'checked' if filters.below_minimum }} onchange="this.form.submit()">
+    <div class="form-check"><input class="form-check-input" type="checkbox" name="below" value="1" id="below" {{ 'checked' if filters.below_minimum }} data-autosubmit>
       <label class="form-check-label" for="below">Onder minimum</label></div>
   </div>
   <div class="col-md-2"><button class="btn btn-secondary w-100"><i class="bi bi-search"></i> Zoeken</button></div>

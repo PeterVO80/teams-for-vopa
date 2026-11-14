@@ -76,13 +76,17 @@ def register_cli(app: Flask) -> None:
         if db.session.scalar(sa.select(sa.func.count(User.id))):
             click.echo("Gebruikers bestaan al - geen beheerder aangemaakt.")
             return
+        password = os.environ.get("ADMIN_PASSWORD", "admin")
+        if app.config.get("HTTPS") and len(password) < 12:
+            # On the internet "admin/admin" would be found within minutes.
+            raise click.ClickException("ADMIN_PASSWORD is te kort voor een server op internet (minstens 12 tekens).")
         user = User(
             username=os.environ.get("ADMIN_USERNAME", "admin"),
             full_name="Beheerder",
             email=os.environ.get("ADMIN_EMAIL"),
             role=UserRole.ADMIN,
         )
-        user.set_password(os.environ.get("ADMIN_PASSWORD", "admin"))
+        user.set_password(password)
         db.session.add(user)
         db.session.commit()
         click.echo(f"Beheerder '{user.username}' aangemaakt.")

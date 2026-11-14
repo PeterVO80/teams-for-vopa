@@ -26,6 +26,9 @@ class Config:
     #: well over 100 MB, hence the generous default.
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_UPLOAD_MB", 300)) * 1024 * 1024
 
+    #: Production on the internet behind an HTTPS reverse proxy (see security.py).
+    HTTPS = os.environ.get("HTTPS", "0").lower() in ("1", "true", "yes")
+
     #: Number of rows shown per page in paginated list views.
     ITEMS_PER_PAGE = 50
 

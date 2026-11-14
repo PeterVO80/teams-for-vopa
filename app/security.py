@@ -1,0 +1,74 @@
+"""Security settings for running the application on the internet.
+
+* ``HTTPS=1`` (production behind a reverse proxy such as Caddy):
+  - trusts the ``X-Forwarded-*`` headers of exactly one proxy (real client IP
+    for the login protection, ``https`` scheme for redirects/cookies);
+  - sends cookies only over HTTPS (session and "remember me");
+  - refuses to start with a missing or weak ``SECRET_KEY``.
+* Always: security headers on every response, including a Content Security
+  Policy that only allows the application's own scripts. Inline ``<script>``
+  blocks in templates must carry ``nonce="{{ csp_nonce() }}"``.
+"""
+
+from __future__ import annotations
+
+import secrets
+from datetime import timedelta
+
+from flask import Flask, g
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+DEV_SECRET = "dev-insecure-secret-key"
+
+
+def csp_nonce() -> str:
+    """Random value per request that marks the page's own inline scripts."""
+    if "csp_nonce" not in g:
+        g.csp_nonce = secrets.token_urlsafe(16)
+    return g.csp_nonce
+
+
+def init_security(app: Flask) -> None:
+    config = app.config
+    config.setdefault("PERMANENT_SESSION_LIFETIME", timedelta(hours=12))
+    config.setdefault("REMEMBER_COOKIE_DURATION", timedelta(days=14))
+    config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
+                  REMEMBER_COOKIE_HTTPONLY=True, REMEMBER_COOKIE_SAMESITE="Lax")
+
+    if config.get("HTTPS"):
+        secret = config.get("SECRET_KEY") or ""
+        if secret == DEV_SECRET or len(secret) < 32:
+            raise RuntimeError("SECRET_KEY ontbreekt of is te kort (minstens 32 tekens) - "
+                               "maak er een met: python -c \"import secrets; print(secrets.token_hex(32))\"")
+        config.update(SESSION_COOKIE_SECURE=True, REMEMBER_COOKIE_SECURE=True, PREFERRED_URL_SCHEME="https")
+        # One proxy (Caddy) in front of the app: trust its X-Forwarded-For/-Proto/-Host.
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    app.jinja_env.globals["csp_nonce"] = csp_nonce
+
+    @app.after_request
+    def security_headers(response):
+        headers = response.headers
+        headers.setdefault("X-Content-Type-Options", "nosniff")
+        headers.setdefault("X-Frame-Options", "DENY")
+        headers.setdefault("Referrer-Policy", "same-origin")
+        headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+        headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+        headers.setdefault("Content-Security-Policy", "; ".join([
+            "default-src 'self'",
+            f"script-src 'self' 'nonce-{csp_nonce()}'",
+            "style-src 'self' 'unsafe-inline'",          # style="" attributes (planning colours)
+            "img-src 'self' data: blob: https:",          # images in notes / wiki
+            "font-src 'self' data:",
+            "connect-src 'self'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'none'",
+        ]))
+        if config.get("HTTPS"):
+            headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        # Pages of logged-in users may hold business data: don't keep them in shared caches.
+        if response.mimetype == "text/html":
+            headers.setdefault("Cache-Control", "no-store")
+        return response

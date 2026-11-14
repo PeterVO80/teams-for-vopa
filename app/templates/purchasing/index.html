@@ -6,14 +6,14 @@
 {% include "purchasing/_tabs.html" %}
 <form class="row g-2 mb-3" method="get">
   <div class="col-md-3">
-    <select class="form-select" name="status" onchange="this.form.submit()">
+    <select class="form-select" name="status" data-autosubmit>
       {% for value, label in [('open', 'Openstaand')] + OrderStatus.choices() + [('all', 'Alle')] %}
       <option value="{{ value }}" {{ 'selected' if status == value }}>{{ label }}</option>
       {% endfor %}
     </select>
   </div>
   <div class="col-md-4">
-    <select class="form-select" name="project" onchange="this.form.submit()">
+    <select class="form-select" name="project" data-autosubmit>
       <option value="">Alle projecten</option>
       {% for id, label in projects %}<option value="{{ id }}" {{ 'selected' if project_id == id }}>{{ label }}</option>{% endfor %}
     </select>
