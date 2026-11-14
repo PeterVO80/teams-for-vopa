@@ -117,7 +117,10 @@ to log in with Microsoft. A Microsoft 365 administrator sets it up once:
 1. <https://entra.microsoft.com> → *Applications* → *App registrations* →
    *New registration*. Name e.g. "VOPA Teams", *single tenant*, no redirect URI.
 2. In the new app: *API permissions* → *Add a permission* → *Microsoft Graph*
-   → *Application permissions* → **Calendars.ReadWrite** → *Add*. Then click
+   → *Application permissions* → **Calendars.ReadWrite** → *Add*. Optionally
+   also **MailboxSettings.ReadWrite**, so the app can give the "VOPA Teams"
+   category its colour in everyone's Outlook (without it everything works,
+   the category just keeps Outlook's default colour). Then click
    **Grant admin consent for <your company>**.
 3. *Certificates & secrets* → *New client secret* (e.g. 24 months). Copy the
    **Value** immediately (it is shown only once).
@@ -132,6 +135,7 @@ to log in with Microsoft. A Microsoft 365 administrator sets it up once:
    | `MS365_CLIENT_ID` | Application (client) ID |
    | `MS365_CLIENT_SECRET` | the secret's value |
    | `MS365_TIMEZONE` | optional, Windows time zone (default `Romance Standard Time` = Brussels) |
+   | `MS365_CATEGORY_COLOR` | optional, colour of the "VOPA Teams" category: `rood`, `oranje` (default), `bruin`, `geel`, `groen`, `blauwgroen`, `olijf`, `blauw`, `paars`, `cranberry`, `grijs`, `zwart`, `donkerrood`, `donkeroranje`, `donkergroen`, `donkerblauw`, `donkerpaars` or an Outlook preset (`preset0`-`preset24`); empty = leave the colour alone |
    | `APP_URL` | optional, address of the app (e.g. `http://teams.vopa.local:8080`), used as a link in the appointments |
 
 6. Give every employee their **Microsoft 365 e-mail address** in

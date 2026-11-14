@@ -29,6 +29,7 @@ When does it run?
 from __future__ import annotations
 
 import json
+import re
 import logging
 import threading
 import time
@@ -50,6 +51,18 @@ log = logging.getLogger(__name__)
 GRAPH = "https://graph.microsoft.com/v1.0"
 #: Category put on the appointments written by this application.
 CATEGORY = "VOPA Teams"
+#: Outlook category colours (Graph "preset0".."preset24"), by Dutch/English name.
+CATEGORY_COLORS = {
+    "rood": "preset0", "red": "preset0", "oranje": "preset1", "orange": "preset1",
+    "bruin": "preset2", "brown": "preset2", "geel": "preset3", "yellow": "preset3",
+    "groen": "preset4", "green": "preset4", "blauwgroen": "preset5", "teal": "preset5",
+    "olijf": "preset6", "olive": "preset6", "blauw": "preset7", "blue": "preset7",
+    "paars": "preset8", "purple": "preset8", "cranberry": "preset9",
+    "staal": "preset10", "steel": "preset10", "grijs": "preset12", "gray": "preset12", "grey": "preset12",
+    "zwart": "preset14", "black": "preset14", "donkerrood": "preset15", "darkred": "preset15",
+    "donkeroranje": "preset16", "darkorange": "preset16", "donkergroen": "preset19", "darkgreen": "preset19",
+    "donkerblauw": "preset22", "darkblue": "preset22", "donkerpaars": "preset23", "darkpurple": "preset23",
+}
 #: Synchronisation window around today.
 DAYS_BACK, DAYS_AHEAD = 30, 183
 
@@ -67,7 +80,16 @@ def settings() -> dict:
         "secret": config.get("MS365_CLIENT_SECRET") or "",
         "timezone": config.get("MS365_TIMEZONE") or "Romance Standard Time",
         "app_url": config.get("APP_URL") or "",
+        "category_color": category_preset(config.get("MS365_CATEGORY_COLOR") or ""),
     }
+
+
+def category_preset(value: str) -> str | None:
+    """Colour setting -> Graph preset ("oranje" -> "preset1"); None = leave alone."""
+    value = value.strip().lower()
+    if re.fullmatch(r"preset(\d|1\d|2[0-4])", value):
+        return value
+    return CATEGORY_COLORS.get(value.replace(" ", "").replace("-", ""))
 
 
 def is_configured() -> bool:
@@ -296,6 +318,30 @@ def mark_synced(assignment: Assignment) -> None:
     db.session.expire(assignment, ["outlook_synced_at", "updated_at"])
 
 
+#: Mailboxes whose category colour was already checked by this process.
+_category_done: set[str] = set()
+
+
+def ensure_category(client: GraphClient, user: User) -> None:
+    """Create the "VOPA Teams" category in the user's Outlook with the set colour.
+
+    Outlook categories (and their colour) belong to each mailbox. This needs
+    the application permission ``MailboxSettings.ReadWrite``; without it a
+    :class:`GraphError` is raised and the category keeps Outlook's own colour.
+    Checked once per mailbox per process (and again after a restart).
+    """
+    color = settings()["category_color"]
+    if not color or not user.email or user.email.lower() in _category_done:
+        return
+    base = f"/users/{urllib.parse.quote(user.email)}/outlook/masterCategories"
+    existing = [c for c in client.get_all(base) if c.get("displayName", "").lower() == CATEGORY.lower()]
+    if not existing:
+        client.request("POST", base, {"displayName": CATEGORY, "color": color})
+    elif existing[0].get("color") != color:
+        client.request("PATCH", f"{base}/{existing[0]['id']}", {"color": color})
+    _category_done.add(user.email.lower())
+
+
 def remove_orphans(client: GraphClient) -> int:
     """Delete the Outlook appointments of planning entries that were deleted."""
     orphans = db.session.scalars(sa.select(OutlookLink).where(OutlookLink.assignment_id.is_(None))).all()
@@ -361,6 +407,16 @@ def sync_all(client: GraphClient | None = None) -> SyncReport:
     client = client or GraphClient.from_settings()
     start, end = window()
 
+    users = db.session.scalars(sa.select(User).where(
+        User.active.is_(True), User.outlook_sync.is_(True), User.email.is_not(None), User.email != "")).all()
+    for user in users:
+        try:
+            ensure_category(client, user)
+        except GraphError as exc:
+            # Not fatal: the appointments are written anyway, only the colour is missing.
+            _category_done.add(user.email.lower())     # don't retry every 5 minutes
+            report.errors.append(f"Kleur categorie '{CATEGORY}' ({user.full_name}): {exc} "
+                                 "- machtiging MailboxSettings.ReadWrite toegekend?")
     # Planning -> Outlook first, so freshly written appointments are known
     # (and skipped) when the calendars are read.
     try:
@@ -383,8 +439,6 @@ def sync_all(client: GraphClient | None = None) -> SyncReport:
             write_errors.setdefault(user_id, f"Schrijven naar Outlook: {exc}")
             report.errors.append(f"Planning {assignment.id} ({name}): {exc}")
 
-    users = db.session.scalars(sa.select(User).where(
-        User.active.is_(True), User.outlook_sync.is_(True), User.email.is_not(None), User.email != "")).all()
     for user in users:
         try:
             report.read += pull_user(client, user, start, end, report.skipped)

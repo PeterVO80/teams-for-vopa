@@ -78,6 +78,7 @@ def outlook_status():
     from ..services import outlook
 
     if request.method == "POST":
+        outlook._category_done.clear()   # re-check the category colour (permission may be new)
         report = outlook.sync_all()
         flash(f"Synchronisatie klaar: {report.summary}.", "warning" if report.errors else "success")
         for error in report.errors[:10]:

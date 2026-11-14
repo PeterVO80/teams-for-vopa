@@ -40,6 +40,9 @@ class Config:
     MS365_CLIENT_SECRET = os.environ.get("MS365_CLIENT_SECRET", "")
     #: Windows (or IANA) time zone of the Outlook appointments.
     MS365_TIMEZONE = os.environ.get("MS365_TIMEZONE", "Romance Standard Time")
+    #: Colour of the "VOPA Teams" category in Outlook (oranje, rood, blauw, ...
+    #: or an Outlook preset such as "preset1"). Empty = leave the colour alone.
+    MS365_CATEGORY_COLOR = os.environ.get("MS365_CATEGORY_COLOR", "oranje")
     #: Public address of the application, used for links in Outlook appointments.
     APP_URL = os.environ.get("APP_URL", "")
 

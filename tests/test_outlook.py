@@ -20,6 +20,7 @@ class FakeGraph:
         self.fail_for = set(fail_for)
         self.calls = []
         self.counter = 0
+        self.categories = {}                 # email -> Outlook categories
 
     def request(self, method, url, payload=None):
         url = urllib.parse.unquote(url)
@@ -34,6 +35,8 @@ class FakeGraph:
     def get_all(self, url):
         url = urllib.parse.unquote(url)
         self.calls.append(("GET", url, None))
+        if "masterCategories" in url:
+            return list(self.categories.get(url.split("/")[2], []))
         if any(email in url for email in self.fail_for):
             raise outlook.GraphError("ErrorAccessDenied: Access is denied.")
         for email, events in self.events.items():
@@ -46,6 +49,11 @@ class FakeGraph:
 
     def deletes(self):
         return [c for c in self.calls if c[0] == "DELETE"]
+
+
+@pytest.fixture(autouse=True)
+def _fresh_category_cache():
+    outlook._category_done.clear()
 
 
 @pytest.fixture()
@@ -310,3 +318,38 @@ def test_subject_contains_remark(app):
     leave = Assignment(start_date=date(2026, 11, 16), end_date=date(2026, 11, 16),
                        kind=AssignmentKind.LEAVE, note="tandarts")
     assert outlook._subject(leave) == "Verlof: tandarts"                   # remark not repeated
+
+
+def test_category_colour_setting(app):
+    assert outlook.category_preset("Oranje") == "preset1"
+    assert outlook.category_preset("donker blauw") == "preset22"
+    assert outlook.category_preset("preset24") == "preset24"
+    assert outlook.category_preset("") is None and outlook.category_preset("fuchsia") is None
+
+
+def test_category_is_created_or_recoloured_once(configured):
+    jan, els = _user("jan"), _user("els")
+    graph = FakeGraph()
+    graph.categories["els@example.com"] = [{"id": "c1", "displayName": "VOPA Teams", "color": "preset7"}]
+    outlook.ensure_category(graph, jan)
+    outlook.ensure_category(graph, els)
+    outlook.ensure_category(graph, jan)                                    # cached: no new requests
+    assert [(c[0], c[1], c[2]) for c in graph.calls if c[0] in ("POST", "PATCH")] == [
+        ("POST", "/users/jan@example.com/outlook/masterCategories", {"displayName": "VOPA Teams", "color": "preset1"}),
+        ("PATCH", "/users/els@example.com/outlook/masterCategories/c1", {"color": "preset1"}),
+    ]
+
+
+def test_missing_category_permission_is_not_fatal(configured):
+    class NoMailboxSettings(FakeGraph):
+        def get_all(self, url):
+            if "masterCategories" in url:
+                raise outlook.GraphError("ErrorAccessDenied: Access is denied.")
+            return super().get_all(url)
+
+    jan = _user("jan")
+    _plan(jan, date.today(), date.today(), include_weekends=True)
+    report = outlook.sync_all(NoMailboxSettings())
+    assert report.written >= 1
+    assert any("MailboxSettings.ReadWrite" in e for e in report.errors)
+    assert _user("jan").outlook_error is None                              # the link itself works
