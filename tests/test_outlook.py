@@ -281,3 +281,20 @@ def test_changing_email_rewrites_planning(configured, client):
     response = client.post(f"/users/{jan.id}/edit", data=form)
     assert response.status_code == 302
     assert a in outlook.pending_assignments(*outlook.window())
+
+
+def test_moving_planning_to_other_day_and_person_moves_appointment(configured, client):
+    jan, els = _user("jan"), _user("els")
+    a = _plan(jan, date.today(), date.today(), include_weekends=True)
+    outlook.sync_all(FakeGraph())
+    old_event = db.session.scalar(sa.select(OutlookLink.event_id).where(OutlookLink.assignment_id == a.id))
+    new_day = date.today() + timedelta(days=7)
+    response = client.post(f"/team/assignments/{a.id}/reschedule", json={
+        "start_date": new_day.isoformat(), "end_date": new_day.isoformat(), "user_id": els.id})
+    assert response.get_json() == {"ok": True}
+    assert a in outlook.pending_assignments(*outlook.window())          # the move is picked up
+    graph = FakeGraph()
+    outlook.sync_all(graph)
+    assert any(c[1].endswith(f"jan@example.com/events/{old_event}") for c in graph.deletes())   # old one removed
+    post = next(c for c in graph.posts() if "els@example.com" in c[1] and c[2]["start"]["dateTime"].startswith(new_day.isoformat()))
+    assert post[2]["categories"] == ["VOPA Teams"]
