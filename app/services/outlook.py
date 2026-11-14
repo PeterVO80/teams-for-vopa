@@ -43,7 +43,7 @@ import sqlalchemy as sa
 from flask import current_app
 
 from ..extensions import db
-from ..models import Assignment, CalendarEvent, OutlookLink, User
+from ..models import AppSetting, Assignment, CalendarEvent, OutlookLink, User
 from ..models.base import utcnow
 
 log = logging.getLogger(__name__)
@@ -51,18 +51,25 @@ log = logging.getLogger(__name__)
 GRAPH = "https://graph.microsoft.com/v1.0"
 #: Category put on the appointments written by this application.
 CATEGORY = "VOPA Teams"
-#: Outlook category colours (Graph "preset0".."preset24"), by Dutch/English name.
-CATEGORY_COLORS = {
-    "rood": "preset0", "red": "preset0", "oranje": "preset1", "orange": "preset1",
-    "bruin": "preset2", "brown": "preset2", "geel": "preset3", "yellow": "preset3",
-    "groen": "preset4", "green": "preset4", "blauwgroen": "preset5", "teal": "preset5",
-    "olijf": "preset6", "olive": "preset6", "blauw": "preset7", "blue": "preset7",
-    "paars": "preset8", "purple": "preset8", "cranberry": "preset9",
-    "staal": "preset10", "steel": "preset10", "grijs": "preset12", "gray": "preset12", "grey": "preset12",
-    "zwart": "preset14", "black": "preset14", "donkerrood": "preset15", "darkred": "preset15",
-    "donkeroranje": "preset16", "darkorange": "preset16", "donkergroen": "preset19", "darkgreen": "preset19",
-    "donkerblauw": "preset22", "darkblue": "preset22", "donkerpaars": "preset23", "darkpurple": "preset23",
-}
+#: Outlook category colours: (Graph preset, Dutch name, English name, approx. colour).
+CATEGORY_PALETTE = [
+    ("preset0", "rood", "red", "#e7a1a2"), ("preset1", "oranje", "orange", "#f9ba89"),
+    ("preset2", "bruin", "brown", "#f7dd8f"), ("preset3", "geel", "yellow", "#fcfa90"),
+    ("preset4", "groen", "green", "#78d168"), ("preset5", "blauwgroen", "teal", "#9fdcc9"),
+    ("preset6", "olijf", "olive", "#c6d2b0"), ("preset7", "blauw", "blue", "#9db7e8"),
+    ("preset8", "paars", "purple", "#b5a1e2"), ("preset9", "cranberry", "cranberry", "#daaec2"),
+    ("preset10", "staal", "steel", "#dad9dc"), ("preset11", "donker staal", "darksteel", "#6b7994"),
+    ("preset12", "grijs", "gray", "#bfbfbf"), ("preset13", "donkergrijs", "darkgray", "#6f6f6f"),
+    ("preset14", "zwart", "black", "#4f4f4f"), ("preset15", "donkerrood", "darkred", "#c11a25"),
+    ("preset16", "donkeroranje", "darkorange", "#e2620d"), ("preset17", "donkerbruin", "darkbrown", "#c79930"),
+    ("preset18", "donkergeel", "darkyellow", "#b9b300"), ("preset19", "donkergroen", "darkgreen", "#368f2b"),
+    ("preset20", "donker blauwgroen", "darkteal", "#329b7a"), ("preset21", "donker olijf", "darkolive", "#778b45"),
+    ("preset22", "donkerblauw", "darkblue", "#2858a5"), ("preset23", "donkerpaars", "darkpurple", "#5c3fa3"),
+    ("preset24", "donker cranberry", "darkcranberry", "#93446b"),
+]
+CATEGORY_COLORS = {name.replace(" ", ""): preset for preset, nl, en, _ in CATEGORY_PALETTE for name in (nl, en)}
+#: AppSetting key of the colour chosen on the Outlook page (overrides MS365_CATEGORY_COLOR).
+COLOR_SETTING = "outlook.category_color"
 #: Synchronisation window around today.
 DAYS_BACK, DAYS_AHEAD = 30, 183
 
@@ -80,8 +87,16 @@ def settings() -> dict:
         "secret": config.get("MS365_CLIENT_SECRET") or "",
         "timezone": config.get("MS365_TIMEZONE") or "Romance Standard Time",
         "app_url": config.get("APP_URL") or "",
-        "category_color": category_preset(config.get("MS365_CATEGORY_COLOR") or ""),
+        "category_color": category_color(),
     }
+
+
+def category_color() -> str | None:
+    """Colour of the category: chosen in the app, else MS365_CATEGORY_COLOR."""
+    chosen = AppSetting.get(COLOR_SETTING)
+    if chosen is not None:
+        return chosen or None          # "" = chosen "no colour"
+    return category_preset(current_app.config.get("MS365_CATEGORY_COLOR") or "")
 
 
 def category_preset(value: str) -> str | None:
@@ -318,8 +333,9 @@ def mark_synced(assignment: Assignment) -> None:
     db.session.expire(assignment, ["outlook_synced_at", "updated_at"])
 
 
-#: Mailboxes whose category colour was already checked by this process.
-_category_done: set[str] = set()
+#: (mailbox, colour) pairs already checked by this process; a newly chosen
+#: colour is therefore applied by every process at its next run.
+_category_done: set[tuple[str, str]] = set()
 
 
 def ensure_category(client: GraphClient, user: User) -> None:
@@ -331,7 +347,7 @@ def ensure_category(client: GraphClient, user: User) -> None:
     Checked once per mailbox per process (and again after a restart).
     """
     color = settings()["category_color"]
-    if not color or not user.email or user.email.lower() in _category_done:
+    if not color or not user.email or (user.email.lower(), color) in _category_done:
         return
     base = f"/users/{urllib.parse.quote(user.email)}/outlook/masterCategories"
     existing = [c for c in client.get_all(base) if c.get("displayName", "").lower() == CATEGORY.lower()]
@@ -339,7 +355,7 @@ def ensure_category(client: GraphClient, user: User) -> None:
         client.request("POST", base, {"displayName": CATEGORY, "color": color})
     elif existing[0].get("color") != color:
         client.request("PATCH", f"{base}/{existing[0]['id']}", {"color": color})
-    _category_done.add(user.email.lower())
+    _category_done.add((user.email.lower(), color))
 
 
 def remove_orphans(client: GraphClient) -> int:
@@ -414,7 +430,7 @@ def sync_all(client: GraphClient | None = None) -> SyncReport:
             ensure_category(client, user)
         except GraphError as exc:
             # Not fatal: the appointments are written anyway, only the colour is missing.
-            _category_done.add(user.email.lower())     # don't retry every 5 minutes
+            _category_done.add((user.email.lower(), settings()["category_color"]))  # don't retry every 5 minutes
             report.errors.append(f"Kleur categorie '{CATEGORY}' ({user.full_name}): {exc} "
                                  "- machtiging MailboxSettings.ReadWrite toegekend?")
     # Planning -> Outlook first, so freshly written appointments are known

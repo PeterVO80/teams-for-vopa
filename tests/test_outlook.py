@@ -353,3 +353,21 @@ def test_missing_category_permission_is_not_fatal(configured):
     assert report.written >= 1
     assert any("MailboxSettings.ReadWrite" in e for e in report.errors)
     assert _user("jan").outlook_error is None                              # the link itself works
+
+
+def test_choose_category_colour_on_outlook_page(configured, client):
+    html = client.get("/users/outlook").get_data(as_text=True)
+    assert 'id="color-preset1" value="preset1" checked' in html            # default from MS365_CATEGORY_COLOR
+    response = client.post("/users/outlook", data={"action": "color", "color": "preset22"})
+    assert response.status_code == 302
+    assert outlook.category_color() == "preset22"
+    html = client.get("/users/outlook").get_data(as_text=True)
+    assert 'id="color-preset22" value="preset22" checked' in html
+
+    graph = FakeGraph()
+    outlook.ensure_category(graph, _user("jan"))
+    assert graph.posts()[0][2] == {"displayName": "VOPA Teams", "color": "preset22"}
+
+    client.post("/users/outlook", data={"action": "color", "color": ""})   # "Niet aanpassen"
+    assert outlook.category_color() is None
+    assert client.post("/users/outlook", data={"action": "color", "color": "fuchsia"}).status_code == 400

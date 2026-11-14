@@ -198,3 +198,9 @@ body.planning-dragging .tooltip { display: none !important; }
 /* Company logo in the title bar (white logo, made for a dark background). */
 .brand-logo { height: 28px; width: auto; display: block; }
 .brand-name { border-left: 1px solid rgba(255,255,255,.35); padding-left: .6rem; font-weight: 400; letter-spacing: .02em; }
+
+/* Colour picker on the Outlook link page. */
+.color-swatch { width: 28px; height: 28px; border-radius: 6px; background: var(--swatch); cursor: pointer;
+  border: 1px solid rgba(0,0,0,.15); margin: 0; }
+.btn-check:checked + .color-swatch { outline: 3px solid var(--bs-primary); outline-offset: 2px; }
+.btn-check:focus-visible + .color-swatch { outline: 3px solid var(--bs-primary); outline-offset: 2px; }

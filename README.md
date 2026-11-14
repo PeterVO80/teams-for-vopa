@@ -135,7 +135,7 @@ to log in with Microsoft. A Microsoft 365 administrator sets it up once:
    | `MS365_CLIENT_ID` | Application (client) ID |
    | `MS365_CLIENT_SECRET` | the secret's value |
    | `MS365_TIMEZONE` | optional, Windows time zone (default `Romance Standard Time` = Brussels) |
-   | `MS365_CATEGORY_COLOR` | optional, colour of the "VOPA Teams" category: `rood`, `oranje` (default), `bruin`, `geel`, `groen`, `blauwgroen`, `olijf`, `blauw`, `paars`, `cranberry`, `grijs`, `zwart`, `donkerrood`, `donkeroranje`, `donkergroen`, `donkerblauw`, `donkerpaars` or an Outlook preset (`preset0`-`preset24`); empty = leave the colour alone |
+   | `MS365_CATEGORY_COLOR` | optional, default colour of the "VOPA Teams" category (the colour is normally chosen in the app on the *Outlook-koppeling* page, which overrides this): `rood`, `oranje` (default), `bruin`, `geel`, `groen`, `blauwgroen`, `olijf`, `blauw`, `paars`, `cranberry`, `grijs`, `zwart`, `donkerrood`, `donkeroranje`, `donkergroen`, `donkerblauw`, `donkerpaars` or an Outlook preset (`preset0`-`preset24`); empty = leave the colour alone |
    | `APP_URL` | optional, address of the app (e.g. `http://teams.vopa.local:8080`), used as a link in the appointments |
 
 6. Give every employee their **Microsoft 365 e-mail address** in

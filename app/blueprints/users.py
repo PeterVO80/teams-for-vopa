@@ -1,7 +1,7 @@
 """User management (administrators only)."""
 
 import sqlalchemy as sa
-from flask import flash, redirect, render_template, request, url_for
+from flask import abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from ..extensions import db
@@ -74,8 +74,19 @@ def edit(user_id: int | None = None):
 @admin_required
 def outlook_status():
     """Status of the Outlook (Microsoft 365) link, with a "synchronise now" button."""
-    from ..models import CalendarEvent, OutlookLink
+    from ..models import AppSetting, CalendarEvent, OutlookLink
     from ..services import outlook
+
+    if request.method == "POST" and request.form.get("action") == "color":
+        color = request.form.get("color", "")
+        if color and color not in {preset for preset, *_ in outlook.CATEGORY_PALETTE}:
+            abort(400)
+        AppSetting.put(outlook.COLOR_SETTING, color)
+        db.session.commit()
+        outlook._category_done.clear()
+        flash("Kleur opgeslagen. Ze wordt bij de volgende synchronisatie in ieders Outlook ingesteld."
+              if color else "De app past de kleur van de categorie niet meer aan.", "success")
+        return redirect(url_for("users.outlook_status"))
 
     if request.method == "POST":
         outlook._category_done.clear()   # re-check the category colour (permission may be new)
@@ -92,4 +103,6 @@ def outlook_status():
         sa.select(OutlookLink.user_id, sa.func.count(OutlookLink.id)).group_by(OutlookLink.user_id)).all())
     pending = len(outlook.pending_assignments(*outlook.window()))
     return render_template("users/outlook.html", configured=outlook.is_configured(), users=users,
-                           counts=counts, written=written, pending=pending)
+                           counts=counts, written=written, pending=pending,
+                           palette=outlook.CATEGORY_PALETTE, color=outlook.category_color() or "",
+                           category=outlook.CATEGORY)
