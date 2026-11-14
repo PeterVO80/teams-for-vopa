@@ -175,3 +175,22 @@ body.planning-dragging .tooltip { display: none !important; }
 
 /* Live log of fetching Rexel details (static/js/article_details.js). */
 .details-log li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Outlook (Microsoft 365) appointments in the planning (services/outlook.py):
+   white bar with an edge in the employee's colour; out-of-office striped. */
+.planning-chip.outlook-bar {
+  background: var(--bs-body-bg); color: var(--bs-body-color); cursor: default;
+  border: 1px solid var(--user-color); border-left-width: 4px; line-height: 1.15rem;
+}
+.planning-chip.outlook-bar .bi { color: var(--user-color); }
+.planning-chip.outlook-bar.oof {
+  background-image: repeating-linear-gradient(45deg, rgba(0, 0, 0, .05) 0 6px, transparent 6px 12px);
+}
+.planning-chip.outlook-bar:hover { filter: none; }
+.outlook-marker {
+  position: absolute; right: 2px; bottom: 1px; z-index: 3;
+  font-size: .65rem; color: var(--bs-secondary-color); background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color); border-radius: .5rem; padding: 0 .25rem; line-height: 1rem;
+}
+.outlook-marker .bi { margin-right: .1rem; }
+.planning-cell { position: relative; }

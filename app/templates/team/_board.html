@@ -65,9 +65,33 @@
     <div class="planning-cell level-{{ cell.level(workday_hours) }} {{ 'today' if cell.day == today() }} {{ 'week-start' if cell.day.weekday() == 0 }} {{ 'weekend' if cell.is_weekend }}"
          style="grid-column: {{ loop.index + 3 }}"
          data-user="{{ row.user.id }}" data-day="{{ cell.day.isoformat() }}"
-         title="{{ cell.day|date }}: {{ cell.planned_hours|round(1) }}u gepland"></div>
+         title="{{ cell.day|date }}: {{ cell.planned_hours|round(1) }}u gepland">
+      {%- if cell.outlook %}
+      {# Shorter Outlook appointments (meetings) of that day. #}
+      {% set tip %}
+        <div class="fw-semibold"><i class="bi bi-calendar-event"></i> Outlook · {{ cell.day|date }}</div>
+        {% for e in cell.outlook %}<div>{{ e.start.strftime('%H:%M') }}–{{ e.end.strftime('%H:%M') }} {{ e.display_subject }}{% if e.location and not e.is_private %} <span class="opacity-75">({{ e.location }})</span>{% endif %}</div>{% endfor %}
+      {% endset %}
+      <span class="outlook-marker" data-tooltip-html="{{ tip|forceescape }}"><i class="bi bi-calendar-event"></i>{{ cell.outlook|length }}</span>
+      {%- endif -%}
+    </div>
     {% endfor %}
-    {% for seg in row.segments %}
+    {% for seg in row.segments if seg.event %}
+    {% set e = seg.event %}
+    {# All-day / multi-day appointment from the employee's Outlook calendar
+       (read only - change it in Outlook). #}
+    {% set tip %}
+      <div class="fw-semibold"><i class="bi bi-calendar-event"></i> {{ e.display_subject }}</div>
+      <div class="opacity-75">Outlook · {{ row.user.full_name }}</div>
+      <div><i class="bi bi-calendar-range"></i> {{ e.first_day|date }}{% if e.last_day != e.first_day %} – {{ e.last_day|date }}{% endif %}{% if not e.is_all_day %} ({{ e.start.strftime('%H:%M') }}–{{ e.end.strftime('%H:%M') }}){% endif %}</div>
+      {% if e.location and not e.is_private %}<div><i class="bi bi-geo-alt"></i> {{ e.location }}</div>{% endif %}
+      {% if e.show_as == 'oof' %}<div>Afwezig (out of office)</div>{% endif %}
+    {% endset %}
+    <span class="planning-chip outlook-bar {{ 'oof' if e.show_as == 'oof' }} {{ 'continues-before' if seg.continues_before }} {{ 'continues-after' if seg.continues_after }}"
+          style="grid-column: {{ seg.first + 4 }} / span {{ seg.span }}; grid-row: {{ seg.lane + 2 }}; --user-color: {{ row.user.color }}"
+          data-tooltip-html="{{ tip|forceescape }}"><i class="bi bi-calendar-event"></i> {{ e.display_subject }}</span>
+    {% endfor %}
+    {% for seg in row.segments if not seg.event %}
     {% set a = seg.assignment %}
     {% set muted = focus_project and a.project_id != focus_project.id %}
     {# Planning on a project the viewer is not linked to: only "Ingepland",

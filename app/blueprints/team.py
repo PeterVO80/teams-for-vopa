@@ -8,7 +8,8 @@ from flask import current_app, flash, jsonify, redirect, render_template, reques
 from ..access import link_user, require_project
 from ..extensions import db
 from ..forms import AssignmentForm, none_if_zero
-from ..models import Assignment, AssignmentKind, Project, User
+from ..models import Assignment, AssignmentKind, OutlookLink, Project, User
+from ..services import outlook
 from ..services.workload import build_overview, planning_period
 from ..utils import int_arg, is_modal_request, next_url
 from . import protected_blueprint
@@ -108,6 +109,7 @@ def edit_assignment(assignment_id: int | None = None):
         if assignment.project_id:
             link_user(db.session.get(Project, assignment.project_id), db.session.get(User, assignment.user_id))
         db.session.commit()
+        outlook.push_soon(current_app._get_current_object(), assignment.id)  # write to Outlook
         flash("Planning opgeslagen.", "success")
         if is_modal_request():
             # The popup reloads the page, which then shows the flash message.
@@ -134,8 +136,11 @@ def delete_assignment(assignment_id: int):
     assignment = db.get_or_404(Assignment, assignment_id)
     require_project(assignment.project)
     start = assignment.start_date
+    # Its Outlook appointments become orphans, removed by the Outlook sync.
+    db.session.execute(sa.update(OutlookLink).where(OutlookLink.assignment_id == assignment.id).values(assignment_id=None))
     db.session.delete(assignment)
     db.session.commit()
+    outlook.push_soon(current_app._get_current_object())
     flash("Planning verwijderd.", "success")
     if is_modal_request():
         return jsonify(ok=True)
@@ -178,4 +183,5 @@ def reschedule_assignment(assignment_id: int):
     assignment.start_date, assignment.end_date, assignment.user_id = start, end, user.id
     link_user(assignment.project, user)  # moved to another person: they now see the project
     db.session.commit()
+    outlook.push_soon(current_app._get_current_object(), assignment.id)
     return jsonify(ok=True)

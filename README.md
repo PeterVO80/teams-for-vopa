@@ -11,7 +11,7 @@ assignment is a **project**. All modules hang off that project:
 | **Articles** | Article database with search and filters, order history per article. **Excel import/export** (round trip: export → edit in Excel → import). **Supplier catalogue**: load a supplier price list (Rexel DBF, hundreds of thousands of articles), filter by manufacturer / product group / search text, select articles across pages (or a whole filter) and import them; a new price list updates the prices of imported articles in one click. Prices with up to 4 decimals (cable per metre). During the Rexel import the **extended description** and the **specifications** are fetched from each article's Rexel Netstore product page (in batches with a progress bar); a new price list keeps that description. |
 | **Stock** | Stock per article and location (warehouse, service vans, ...), minimum stock with an "under minimum" list and a reorder button. Movements in popups: receipt, issue (to a project), transfer, inventory count. Full movement history. Replenishment orders with a stock location put their deliveries in stock automatically; material issued to a project shows in the project's Material tab. Excel export. |
 | **Punch list** | Kanban board with *New · In progress · On hold · Done · Cancelled*. Drag & drop, filters per project/team member, priority, deadline and estimate. |
-| **Team overview** | Planning grid (people × days, weekends included) with load per day and period, absences (leave, sick, training), and open tasks per person. Plan by clicking a day or click-and-dragging over several days; the form opens in a popup. Weekend days are only planned when "Weekenddagen inplannen" is ticked. |
+| **Team overview** | Planning grid (people × days, weekends included) with load per day and period, absences (leave, sick, training), and open tasks per person. Plan by clicking a day or click-and-dragging over several days; the form opens in a popup. Weekend days are only planned when "Weekenddagen inplannen" is ticked. **Outlook link** (Microsoft 365): appointments from each employee's Outlook calendar appear in the planning (short ones as a calendar icon with tooltip, all-day/multi-day ones as an outlined bar; "out of office" counts as absent), and every planning entry is written to the employee's Outlook calendar as an all-day appointment (category "VOPA Teams"). See [Outlook (Microsoft 365)](#outlook-microsoft-365). |
 | **Notes** | Markdown notes with a WYSIWYG editor, **tags** (e.g. *Status meeting*, *Customer feedback*), optional project link, search and pinning. |
 | **Wiki** | A general wiki plus **a wiki per project**. Hierarchical Markdown pages with WYSIWYG editor, `[[Page title]]` links (looked up in the same wiki first), search and **full version history** (view and restore). |
 
@@ -94,6 +94,60 @@ the image on the Docker host itself.
   sets that password when the database is first created.
 * The *Web editor* method doesn't work here, because it can't build an image
   from the source code. Use *Repository*.
+
+### Outlook (Microsoft 365)
+
+The team planning and the employees' Outlook calendars are synchronised both
+ways (`app/services/outlook.py`):
+
+* **Outlook → planning**: every 5 minutes the appointments of the last 30 and
+  next 183 days are read. Appointments marked *free*, cancelled ones and the
+  ones this application wrote itself are skipped. Private appointments show
+  as "Privé".
+* **Planning → Outlook**: each planning entry becomes an all-day appointment
+  (one per run of planned days, so an unplanned weekend stays free) with
+  category **VOPA Teams**; absences are marked *out of office*. A change in the
+  planning is written within seconds; changing or deleting the planning
+  updates or removes the appointment. Change the planning in VOPA Teams, not
+  in Outlook: changes made in Outlook to these appointments are overwritten.
+
+The link uses an app registration with application permissions, so nobody has
+to log in with Microsoft. A Microsoft 365 administrator sets it up once:
+
+1. <https://entra.microsoft.com> → *Applications* → *App registrations* →
+   *New registration*. Name e.g. "VOPA Teams", *single tenant*, no redirect URI.
+2. In the new app: *API permissions* → *Add a permission* → *Microsoft Graph*
+   → *Application permissions* → **Calendars.ReadWrite** → *Add*. Then click
+   **Grant admin consent for <your company>**.
+3. *Certificates & secrets* → *New client secret* (e.g. 24 months). Copy the
+   **Value** immediately (it is shown only once).
+4. Note the **Directory (tenant) ID** and **Application (client) ID** on the
+   app's *Overview* page.
+5. Set the environment variables (Portainer: stack → *Environment variables*,
+   then *Update the stack*):
+
+   | Variable | Value |
+   |---|---|
+   | `MS365_TENANT_ID` | Directory (tenant) ID |
+   | `MS365_CLIENT_ID` | Application (client) ID |
+   | `MS365_CLIENT_SECRET` | the secret's value |
+   | `MS365_TIMEZONE` | optional, Windows time zone (default `Romance Standard Time` = Brussels) |
+   | `APP_URL` | optional, address of the app (e.g. `http://teams.vopa.local:8080`), used as a link in the appointments |
+
+6. Give every employee their **Microsoft 365 e-mail address** in
+   *Gebruikersbeheer*: that is the mailbox that is synchronised. Per employee
+   the link can be switched off ("Outlook-agenda koppelen").
+7. Check *Admin menu → Outlook-koppeling*: it shows per employee whether the
+   link works (and the error otherwise) and has a **Synchroniseer nu** button.
+
+The stack's `outlook-sync` container runs `flask outlook-sync --loop 300`; it
+idles while the variables are not set. Run once by hand with
+`docker compose exec web flask outlook-sync`.
+
+*Optional, stricter*: by default `Calendars.ReadWrite` gives the app access to
+all mailboxes of the organisation. To limit it to the employees' mailboxes, an
+Exchange administrator can add an [application access policy](https://learn.microsoft.com/graph/auth-limit-mailbox-access)
+(`New-ApplicationAccessPolicy -AccessRight RestrictAccess -AppId <client id> -PolicyScopeGroupId <mail-enabled security group>`).
 
 ### Useful commands
 

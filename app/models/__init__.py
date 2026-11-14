@@ -8,6 +8,7 @@ from .article import Article
 from .base import LabeledEnum
 from .catalog import CatalogItem, SupplierCatalog
 from .company import Company
+from .outlook import CalendarEvent, OutlookLink
 from .knowledge import Note, Tag, WikiPage, WikiRevision, note_tags
 from .planning import Assignment, AssignmentKind, is_weekend
 from .project import Project, ProjectStatus, project_members
@@ -19,6 +20,7 @@ from .user import User, UserRole
 __all__ = [
     "Article",
     "Assignment",
+    "CalendarEvent",
     "CatalogItem",
     "Company",
     "AssignmentKind",
@@ -28,6 +30,7 @@ __all__ = [
     "Note",
     "OPEN_STATUSES",
     "OrderStatus",
+    "OutlookLink",
     "Project",
     "StockLocation",
     "StockMovement",

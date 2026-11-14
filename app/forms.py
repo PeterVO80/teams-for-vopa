@@ -99,6 +99,10 @@ class UserForm(FlaskForm):
         validators=[Regexp(r"^#[0-9a-fA-F]{6}$", message="Gebruik een kleurcode zoals #0d6efd.")],
     )
     active = BooleanField("Actief", default=True)
+    outlook_sync = BooleanField(
+        "Outlook-agenda koppelen", default=True,
+        description="Leest de Outlook-agenda (mailbox = e-mailadres) in de teamplanning en schrijft de planning naar Outlook.",
+    )
     password = PasswordField(
         "Wachtwoord",
         description="Laat leeg om het huidige wachtwoord te behouden.",

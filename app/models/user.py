@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 import sqlalchemy as sa
 from flask_login import UserMixin
 from sqlalchemy.orm import Mapped, mapped_column
@@ -36,6 +38,13 @@ class User(UserMixin, TimestampMixin, db.Model):
     active: Mapped[bool] = mapped_column(default=True)
     #: Colour used for this person in the team planning (CSS hex colour).
     color: Mapped[str] = mapped_column(sa.String(7), default="#0d6efd")
+
+    # --- Outlook (Microsoft 365) calendar link, see services/outlook.py ------
+    #: Synchronise this person's Outlook calendar (mailbox = ``email``).
+    outlook_sync: Mapped[bool] = mapped_column(default=True, server_default=sa.true())
+    outlook_synced_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    #: Last synchronisation problem for this person (None = OK).
+    outlook_error: Mapped[str | None] = mapped_column(sa.String(300))
 
     # ------------------------------------------------------------------ auth
     def set_password(self, password: str) -> None:

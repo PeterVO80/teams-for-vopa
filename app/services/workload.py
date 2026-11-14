@@ -29,6 +29,8 @@ class DayCell:
     assignments: list[Assignment] = field(default_factory=list)
     planned_hours: float = 0.0
     is_absent: bool = False
+    #: Shorter Outlook appointments on this day (meetings): shown as a marker.
+    outlook: list = field(default_factory=list)
 
     @property
     def is_weekend(self) -> bool:
@@ -59,7 +61,8 @@ class Segment:
     weekend that is not planned (``include_weekends`` off).
     """
 
-    assignment: Assignment
+    #: The planning entry - or None for an Outlook appointment (``event``).
+    assignment: Assignment | None
     #: Index of the first and last day column covered (inclusive).
     first: int
     last: int
@@ -73,18 +76,28 @@ class Segment:
     #: resize handle (left resp. right), which changes the start / end date.
     is_first: bool = False
     is_last: bool = False
+    #: Outlook appointment (models/outlook.py: CalendarEvent) drawn as a bar.
+    event: object = None
 
     @property
     def span(self) -> int:
         return self.last - self.first + 1
 
 
-def build_segments(assignments: list[Assignment], days: list[date]) -> tuple[list[Segment], int]:
+def build_segments(assignments: list[Assignment], days: list[date], events=()) -> tuple[list[Segment], int]:
     """Turn assignments into bars per run of consecutive covered days.
 
-    Returns the segments (with a lane each) and the number of lanes needed.
+    ``events`` are long Outlook appointments (all-day / multi-day), drawn as
+    bars too. Returns the segments (with a lane each) and the number of lanes.
     """
     segments: list[Segment] = []
+    for event in events:
+        covered = [i for i, day in enumerate(days) if event.first_day <= day <= event.last_day]
+        if covered:
+            segments.append(Segment(
+                assignment=None, event=event, first=covered[0], last=covered[-1],
+                continues_before=event.first_day < days[0], continues_after=event.last_day > days[-1],
+            ))
     for assignment in sorted(assignments, key=lambda a: (a.start_date, a.id or 0)):
         own_segments_from = len(segments)
         run_start = None
@@ -241,20 +254,29 @@ def build_overview(start: date, weeks: int | None = None, *, days: list[date] | 
     }
 
     rows = []
+    # Appointments from the employees' Outlook calendars (services/outlook.py).
+    from . import outlook
+    outlook_events = outlook.events_by_user([u.id for u in users], days[0], days[-1])
+
     for user in users:
+        events = outlook_events.get(user.id, [])
+        long_events = [e for e in events if e.is_long]
         cells = []
         for day in days:
             covering = [a for a in by_user.get(user.id, []) if a.covers(day)]
+            out_of_office = any(e.show_as == "oof" and e.first_day <= day <= e.last_day for e in long_events)
             cells.append(
                 DayCell(
                     day=day,
                     assignments=covering,
                     planned_hours=sum(a.hours_per_day for a in covering if not a.kind.is_absence),
-                    is_absent=any(a.kind.is_absence for a in covering),
+                    # Absent: planned leave/sickness/training, or "out of office" in Outlook.
+                    is_absent=any(a.kind.is_absence for a in covering) or out_of_office,
+                    outlook=[e for e in events if not e.is_long and e.first_day == day],
                 )
             )
         count, hours = task_stats.get(user.id, (0, 0.0))
-        segments, lanes = build_segments(by_user.get(user.id, []), days)
+        segments, lanes = build_segments(by_user.get(user.id, []), days, long_events)
         rows.append(MemberRow(user=user, cells=cells, open_tasks=count, open_task_hours=hours,
                               segments=segments, lanes=lanes))
     return days, rows

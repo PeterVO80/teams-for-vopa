@@ -33,6 +33,16 @@ class Config:
     #: e.g. ``PRJ/2026/0001``. The sequence restarts every calendar year.
     PROJECT_CODE_PREFIX = os.environ.get("PROJECT_CODE_PREFIX", "PRJ")
 
+    #: Outlook / Microsoft 365 calendar link (services/outlook.py). Active only
+    #: when tenant, client id and secret of the app registration are set.
+    MS365_TENANT_ID = os.environ.get("MS365_TENANT_ID", "")
+    MS365_CLIENT_ID = os.environ.get("MS365_CLIENT_ID", "")
+    MS365_CLIENT_SECRET = os.environ.get("MS365_CLIENT_SECRET", "")
+    #: Windows (or IANA) time zone of the Outlook appointments.
+    MS365_TIMEZONE = os.environ.get("MS365_TIMEZONE", "Romance Standard Time")
+    #: Public address of the application, used for links in Outlook appointments.
+    APP_URL = os.environ.get("APP_URL", "")
+
     #: Default number of working hours in one day, used by the team planning
     #: to express workload as a percentage.
     WORKDAY_HOURS = float(os.environ.get("WORKDAY_HOURS", 8))

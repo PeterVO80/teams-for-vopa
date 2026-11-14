@@ -24,9 +24,13 @@ for attempt in range(60):
 sys.exit("Database did not become available in time.")
 PY
 
-echo "Applying database migrations..."
-flask db upgrade
-
-flask ensure-admin
+# Only the web container migrates the database; helper containers (such as
+# the Outlook synchronisation) set RUN_MIGRATIONS=0 to avoid running the same
+# migration twice at the same time.
+if [ "${RUN_MIGRATIONS:-1}" != "0" ]; then
+    echo "Applying database migrations..."
+    flask db upgrade
+    flask ensure-admin
+fi
 
 exec "$@"

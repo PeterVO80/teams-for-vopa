@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar %}
+{% block title %}Outlook-koppeling{% endblock %}
+{% block page_actions %}
+{% if configured %}
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn btn-primary"><i class="bi bi-arrow-repeat"></i> Synchroniseer nu</button>
+</form>
+{% endif %}
+{% endblock %}
+{% block content %}
+{% if not configured %}
+<div class="alert alert-warning">
+  <strong>Microsoft 365 is nog niet ingesteld.</strong> Vul de omgevingsvariabelen
+  <code>MS365_TENANT_ID</code>, <code>MS365_CLIENT_ID</code> en <code>MS365_CLIENT_SECRET</code> in
+  bij de stack in Portainer, met de gegevens van de app-registratie. De stappen staan in de README onder
+  "Outlook (Microsoft 365)".
+</div>
+{% else %}
+<p class="text-body-secondary small">
+  De container <code>outlook-sync</code> synchroniseert automatisch elke 5 minuten. Wijzigingen in de teamplanning worden
+  daarnaast meteen naar Outlook geschreven. {{ pending }} planning(en) wachten nog om naar Outlook geschreven te worden.
+</p>
+{% endif %}
+<div class="card"><div class="table-responsive">
+<table class="table align-middle mb-0">
+  <thead><tr><th>Medewerker</th><th>Mailbox</th><th>Koppeling</th><th class="text-end">Gelezen afspraken</th><th class="text-end">Geschreven</th><th>Laatste synchronisatie</th></tr></thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td>{{ avatar(u) }} <a href="{{ url_for('users.edit', user_id=u.id) }}">{{ u.full_name }}</a></td>
+      <td class="small">{{ u.email or '' }}</td>
+      <td>
+        {% if not u.email %}<span class="badge text-bg-secondary">geen e-mailadres</span>
+        {% elif not u.outlook_sync %}<span class="badge text-bg-secondary">uitgeschakeld</span>
+        {% elif u.outlook_error %}<span class="badge text-bg-danger" title="{{ u.outlook_error }}">fout</span>
+        {% elif u.outlook_synced_at %}<span class="badge text-bg-success">actief</span>
+        {% else %}<span class="badge text-bg-light border">nog niet gesynchroniseerd</span>{% endif %}
+      </td>
+      <td class="text-end">{{ counts.get(u.id, 0) }}</td>
+      <td class="text-end">{{ written.get(u.id, 0) }}</td>
+      <td class="small">{{ u.outlook_synced_at|datetime }}{% if u.outlook_error %}<div class="text-danger">{{ u.outlook_error }}</div>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}

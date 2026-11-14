@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -66,6 +66,9 @@ class Assignment(TimestampMixin, db.Model):
     hours_per_day: Mapped[float] = mapped_column(default=8.0)
     include_weekends: Mapped[bool] = mapped_column(default=False, server_default=sa.false())
     note: Mapped[str | None] = mapped_column(sa.String(300))
+    #: When this entry was last written to the employee's Outlook calendar.
+    #: Older than ``updated_at`` (or empty) = still to be synchronised.
+    outlook_synced_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
 
     user = relationship("User")
     project = relationship("Project")

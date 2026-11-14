@@ -1,7 +1,7 @@
 """User management (administrators only)."""
 
 import sqlalchemy as sa
-from flask import flash, redirect, render_template, url_for
+from flask import flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from ..extensions import db
@@ -51,6 +51,7 @@ def edit(user_id: int | None = None):
             user.role = UserRole(form.role.data)
             user.color = form.color.data
             user.active = form.active.data
+            user.outlook_sync = form.outlook_sync.data
             if form.password.data:
                 user.set_password(form.password.data)
             db.session.commit()
@@ -63,3 +64,28 @@ def edit(user_id: int | None = None):
         title="Gebruiker bewerken" if user else "Nieuwe gebruiker",
         cancel_url=url_for("users.index"),
     )
+
+
+@bp.route("/outlook", methods=["GET", "POST"])
+@admin_required
+def outlook_status():
+    """Status of the Outlook (Microsoft 365) link, with a "synchronise now" button."""
+    from ..models import Assignment, CalendarEvent, OutlookLink
+    from ..services import outlook
+
+    if request.method == "POST":
+        report = outlook.sync_all()
+        flash(f"Synchronisatie klaar: {report.summary}.", "warning" if report.errors else "success")
+        for error in report.errors[:10]:
+            flash(error, "warning")
+        return redirect(url_for("users.outlook_status"))
+
+    users = db.session.scalars(sa.select(User).where(User.active.is_(True)).order_by(User.full_name)).all()
+    counts = dict(db.session.execute(
+        sa.select(CalendarEvent.user_id, sa.func.count(CalendarEvent.id)).group_by(CalendarEvent.user_id)).all())
+    written = dict(db.session.execute(
+        sa.select(OutlookLink.user_id, sa.func.count(OutlookLink.id)).group_by(OutlookLink.user_id)).all())
+    pending = db.session.scalar(sa.select(sa.func.count(Assignment.id)).where(
+        sa.or_(Assignment.outlook_synced_at.is_(None), Assignment.outlook_synced_at < Assignment.updated_at)))
+    return render_template("users/outlook.html", configured=outlook.is_configured(), users=users,
+                           counts=counts, written=written, pending=pending)

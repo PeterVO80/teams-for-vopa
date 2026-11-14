@@ -217,13 +217,14 @@
 
   // Instant tooltips with the full description of a bar.
   function hideTooltips() {
-    document.querySelectorAll(".planning-chip[data-tooltip-html]")
+    document.querySelectorAll(".planning-grid [data-tooltip-html]")
       .forEach((el) => bootstrap.Tooltip.getInstance(el)?.hide());
   }
 
   if (grid) {
     // All boards on the page (the project page has one per tab content).
-    document.querySelectorAll(".planning-chip[data-tooltip-html]").forEach((el) => {
+    // Planning bars, Outlook appointments and Outlook day markers.
+    document.querySelectorAll(".planning-grid [data-tooltip-html]").forEach((el) => {
       new bootstrap.Tooltip(el, {
         title: el.dataset.tooltipHtml,
         html: true,               // sanitised by Bootstrap's allow-list

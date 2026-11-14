@@ -87,6 +87,32 @@ def register_cli(app: Flask) -> None:
         db.session.commit()
         click.echo(f"Beheerder '{user.username}' aangemaakt.")
 
+    @app.cli.command("outlook-sync")
+    @click.option("--loop", "interval", type=int, default=0,
+                  help="Blijf draaien en synchroniseer elke N seconden (0 = één keer).")
+    def outlook_sync(interval):
+        """Synchronise team planning <-> Outlook (Microsoft 365) calendars."""
+        import time
+
+        from .services import outlook
+
+        while True:
+            if outlook.is_configured():
+                try:
+                    report = outlook.sync_all()
+                    click.echo(f"Outlook: {report.summary}")
+                    for error in report.errors:
+                        click.echo(f"  ! {error}")
+                except Exception as exc:  # noqa: BLE001 - keep the loop alive
+                    db.session.rollback()
+                    click.echo(f"Outlook: synchronisatie mislukt: {exc}")
+            elif not interval:
+                raise click.ClickException("Microsoft 365 is niet ingesteld (MS365_TENANT_ID / _CLIENT_ID / _CLIENT_SECRET).")
+            if not interval:
+                break
+            db.session.remove()  # fresh session each run
+            time.sleep(interval)
+
     @app.cli.command("seed-demo")
     def seed_demo():
         """Fill an (almost) empty database with realistic demo data."""
