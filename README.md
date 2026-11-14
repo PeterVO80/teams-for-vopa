@@ -451,6 +451,39 @@ gunzip -c vopa-2026-11-14_0300.sql.gz | docker compose -f docker-compose.prod.ym
 Test a restore now and then - a backup that was never restored is a hope,
 not a backup.
 
+### Moving to another server (e.g. from the local Portainer to Hetzner)
+
+All data (projects, tasks, orders, articles, stock, notes, wiki, planning,
+users and their passwords, settings, the Outlook links) is in the PostgreSQL
+database; nothing is stored in files. Moving = one database dump.
+
+1. **Stop the old application** (Portainer: stop the containers `web` and
+   `outlook-sync` of the stack, keep `db` running). Otherwise people keep
+   working in the old copy, and two `outlook-sync` containers would write to
+   the same Outlook calendars.
+2. **Dump** on the old Docker host (find the database container's name with
+   `docker ps`, e.g. `vopa-teams-db-1`):
+
+   ```bash
+   docker exec vopa-teams-db-1 pg_dump -U vopa -Fc --no-owner vopa > vopa-teams.dump
+   ```
+3. **Copy** it to the new server: `scp vopa-teams.dump root@<server>:/opt/vopa-teams/`
+4. **Restore** on the new server (start only the database, restore, then the rest):
+
+   ```bash
+   cd /opt/vopa-teams
+   docker compose -f docker-compose.prod.yml up -d db
+   docker compose -f docker-compose.prod.yml exec -T db pg_restore -U vopa -d vopa --clean --if-exists --no-owner < vopa-teams.dump
+   docker compose -f docker-compose.prod.yml up -d --build
+   ```
+
+   The web container then upgrades the database to the current version
+   (migrations). Restoring over a database that the new app already
+   initialised works too (`--clean`). Everybody logs in with their old
+   password; `ADMIN_PASSWORD` of the new server is not used because users
+   already exist.
+5. Check the data, then remove the old stack (keep the dump for a while).
+
 ### Security notes for the local (Portainer) set-up
 
 * Set a long random `SECRET_KEY` and strong database and admin passwords.
