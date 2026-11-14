@@ -165,7 +165,8 @@ def _parse(value: dict) -> datetime:
     return datetime.fromisoformat(value["dateTime"][:19])
 
 
-def pull_user(client: GraphClient, user: User, start: date, end: date) -> int:
+def pull_user(client: GraphClient, user: User, start: date, end: date,
+              skipped: list | None = None) -> int:
     """Replace the cached Outlook appointments of ``user`` in [start, end)."""
     query = urllib.parse.urlencode({
         "startDateTime": f"{start.isoformat()}T00:00:00",
@@ -184,6 +185,8 @@ def pull_user(client: GraphClient, user: User, start: date, end: date) -> int:
     for event in events:
         if (event["id"] in own_ids or CATEGORY in (event.get("categories") or [])
                 or event.get("isCancelled") or event.get("showAs") == "free"):
+            if skipped is not None:
+                skipped.append(event["id"])
             continue
         db.session.add(CalendarEvent(
             user_id=user.id, external_id=event["id"][:255],
@@ -289,11 +292,32 @@ def remove_orphans(client: GraphClient) -> int:
 
 
 def pending_assignments(start: date, end: date) -> list[Assignment]:
-    """Planning entries in the window not (or no longer) in Outlook."""
-    return db.session.scalars(sa.select(Assignment).where(
+    """Planning entries in the window not (or no longer) in Outlook.
+
+    Pending is: never written, changed since the last write, or - for people
+    whose calendar is linked - not in Outlook at all. The last rule repairs
+    entries that were processed while the person had no e-mail address yet
+    or had the link switched off.
+    """
+    has_link = sa.exists().where(OutlookLink.assignment_id == Assignment.id)
+    linked_user = sa.and_(User.active.is_(True), User.outlook_sync.is_(True),
+                          User.email.is_not(None), User.email != "")
+    return db.session.scalars(sa.select(Assignment).join(User, Assignment.user_id == User.id).where(
         Assignment.end_date >= start, Assignment.start_date < end,
-        sa.or_(Assignment.outlook_synced_at.is_(None), Assignment.outlook_synced_at < Assignment.updated_at),
+        sa.or_(Assignment.outlook_synced_at.is_(None), Assignment.outlook_synced_at < Assignment.updated_at,
+               sa.and_(linked_user, ~has_link)),
     )).all()
+
+
+def mark_user_pending(user: User) -> None:
+    """Rewrite all of a person's planning (e.g. after a new e-mail address)."""
+    db.session.execute(sa.update(Assignment).where(Assignment.user_id == user.id).values(
+        outlook_synced_at=None, updated_at=Assignment.updated_at))
+
+
+def window() -> tuple[date, date]:
+    today = date.today()
+    return today - timedelta(days=DAYS_BACK), today + timedelta(days=DAYS_AHEAD)
 
 
 # --------------------------------------------------------------- the runs
@@ -302,11 +326,14 @@ class SyncReport:
     read: int = 0
     written: int = 0
     removed: int = 0
+    skipped: list = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
     @property
     def summary(self) -> str:
         text = f"{self.read} Outlook-afspraken gelezen, {self.written} planningen geschreven, {self.removed} verwijderd"
+        if self.skipped:
+            text += f", {len(self.skipped)} afspraken genegeerd (eigen planning, vrij of geannuleerd)"
         return text + (f", {len(self.errors)} fout(en)" if self.errors else "")
 
 
@@ -317,8 +344,7 @@ def sync_all(client: GraphClient | None = None) -> SyncReport:
         report.errors.append("Microsoft 365 is niet ingesteld.")
         return report
     client = client or GraphClient.from_settings()
-    today = date.today()
-    start, end = today - timedelta(days=DAYS_BACK), today + timedelta(days=DAYS_AHEAD)
+    start, end = window()
 
     # Planning -> Outlook first, so freshly written appointments are known
     # (and skipped) when the calendars are read.
@@ -346,7 +372,7 @@ def sync_all(client: GraphClient | None = None) -> SyncReport:
         User.active.is_(True), User.outlook_sync.is_(True), User.email.is_not(None), User.email != "")).all()
     for user in users:
         try:
-            report.read += pull_user(client, user, start, end)
+            report.read += pull_user(client, user, start, end, report.skipped)
             user.outlook_synced_at = utcnow()
             user.outlook_error = write_errors.get(user.id, "")[:300] or None
             db.session.commit()

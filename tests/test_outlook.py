@@ -251,3 +251,33 @@ def test_write_errors_are_shown_per_user(configured):
     _plan(jan, date.today(), date.today(), include_weekends=True)
     outlook.sync_all(ReadOnly())
     assert _user("jan").outlook_error.startswith("Schrijven naar Outlook: ErrorAccessDenied")
+
+
+def test_planning_made_before_email_is_written_later(configured):
+    jan = _user("jan")
+    jan.email = None
+    a = _plan(jan, date.today(), date.today(), include_weekends=True)
+    outlook.sync_all(FakeGraph())                       # no mailbox yet: nothing written
+    assert db.session.scalar(sa.select(sa.func.count(OutlookLink.id)).where(OutlookLink.assignment_id == a.id)) == 0
+    jan.email = "jan@example.com"
+    db.session.commit()
+    graph = FakeGraph()
+    report = outlook.sync_all(graph)
+    assert report.written >= 1
+    assert any("jan@example.com" in c[1] for c in graph.posts())
+    assert db.session.scalar(sa.select(sa.func.count(OutlookLink.id)).where(OutlookLink.assignment_id == a.id)) == 1
+
+
+def test_changing_email_rewrites_planning(configured, client):
+    jan = _user("jan")
+    a = _plan(jan, date.today(), date.today(), include_weekends=True)
+    outlook.push_assignment(FakeGraph(), a)
+    db.session.commit()
+    assert a not in outlook.pending_assignments(*outlook.window())
+    html = client.get(f"/users/{jan.id}/edit").get_data(as_text=True)
+    assert "Outlook-agenda koppelen" in html
+    form = {"username": "jan", "full_name": jan.full_name, "email": "jan.peeters@example.com",
+            "role": jan.role.value, "color": jan.color, "active": "y", "outlook_sync": "y"}
+    response = client.post(f"/users/{jan.id}/edit", data=form)
+    assert response.status_code == 302
+    assert a in outlook.pending_assignments(*outlook.window())

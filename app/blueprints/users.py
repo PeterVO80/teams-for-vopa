@@ -47,11 +47,15 @@ def edit(user_id: int | None = None):
                 db.session.add(user)
             user.username = form.username.data.strip()
             user.full_name = form.full_name.data
+            outlook_before = (user.email, user.outlook_sync, user.active)
             user.email = form.email.data or None
             user.role = UserRole(form.role.data)
             user.color = form.color.data
             user.active = form.active.data
             user.outlook_sync = form.outlook_sync.data
+            if user.id and (user.email, user.outlook_sync, user.active) != outlook_before:
+                from ..services import outlook
+                outlook.mark_user_pending(user)   # (re)write their planning to the right mailbox
             if form.password.data:
                 user.set_password(form.password.data)
             db.session.commit()
@@ -70,7 +74,7 @@ def edit(user_id: int | None = None):
 @admin_required
 def outlook_status():
     """Status of the Outlook (Microsoft 365) link, with a "synchronise now" button."""
-    from ..models import Assignment, CalendarEvent, OutlookLink
+    from ..models import CalendarEvent, OutlookLink
     from ..services import outlook
 
     if request.method == "POST":
@@ -85,7 +89,6 @@ def outlook_status():
         sa.select(CalendarEvent.user_id, sa.func.count(CalendarEvent.id)).group_by(CalendarEvent.user_id)).all())
     written = dict(db.session.execute(
         sa.select(OutlookLink.user_id, sa.func.count(OutlookLink.id)).group_by(OutlookLink.user_id)).all())
-    pending = db.session.scalar(sa.select(sa.func.count(Assignment.id)).where(
-        sa.or_(Assignment.outlook_synced_at.is_(None), Assignment.outlook_synced_at < Assignment.updated_at)))
+    pending = len(outlook.pending_assignments(*outlook.window()))
     return render_template("users/outlook.html", configured=outlook.is_configured(), users=users,
                            counts=counts, written=written, pending=pending)
