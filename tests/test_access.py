@@ -9,7 +9,7 @@ import pytest
 import sqlalchemy as sa
 
 from app.extensions import db
-from app.models import Assignment, AssignmentKind, Note, Project, PurchaseOrder, Task, User, WikiPage
+from app.models import Assignment, Note, Project, PurchaseOrder, Task, User, WikiPage
 
 KROON = "Verpakkingslijn L3"
 AQUAFIN = "Waterzuivering SCADA"
