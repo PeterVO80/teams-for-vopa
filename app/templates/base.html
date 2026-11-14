@@ -35,7 +35,10 @@
   <button class="btn btn-dark d-lg-none me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-label="Menu">
     <i class="bi bi-list"></i>
   </button>
-  <a class="navbar-brand fw-semibold" href="{{ url_for('main.dashboard') }}"><i class="bi bi-gear-wide-connected"></i> VOPA Teams</a>
+  <a class="navbar-brand d-flex align-items-center gap-2 fw-semibold py-0" href="{{ url_for('main.dashboard') }}">
+    <img src="{{ url_for('static', filename='img/vopa-logo.svg') }}" alt="VOPA" class="brand-logo">
+    <span class="brand-name">Teams</span>
+  </a>
   {% if current_user.is_authenticated %}
   <div class="dropdown ms-auto">
     <button class="btn btn-dark dropdown-toggle" data-bs-toggle="dropdown">

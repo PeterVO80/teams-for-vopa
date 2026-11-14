@@ -194,3 +194,7 @@ body.planning-dragging .tooltip { display: none !important; }
 }
 .outlook-marker .bi { margin-right: .1rem; }
 .planning-cell { position: relative; }
+
+/* Company logo in the title bar (white logo, made for a dark background). */
+.brand-logo { height: 40px; width: auto; display: block; }
+.brand-name { border-left: 1px solid rgba(255,255,255,.35); padding-left: .6rem; font-weight: 400; letter-spacing: .02em; }
