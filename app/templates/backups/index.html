@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Back-ups{% endblock %}
+{% block page_actions %}
+<div class="d-flex gap-2">
+  <form method="post" action="{{ url_for('backups.create_and_download') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-primary" title="Maakt een back-up en downloadt ze meteen naar je pc"><i class="bi bi-download"></i> Back-up downloaden</button>
+  </form>
+  <form method="post" action="{{ url_for('backups.create') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-outline-primary" title="Maakt een back-up op de server"><i class="bi bi-plus-lg"></i> Back-up maken</button>
+  </form>
+</div>
+{% endblock %}
+{% block content %}
+<p class="text-body-secondary small mb-3">
+  Een back-up bevat <strong>alle gegevens</strong> van de app: projecten, taken, bestellingen, artikels, stock, notities,
+  wiki, planning, relaties en gebruikers (met hun versleutelde wachtwoorden). Elke dag wordt er automatisch één gemaakt;
+  automatische back-ups worden {{ keep_days }} dagen bewaard. Download er regelmatig één en bewaar die op een andere plek,
+  bv. jullie bedrijfsserver of SharePoint: een back-up op dezelfde server helpt niet als die server verloren gaat.
+</p>
+
+<div class="card mb-3"><div class="table-responsive">
+<table class="table align-middle mb-0">
+  <thead><tr><th>Back-up</th><th>Soort</th><th class="text-end">Records</th><th class="text-end">Grootte</th><th></th></tr></thead>
+  <tbody>
+  {% for b in backups %}
+    <tr>
+      <td>
+        <div>{{ b.created_at|datetime if b.created_at else '' }}</div>
+        <div class="small text-body-secondary">{{ b.name }}</div>
+        {% if b.error %}<div class="small text-danger">{{ b.error }}</div>{% endif %}
+      </td>
+      <td>
+        {% if b.kind == 'auto' %}<span class="badge text-bg-light border">automatisch</span>
+        {% elif b.kind == 'safety' %}<span class="badge text-bg-warning" title="Automatisch gemaakt vlak voor het terugzetten van een back-up">vóór terugzetten</span>
+        {% elif b.kind == 'upload' %}<span class="badge text-bg-info">opgeladen</span>
+        {% else %}<span class="badge text-bg-secondary">manueel</span>{% endif %}
+      </td>
+      <td class="text-end">{{ b.rows }}</td>
+      <td class="text-end text-nowrap">{% if b.size < 1048576 %}{{ (b.size / 1024)|round|int }} kB{% else %}{{ '%.1f'|format(b.size / 1048576) }} MB{% endif %}</td>
+      <td class="text-end text-nowrap">
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('backups.download', name=b.name) }}" title="Downloaden"><i class="bi bi-download"></i></a>
+        {% if not b.error %}
+        <button class="btn btn-sm btn-outline-warning" type="button" data-bs-toggle="collapse" data-bs-target="#restore-{{ loop.index }}" title="Terugzetten"><i class="bi bi-arrow-counterclockwise"></i></button>
+        {% endif %}
+        <form class="d-inline" method="post" action="{{ url_for('backups.delete', name=b.name) }}" data-confirm="Back-up {{ b.name }} verwijderen?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-danger" title="Verwijderen"><i class="bi bi-trash"></i></button>
+        </form>
+      </td>
+    </tr>
+    {% if not b.error %}
+    <tr class="collapse" id="restore-{{ loop.index }}"><td colspan="5" class="bg-warning-subtle">
+      <form method="post" action="{{ url_for('backups.restore', name=b.name) }}" class="d-flex flex-wrap align-items-center gap-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="small me-auto">
+          <strong>Alle huidige gegevens worden vervangen</strong> door deze back-up. Wat sindsdien gewijzigd is, gaat verloren
+          (er wordt eerst nog een back-up van de huidige toestand gemaakt). Iedereen moet zich daarna opnieuw aanmelden.
+        </div>
+        <input class="form-control form-control-sm" style="width: 9rem" name="confirm" placeholder="Typ {{ confirm_word }}" autocomplete="off" required>
+        <button class="btn btn-sm btn-warning">Terugzetten</button>
+      </form>
+    </td></tr>
+    {% endif %}
+  {% else %}
+    <tr><td colspan="5" class="text-body-secondary">Nog geen back-ups.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+
+<div class="card"><div class="card-body">
+  <h2 class="h6">Back-up opladen en terugzetten</h2>
+  <p class="small text-body-secondary mb-2">Kies een back-upbestand (.zip) van je pc, bv. een eerder gedownloade back-up of een back-up
+    van een andere server. Vink <em>meteen terugzetten</em> aan om de gegevens direct te vervangen; anders verschijnt de back-up
+    in de lijst hierboven en kan je ze later terugzetten.</p>
+  <form method="post" action="{{ url_for('backups.upload') }}" enctype="multipart/form-data" class="d-flex flex-wrap align-items-center gap-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input class="form-control" style="max-width: 26rem" type="file" name="file" accept=".zip" required>
+    <div class="form-check ms-1">
+      <input class="form-check-input" type="checkbox" name="restore" value="1" id="restore-now" data-bs-toggle="collapse" data-bs-target="#restore-now-confirm">
+      <label class="form-check-label" for="restore-now">meteen terugzetten</label>
+    </div>
+    <input class="form-control collapse" style="width: 9rem" id="restore-now-confirm" name="confirm" placeholder="Typ {{ confirm_word }}" autocomplete="off">
+    <button class="btn btn-outline-primary"><i class="bi bi-upload"></i> Opladen</button>
+  </form>
+  <p class="small text-body-secondary mt-2 mb-0">Terugzetten vervangt <strong>alle</strong> huidige gegevens; er wordt eerst nog een back-up van de huidige toestand gemaakt.</p>
+</div></div>
+{% endblock %}

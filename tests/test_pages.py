@@ -207,3 +207,16 @@ def test_proxy_count_gives_real_client_address_without_https():
 
     app.test_client().get("/_ip", headers={"X-Forwarded-For": "203.0.113.7"})
     assert seen["ip"] == "203.0.113.7"
+
+
+def test_no_application_file_is_ignored_by_git():
+    """Every file the app needs must be in the repository (and so in the Docker image)."""
+    import shutil
+    import subprocess
+    if not shutil.which("git"):
+        return
+    files = [str(p) for p in __import__("pathlib").Path("app").rglob("*")
+             if p.is_file() and "__pycache__" not in p.parts]
+    result = subprocess.run(["git", "check-ignore", "--stdin"], input="\n".join(files),
+                            capture_output=True, text=True)
+    assert result.stdout.strip() == "", f"Ignored by .gitignore: {result.stdout}"
