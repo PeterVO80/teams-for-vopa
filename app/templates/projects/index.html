@@ -3,11 +3,42 @@
 {% block title %}Projecten{% endblock %}
 {% block page_actions %}<a class="btn btn-primary" href="{{ url_for('projects.edit') }}"><i class="bi bi-plus-lg"></i> Nieuw project</a>{% endblock %}
 {% block content %}
-<ul class="nav nav-pills mb-3">
-  {% for value, label in [('open', 'Lopend')] + ProjectStatus.choices() + [('all', 'Alle')] %}
-  <li class="nav-item"><a class="nav-link {{ 'active' if status == value }}" href="{{ url_for('projects.index', status=value) }}">{{ label }}</a></li>
-  {% endfor %}
-</ul>
+<form class="row g-2 align-items-end mb-3" method="get" role="search">
+  <div class="col-12 col-md-4">
+    <label class="form-label small mb-1" for="q">Zoeken</label>
+    <div class="input-group">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input class="form-control" id="q" name="q" value="{{ search }}" placeholder="Code, naam, omschrijving of klant" autofocus>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <label class="form-label small mb-1" for="customer">Klant</label>
+    <select class="form-select" id="customer" name="customer" data-autosubmit>
+      <option value="">Alle klanten</option>
+      {% for id, name in customers %}<option value="{{ id }}" {{ 'selected' if customer_id == id }}>{{ name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-2">
+    <label class="form-label small mb-1" for="manager">Projectleider</label>
+    <select class="form-select" id="manager" name="manager" data-autosubmit>
+      <option value="">Iedereen</option>
+      {% for id, name in managers %}<option value="{{ id }}" {{ 'selected' if manager_id == id }}>{{ name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-2">
+    <label class="form-label small mb-1" for="status">Status</label>
+    <select class="form-select" id="status" name="status" data-autosubmit>
+      {% for value, label in [('open', 'Lopend')] + ProjectStatus.choices() + [('all', 'Alle')] %}
+      <option value="{{ value }}" {{ 'selected' if status == value }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-1 d-flex gap-1">
+    <button class="btn btn-outline-primary" title="Zoeken"><i class="bi bi-funnel"></i></button>
+    {% if filtered %}<a class="btn btn-outline-secondary" href="{{ url_for('projects.index') }}" title="Filters wissen"><i class="bi bi-x-lg"></i></a>{% endif %}
+  </div>
+</form>
+<p class="small text-body-secondary mb-2">{{ projects|length }} project{{ '' if projects|length == 1 else 'en' }}</p>
 <div class="card"><div class="table-responsive">
 <table class="table table-hover align-middle mb-0">
   <thead><tr><th>Code</th><th>Naam</th><th>Klant</th><th>Projectleider</th><th>Periode</th><th>Open taken</th><th>Status</th></tr></thead>
@@ -23,7 +54,7 @@
       <td>{{ project_status_badge(p.status) }}</td>
     </tr>
   {% else %}
-    <tr><td colspan="7" class="text-body-secondary">Geen projecten gevonden.</td></tr>
+    <tr><td colspan="7" class="text-body-secondary">Geen projecten gevonden{% if filtered %} met deze filters. <a href="{{ url_for('projects.index') }}">Filters wissen</a>{% endif %}.</td></tr>
   {% endfor %}
   </tbody>
 </table>

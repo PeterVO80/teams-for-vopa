@@ -36,16 +36,44 @@ bp = protected_blueprint("projects", __name__)
 
 @bp.route("/")
 def index():
+    """Project list with filters: search text, customer, project manager, status."""
     status = request.args.get("status", "open")
-    query = sa.select(Project).order_by(Project.code.desc())
+    search = request.args.get("q", "").strip()
+    customer_id = request.args.get("customer", type=int)
+    manager_id = request.args.get("manager", type=int)
+
+    visible = visible_projects_condition()  # employees: only their own projects
+    base = sa.select(Project)
+    if visible is not None:
+        base = base.where(visible)
+
+    query = base.order_by(Project.code.desc())
     if status == "open":
         query = query.where(Project.status != ProjectStatus.CLOSED)
     elif status in ProjectStatus._value2member_map_:
         query = query.where(Project.status == ProjectStatus(status))
-    visible = visible_projects_condition()  # employees: only their own projects
-    if visible is not None:
-        query = query.where(visible)
+    if search:
+        like = f"%{search}%"
+        query = query.outerjoin(Company, Project.customer_id == Company.id).where(sa.or_(
+            Project.code.ilike(like), Project.name.ilike(like),
+            Project.description.ilike(like), Company.name.ilike(like),
+        ))
+    if customer_id:
+        query = query.where(Project.customer_id == customer_id)
+    if manager_id:
+        query = query.where(Project.manager_id == manager_id)
     projects = db.session.scalars(query).all()
+
+    # Filter choices: only customers / managers that occur in the visible projects.
+    visible_ids = base.with_only_columns(Project.id)
+    customers = db.session.execute(
+        sa.select(Company.id, Company.name).where(
+            Company.id.in_(sa.select(Project.customer_id).where(Project.id.in_(visible_ids))))
+        .order_by(Company.name)).all()
+    managers = db.session.execute(
+        sa.select(User.id, User.full_name).where(
+            User.id.in_(sa.select(Project.manager_id).where(Project.id.in_(visible_ids))))
+        .order_by(User.full_name)).all()
 
     # Open task counts per project in a single grouped query.
     open_counts = dict(
@@ -55,7 +83,12 @@ def index():
             .group_by(Task.project_id)
         ).all()
     )
-    return render_template("projects/index.html", projects=projects, status=status, open_counts=open_counts)
+    return render_template(
+        "projects/index.html", projects=projects, status=status, open_counts=open_counts,
+        search=search, customer_id=customer_id, manager_id=manager_id,
+        customers=customers, managers=managers,
+        filtered=bool(search or customer_id or manager_id or status != "open"),
+    )
 
 
 @bp.route("/<int:project_id>")

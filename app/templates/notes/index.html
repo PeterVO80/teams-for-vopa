@@ -41,7 +41,12 @@
           </div>
           <div class="card-footer small d-flex flex-wrap gap-1 align-items-center">
             {% for tag in note.tags %}{{ tag_badge(tag, link=False) }}{% endfor %}
-            <span class="ms-auto text-body-secondary">{{ note.project.code ~ ' · ' if note.project }}{{ note.updated_at|date }}</span>
+            <span class="ms-auto text-body-secondary">{{ note.updated_at|date }}</span>
+            {% if note.project %}
+            <div class="w-100 text-body-secondary text-truncate" title="{{ note.project.code }} - {{ note.project.customer_label }}">
+              <i class="bi bi-kanban"></i> {{ note.project.customer_label }}
+            </div>
+            {% endif %}
           </div>
         </div>
       </div>
