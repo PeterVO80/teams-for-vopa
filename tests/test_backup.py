@@ -173,3 +173,24 @@ def test_restore_logs_out_everybody(app, client):
     assert other.get("/").status_code == 302                  # session from before the restore
     other.post("/auth/login", data={"username": "jan", "password": "demo1234"})
     assert other.get("/").status_code == 200
+
+
+def test_download_now_and_upload_with_immediate_restore(client, backup_dir):
+    response = client.post("/admin/backups/download-now")
+    assert response.status_code == 200 and response.mimetype == "application/zip"
+    assert "attachment" in response.headers["Content-Disposition"]
+    data = response.data
+    assert zipfile.ZipFile(io.BytesIO(data)).read("manifest.json")
+
+    db.session.add(Task(title="Na download", created_by_id=1))
+    db.session.commit()
+    # Without the confirmation word nothing is uploaded or restored.
+    client.post("/admin/backups/upload", data={"file": (io.BytesIO(data), "b.zip"), "restore": "1"},
+                content_type="multipart/form-data")
+    assert db.session.scalar(sa.select(Task).filter_by(title="Na download")) is not None
+    response = client.post("/admin/backups/upload",
+                           data={"file": (io.BytesIO(data), "b.zip"), "restore": "1", "confirm": "HERSTEL"},
+                           content_type="multipart/form-data")
+    assert response.status_code == 302 and "/auth/login" in response.location
+    db.session.expire_all()
+    assert db.session.scalar(sa.select(Task).filter_by(title="Na download")) is None

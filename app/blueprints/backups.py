@@ -29,6 +29,14 @@ def create():
     return redirect(url_for("backups.index"))
 
 
+@bp.route("/download-now", methods=["POST"])
+@admin_required
+def create_and_download():
+    """Make a back-up and send it straight to the browser."""
+    info = backup.create_backup("manual", current_user.username)
+    return send_file(info.path, as_attachment=True, download_name=info.name, mimetype="application/zip")
+
+
 @bp.route("/upload", methods=["POST"])
 @admin_required
 def upload():
@@ -36,12 +44,18 @@ def upload():
     if not file or not file.filename:
         flash("Kies een back-upbestand.", "warning")
         return redirect(url_for("backups.index"))
+    restore_now = bool(request.form.get("restore"))
+    if restore_now and request.form.get("confirm", "").strip().upper() != CONFIRM_WORD:
+        flash(f"Typ {CONFIRM_WORD} om te bevestigen dat alle huidige gegevens vervangen worden.", "warning")
+        return redirect(url_for("backups.index"))
     try:
         info = backup.save_upload(file)
     except backup.BackupError as exc:
         flash(str(exc), "danger")
-    else:
-        flash(f"Back-up opgeladen als {info.name}. Je kan ze nu terugzetten.", "success")
+        return redirect(url_for("backups.index"))
+    if restore_now:
+        return _restore(info.name, info.path)
+    flash(f"Back-up opgeladen als {info.name}. Je kan ze nu terugzetten.", "success")
     return redirect(url_for("backups.index"))
 
 
@@ -67,6 +81,10 @@ def restore(name: str):
     if request.form.get("confirm", "").strip().upper() != CONFIRM_WORD:
         flash(f"Typ {CONFIRM_WORD} om te bevestigen dat alle huidige gegevens vervangen worden.", "warning")
         return redirect(url_for("backups.index"))
+    return _restore(name, path)
+
+
+def _restore(name, path):
     username = current_user.username
     try:
         safety = backup.restore_backup(path, username)
