@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Project verwijderen{% endblock %}
+{% block content %}
+<div class="card border-danger" style="max-width: 46rem">
+  <div class="card-body">
+    <h2 class="h5">{{ project.code }} &ndash; {{ project.name }}</h2>
+    {% if project.customer %}<p class="text-body-secondary mb-3">{{ project.customer }}</p>{% endif %}
+
+    <p class="mb-1"><strong>Wordt definitief verwijderd:</strong></p>
+    <ul>
+      <li>het project zelf en het projectteam</li>
+      <li>{{ contents.tasks }} ta{{ 'ak' if contents.tasks == 1 else 'ken' }} uit de punchlijst</li>
+      <li>{{ contents.assignments }} planning{{ '' if contents.assignments == 1 else 'en' }} in de teamplanning (ook uit de Outlook-agenda's)</li>
+      <li>{{ contents.wiki }} wikipagina{{ '' if contents.wiki == 1 else "'s" }} van de projectwiki, met de volledige geschiedenis</li>
+      <li>{{ contents.notes }} notitie{{ '' if contents.notes == 1 else 's' }} van het project</li>
+    </ul>
+    {% if contents.orders or contents.movements %}
+    <p class="mb-1"><strong>Blijft bewaard</strong> (zonder project):</p>
+    <ul>
+      {% if contents.orders %}<li>{{ contents.orders }} bestelling{{ '' if contents.orders == 1 else 'en' }} met hun leveringen</li>{% endif %}
+      {% if contents.movements %}<li>{{ contents.movements }} stockbeweging{{ '' if contents.movements == 1 else 'en' }} (de stock blijft kloppen)</li>{% endif %}
+    </ul>
+    {% endif %}
+    <p class="small text-body-secondary">Dit kan je niet ongedaan maken, behalve door een back-up terug te zetten.
+      Wil je het project alleen uit de lijsten halen, zet dan de status op <em>Afgesloten</em>.</p>
+
+    <form method="post" class="d-flex flex-wrap align-items-center gap-2 mt-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input class="form-control" style="width: 12rem" name="confirm" placeholder="Typ {{ confirm_word }}" autocomplete="off" required>
+      <button class="btn btn-danger"><i class="bi bi-trash"></i> Project verwijderen</button>
+      <a class="btn btn-link" href="{{ url_for('projects.detail', project_id=project.id) }}">Annuleren</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

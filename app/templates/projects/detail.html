@@ -5,6 +5,9 @@
 {% block heading %}{{ project.code }} <span class="text-body-secondary fw-normal">{{ project.name }}</span> {{ project_status_badge(project.status) }}{% endblock %}
 {% block page_actions %}
 <a class="btn btn-outline-secondary" href="{{ url_for('projects.edit', project_id=project.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>
+{% if current_user.is_admin %}
+<a class="btn btn-outline-danger" href="{{ url_for('projects.delete', project_id=project.id) }}"><i class="bi bi-trash"></i> Verwijderen</a>
+{% endif %}
 {% endblock %}
 {% block content %}
 <div class="row g-3 mb-3">

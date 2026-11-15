@@ -18,8 +18,11 @@ from ..models import (
     Task,
     TaskStatus,
     User,
+    OutlookLink,
+    StockMovement,
     WikiPage,
 )
+from ..services import outlook
 from ..services import stock as stock_svc
 from ..services.material import project_material
 from ..services.workload import build_overview, planning_period
@@ -202,3 +205,65 @@ def remove_member(project_id: int, user_id: int):
         db.session.commit()
         flash(f"{user.full_name} is niet langer gekoppeld aan het project.", "success")
     return redirect(url_for("projects.detail", project_id=project.id))
+
+
+# ------------------------------------------------------------------ delete
+#: Word an administrator types to confirm deleting a project.
+DELETE_WORD = "VERWIJDER"
+
+
+def project_contents(project: Project) -> dict[str, int]:
+    """What is linked to a project (shown before deleting it)."""
+    def count(model):
+        return db.session.scalar(sa.select(sa.func.count(model.id)).where(model.project_id == project.id))
+    return {
+        "tasks": count(Task), "assignments": count(Assignment), "wiki": count(WikiPage),
+        "notes": count(Note), "orders": count(PurchaseOrder), "movements": count(StockMovement),
+    }
+
+
+def delete_project(project: Project) -> None:
+    """Delete a project and everything that only exists within it.
+
+    Deleted: tasks, planning (their Outlook appointments are removed by the
+    Outlook synchronisation), the project wiki with its history, the
+    project's notes and the team. Kept but unlinked: purchase orders and
+    stock movements - they are part of the purchasing and stock history,
+    and deleting them would change stock levels.
+    """
+    pid = project.id
+    db.session.execute(sa.update(PurchaseOrder).where(PurchaseOrder.project_id == pid).values(project_id=None))
+    db.session.execute(sa.update(StockMovement).where(StockMovement.project_id == pid).values(project_id=None))
+    assignment_ids = sa.select(Assignment.id).where(Assignment.project_id == pid)
+    db.session.execute(sa.update(OutlookLink).where(OutlookLink.assignment_id.in_(assignment_ids))
+                       .values(assignment_id=None))
+    db.session.execute(sa.delete(Assignment).where(Assignment.project_id == pid))
+    db.session.execute(sa.delete(Task).where(Task.project_id == pid))
+    for note in db.session.scalars(sa.select(Note).where(Note.project_id == pid)):
+        db.session.delete(note)               # ORM: also removes its tag links
+    db.session.execute(sa.update(WikiPage).where(WikiPage.project_id == pid).values(parent_id=None))
+    for page in db.session.scalars(sa.select(WikiPage).where(WikiPage.project_id == pid)):
+        db.session.delete(page)               # ORM: also removes its revisions
+    db.session.flush()
+    db.session.delete(project)                # the team (project_members) goes with it
+
+
+@bp.route("/<int:project_id>/delete", methods=["GET", "POST"])
+def delete(project_id: int):
+    if not current_user.is_admin:
+        abort(403)
+    project = db.get_or_404(Project, project_id)
+    contents = project_contents(project)
+    if request.method == "POST":
+        if request.form.get("confirm", "").strip().upper() != DELETE_WORD:
+            flash(f"Typ {DELETE_WORD} om het verwijderen te bevestigen.", "warning")
+        else:
+            label = f"{project.code} - {project.name}"
+            delete_project(project)
+            db.session.commit()
+            current_app.logger.warning("Project %s verwijderd door %s", label, current_user.username)
+            if contents["assignments"]:
+                outlook.push_soon(current_app._get_current_object())   # remove the Outlook appointments
+            flash(f"Project {label} is verwijderd.", "success")
+            return redirect(url_for("projects.index"))
+    return render_template("projects/delete.html", project=project, contents=contents, confirm_word=DELETE_WORD)
