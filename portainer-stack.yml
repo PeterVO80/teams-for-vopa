@@ -4,7 +4,7 @@
 #
 #   caddy (ports 80/443)  ->  web (gunicorn)  ->  db (PostgreSQL)
 #                             outlook-sync    ->  db
-#                             backup (daily pg_dump)
+#                             backup (daily back-up of all data)
 #
 # Deploy in Portainer via:  Stacks > Add stack > "Repository"
 #   Repository URL     : https://github.com/petervo80/teams-for-vopa
@@ -47,7 +47,7 @@
 #   MS365_CATEGORY_COLOR optional - default colour of the "VOPA Teams" category (default: oranje)
 #   MICROSOFT_LOGIN    optional - off / on / required: log in with Microsoft 365 (see README)
 #   APP_URL            optional - address of the app (default: https://<DOMAIN>)
-#   BACKUP_KEEP_DAYS   optional - days of daily database backups to keep (default: 14)
+#   BACKUP_KEEP_DAYS   optional - days to keep the automatic daily back-ups (default: 14)
 # ---------------------------------------------------------------------------
 
 x-app-env: &app-env
@@ -65,6 +65,7 @@ x-app-env: &app-env
   MS365_CATEGORY_COLOR: ${MS365_CATEGORY_COLOR:-oranje}
   MICROSOFT_LOGIN: ${MICROSOFT_LOGIN:-off}
   APP_URL: ${APP_URL:-}
+  BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
 
 services:
   caddy:
@@ -105,6 +106,8 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in the stack environment variables}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+    volumes:
+      - vopa_app_backups:/app/backups   # Back-ups page in the app
     # No "ports:": only reachable through Caddy.
     healthcheck:
       # Shows the container as "healthy" in Portainer once the app answers.
@@ -155,41 +158,28 @@ services:
     # No "ports:": the database is never reachable from outside.
 
   backup:
-    # Daily compressed database dump into the "vopa_backups" volume; dumps
-    # older than BACKUP_KEEP_DAYS are deleted. Also copy them off the server
-    # (see README): a backup on the same server doesn't survive losing it.
-    image: postgres:16-alpine
+    # Daily back-up of all data (the same ZIP files as the Back-ups page in
+    # the app, where they can be downloaded and restored). Back-ups older than
+    # BACKUP_KEEP_DAYS are deleted. Also copy them off the server regularly:
+    # a back-up on the same server doesn't survive losing it.
+    build: .
+    pull_policy: build
     restart: unless-stopped
     depends_on:
-      db:
-        condition: service_healthy
+      web:
+        condition: service_started
+    command: ["flask", "backup-create", "--loop", "86400"]
     environment:
-      PGHOST: db
-      PGUSER: ${POSTGRES_USER:-vopa}
-      PGPASSWORD: ${POSTGRES_PASSWORD}
-      PGDATABASE: ${POSTGRES_DB:-vopa}
-      KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        while true; do
-          name=vopa-$$(date +%Y-%m-%d_%H%M).sql.gz
-          if pg_dump --no-owner | gzip > /backups/partial.tmp; then
-            mv /backups/partial.tmp "/backups/$$name" && echo "backup: $$name"
-          else
-            echo "backup: FAILED"
-          fi
-          find /backups -name 'vopa-*.sql.gz' -mtime +$$KEEP_DAYS -delete
-          sleep 86400
-        done
+      <<: *app-env
+      RUN_MIGRATIONS: "0"
     volumes:
-      - vopa_backups:/backups
+      - vopa_app_backups:/app/backups
     networks:
       - backend
 
 volumes:
   vopa_pgdata:
-  vopa_backups:
+  vopa_app_backups:
   caddy_data:
   caddy_config:
 

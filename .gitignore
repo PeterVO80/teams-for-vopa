@@ -7,3 +7,6 @@ instance/
 .pytest_cache/
 *.sqlite
 uploads/
+
+# Back-ups made by the application (contain all business data)
+backups/

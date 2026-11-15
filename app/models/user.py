@@ -60,6 +60,16 @@ class User(UserMixin, TimestampMixin, db.Model):
         """Return ``True`` when ``password`` matches the stored hash."""
         return check_password_hash(self.password_hash, password)
 
+    def get_id(self) -> str:
+        """Id stored in the session / "remember me" cookie (Flask-Login).
+
+        Includes the login generation (services/backup.py): restoring a
+        back-up starts a new generation, which logs everybody out, because
+        the user ids in their sessions may now belong to other people.
+        """
+        from ..services.backup import session_generation
+        return f"{self.id}:{session_generation()}"
+
     @property
     def is_active(self) -> bool:  # used by Flask-Login
         return self.active

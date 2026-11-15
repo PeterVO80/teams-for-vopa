@@ -20,7 +20,10 @@ RUN pip install -r requirements.txt
 COPY . .
 
 # Run as an unprivileged user instead of root.
+# /app/backups: back-ups made by the app (a volume in the stack). Created here
+# so a new volume gets the app user as owner.
 RUN useradd --create-home --uid 1000 appuser \
+    && mkdir -p /app/backups \
     && chmod +x docker/entrypoint.sh \
     && chown -R appuser:appuser /app
 USER appuser

@@ -440,25 +440,34 @@ and reach it through an SSH tunnel
 
 ### Backups
 
-The `backup` container writes a compressed `pg_dump` every 24 hours to the
-`vopa_backups` volume and keeps `BACKUP_KEEP_DAYS` (default 14) days. Copy
-them off the server regularly, e.g. to a Hetzner Storage Box or your office:
+*Admin menu → Back-ups* (`app/services/backup.py`):
+
+* **Back-up maken**: a ZIP file with all data of the application (every
+  table; there are no files outside the database). Download it to keep a copy
+  elsewhere.
+* **Terugzetten**: replaces *all* data by a back-up (type `HERSTEL` to
+  confirm). A safety back-up of the current data is made first, so a restore
+  can itself be undone. A back-up of an older version of the app is migrated
+  automatically; one of a newer version is refused.
+* **Opladen**: upload a back-up, e.g. from another server, then restore it.
+* The `backup` container makes one automatically every day and deletes
+  automatic back-ups older than `BACKUP_KEEP_DAYS` (default 14).
+
+Back-ups are stored in the volume `vopa_app_backups` (`/app/backups`). They
+contain everything, including password hashes: store downloads safely, and
+copy one off the server regularly (a back-up on the same server doesn't
+survive losing the server). Command-line equivalents:
 
 ```bash
-docker compose -f portainer-stack.yml exec backup ls -l /backups
-docker compose -f portainer-stack.yml cp backup:/backups/. ./backups/
+docker compose -f portainer-stack.yml exec web flask backup-create
+docker compose -f portainer-stack.yml exec web flask backup-restore vopa-teams-2026-11-15_031500-auto.zip
 ```
-
-Restore a dump into an empty database:
-
-```bash
-gunzip -c vopa-2026-11-14_0300.sql.gz | docker compose -f portainer-stack.yml exec -T db psql -U vopa vopa
-```
-
-Test a restore now and then - a backup that was never restored is a hope,
-not a backup.
 
 ### Moving to another server (e.g. from the local Portainer to Hetzner)
+
+Easiest: on the old server *Back-ups → Back-up maken → download*, on the new
+server *Back-ups → Opladen → Terugzetten*. Without the app (or for a
+version from before the Back-ups page) use a database dump:
 
 All data (projects, tasks, orders, articles, stock, notes, wiki, planning,
 users and their passwords, settings, the Outlook links) is in the PostgreSQL

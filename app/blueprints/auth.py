@@ -18,8 +18,17 @@ bp = Blueprint("auth", __name__)
 
 @login_manager.user_loader
 def load_user(user_id: str) -> User | None:
-    """Flask-Login callback: reload the user object from the session id."""
-    return db.session.get(User, int(user_id))
+    """Flask-Login callback: reload the user object from the session id.
+
+    The id has the form "<user id>:<login generation>" (User.get_id); a
+    session from before the last restore of a back-up is no longer valid.
+    """
+    from ..services.backup import session_generation
+
+    uid, _, generation = (user_id or "").partition(":")
+    if not uid.isdigit() or generation != session_generation():
+        return None
+    return db.session.get(User, int(uid))
 
 
 @bp.route("/login", methods=["GET", "POST"])

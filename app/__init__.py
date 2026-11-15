@@ -48,6 +48,7 @@ def _register_blueprints(app: Flask) -> None:
     from .blueprints import (
         articles,
         auth,
+        backups,
         catalog,
         main,
         notes,
@@ -74,6 +75,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(team.bp, url_prefix="/team")
     app.register_blueprint(notes.bp, url_prefix="/notes")
     app.register_blueprint(wiki.bp, url_prefix="/wiki")
+    app.register_blueprint(backups.bp, url_prefix="/admin/backups")
 
 
 def _register_template_helpers(app: Flask) -> None:

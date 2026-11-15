@@ -6,6 +6,7 @@ local development only - never run production with the default SECRET_KEY.
 """
 
 import os
+import tempfile
 
 
 class Config:
@@ -38,6 +39,11 @@ class Config:
     #: Number of reverse proxies in front of the app (Caddy in the stack = 1):
     #: their X-Forwarded-* headers give the real client address and scheme.
     PROXY_COUNT = int(os.environ.get("PROXY_COUNT", "0") or 0)
+
+    #: Where back-ups are stored (services/backup.py); a Docker volume in production.
+    BACKUP_DIR = os.environ.get("BACKUP_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "backups"))
+    #: Automatic daily back-ups older than this are deleted.
+    BACKUP_KEEP_DAYS = int(os.environ.get("BACKUP_KEEP_DAYS", "14") or 14)
 
     #: Number of rows shown per page in paginated list views.
     ITEMS_PER_PAGE = 50
@@ -74,5 +80,6 @@ class TestConfig(Config):
 
     TESTING = True
     SQLALCHEMY_DATABASE_URI = os.environ.get("TEST_DATABASE_URL", "sqlite:///:memory:")
+    BACKUP_DIR = os.path.join(tempfile.gettempdir(), "vopa-teams-test-backups")
     SQLALCHEMY_ENGINE_OPTIONS: dict = {}
     WTF_CSRF_ENABLED = False

@@ -117,6 +117,47 @@ def register_cli(app: Flask) -> None:
             db.session.remove()  # fresh session each run
             time.sleep(interval)
 
+    @app.cli.command("backup-create")
+    @click.option("--loop", "interval", type=int, default=0,
+                  help="Blijf draaien en maak elke N seconden een back-up (0 = één keer).")
+    @click.option("--keep-days", type=int, default=None,
+                  help="Verwijder automatische back-ups ouder dan zoveel dagen.")
+    def backup_create(interval, keep_days):
+        """Back up the complete database (as on the Back-ups page)."""
+        import time
+
+        from .services import backup
+
+        keep_days = keep_days if keep_days is not None else app.config["BACKUP_KEEP_DAYS"]
+        while True:
+            try:
+                info = backup.create_backup("auto" if interval else "manual", "cli")
+                removed = backup.prune("auto", keep_days)
+                click.echo(f"Back-up: {info.name} ({info.rows} records, {info.size // 1024} kB)"
+                           + (f", {removed} oude verwijderd" if removed else ""))
+            except Exception as exc:  # noqa: BLE001 - keep the loop alive
+                db.session.rollback()
+                click.echo(f"Back-up MISLUKT: {exc}")
+                if not interval:
+                    raise
+            if not interval:
+                break
+            db.session.remove()
+            time.sleep(interval)
+
+    @app.cli.command("backup-restore")
+    @click.argument("name")
+    @click.confirmation_option(prompt="Alle huidige gegevens worden vervangen. Doorgaan?")
+    def backup_restore(name):
+        """Restore a back-up from BACKUP_DIR (emergency use; see the Back-ups page)."""
+        from .services import backup
+
+        try:
+            safety = backup.restore_backup(backup.backup_path(name), "cli")
+        except backup.BackupError as exc:
+            raise click.ClickException(str(exc)) from exc
+        click.echo(f"Teruggezet. De vorige gegevens staan in {safety.name}.")
+
     @app.cli.command("seed-demo")
     def seed_demo():
         """Fill an (almost) empty database with realistic demo data."""

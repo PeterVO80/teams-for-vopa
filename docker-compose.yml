@@ -44,6 +44,8 @@ services:
       MS365_CATEGORY_COLOR: ${MS365_CATEGORY_COLOR:-oranje}
       MICROSOFT_LOGIN: ${MICROSOFT_LOGIN:-off}
       APP_URL: ${APP_URL:-}
+    volumes:
+      - app_backups:/app/backups   # Back-ups page in the app
     ports:
       - "${WEB_PORT:-8000}:8000"
 
@@ -72,3 +74,4 @@ services:
 
 volumes:
   pgdata:
+  app_backups:
