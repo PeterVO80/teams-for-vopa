@@ -39,7 +39,7 @@ def test_overview_page_and_filters(client):
     html = client.get("/stock/?below=1").get_data(as_text=True)
     assert "A-2001" in html and "A-3001" not in html
     van = _location("Bestelwagen Jan")
-    html = client.get(f"/stock/?location={van.id}").get_data(as_text=True)
+    html = client.get(f"/stock/?location={van.id}&f=1").get_data(as_text=True)
     assert "A-2001" in html and "A-4001" not in html
     assert client.get("/stock/export").status_code == 200
     assert client.get("/stock/movements").status_code == 200

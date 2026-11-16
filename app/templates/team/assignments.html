@@ -8,6 +8,7 @@
 {% endblock %}
 {% block content %}
 <form class="row g-2 mb-3" method="get">
+  {{ filter_marker() }}
   <div class="col-md-4">
     <select class="form-select" name="user" data-autosubmit>
       <option value="">Iedereen</option>

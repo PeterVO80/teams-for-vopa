@@ -5,6 +5,7 @@
 {% block content %}
 {% include "purchasing/_tabs.html" %}
 <form class="row g-2 mb-3" method="get">
+  {{ filter_marker() }}
   <div class="col-md-3">
     <select class="form-select" name="status" data-autosubmit>
       {% for value, label in [('open', 'Openstaand')] + OrderStatus.choices() + [('all', 'Alle')] %}

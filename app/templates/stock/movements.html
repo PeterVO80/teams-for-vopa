@@ -5,11 +5,12 @@
 {% set visible_ids = visible_project_ids() %}
 {% include "stock/_tabs.html" %}
 <form class="row g-2 mb-3" method="get">
+  {{ filter_marker() }}
   {% if article %}
   <div class="col-md-4 d-flex align-items-center">
     <input type="hidden" name="article" value="{{ article.id }}">
     <span class="badge text-bg-light border fs-6 fw-normal">{{ article.article_number }}</span>
-    <a class="ms-2 small" href="{{ url_for('stock.movements') }}">alle artikelen</a>
+    <a class="ms-2 small" href="{{ url_for('stock.movements', location=request.args.location or None, project=request.args.project or None, kind=request.args.kind or None, f=1) }}">alle artikelen</a>
   </div>
   {% endif %}
   <div class="col-md-3">

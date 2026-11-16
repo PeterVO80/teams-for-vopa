@@ -9,6 +9,7 @@
 {% block page_actions %}<a class="btn btn-primary" href="{{ url_for('tasks.edit', project=project_id, next=request.full_path) }}"><i class="bi bi-plus-lg"></i> Nieuwe taak</a>{% endblock %}
 {% block content %}
 <form class="row g-2 mb-3" method="get">
+  {{ filter_marker() }}
   <div class="col-md-4">
     <select class="form-select" name="project" data-autosubmit>
       <option value="">Alle projecten</option>

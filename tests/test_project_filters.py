@@ -27,14 +27,14 @@ def test_filter_on_customer_manager_and_status(client):
     html = client.get("/projects/").get_data(as_text=True)
     assert f'<option value="{project.customer_id}"' in html          # customer dropdown
 
-    rows = _rows(client.get(f"/projects/?customer={project.customer_id}").get_data(as_text=True))
+    rows = _rows(client.get(f"/projects/?customer={project.customer_id}&f=1").get_data(as_text=True))
     assert "Verpakkingslijn L3" in rows and "Waterzuivering SCADA" not in rows
-    rows = _rows(client.get(f"/projects/?manager={project.manager_id}").get_data(as_text=True))
+    rows = _rows(client.get(f"/projects/?manager={project.manager_id}&f=1").get_data(as_text=True))
     assert "Verpakkingslijn L3" in rows
 
     project.status = ProjectStatus.CLOSED
     db.session.commit()
-    assert "Verpakkingslijn L3" not in _rows(client.get("/projects/").get_data(as_text=True))       # default: open
+    assert "Verpakkingslijn L3" not in _rows(client.get("/projects/?f=1").get_data(as_text=True))   # default: open
     assert "Verpakkingslijn L3" in _rows(client.get("/projects/?status=closed").get_data(as_text=True))
     assert "Verpakkingslijn L3" in _rows(client.get("/projects/?status=all").get_data(as_text=True))
 
@@ -69,3 +69,49 @@ def test_note_cards_show_customer_and_project_name(client):
     card = html.split("Kaarttest", 1)[1].split("card-footer", 1)[1][:600]
     assert project.customer_label in card                      # "Aquafin - Waterzuivering SCADA"
     assert f">{project.code}" not in card and f"{project.code} ·" not in card
+
+
+
+# --------------------------------------------------- remembered filters (filter_memory.py)
+def test_filters_are_remembered_between_pages(client):
+    project = db.session.scalar(sa.select(Project).filter_by(name="Verpakkingslijn L3"))
+    client.get(f"/projects/?q=&customer={project.customer_id}&manager=&status=all&f=1")
+    client.get("/tasks/")                                         # somewhere else
+    response = client.get("/projects/")                          # back via the menu
+    assert response.status_code == 302
+    assert f"customer={project.customer_id}" in response.location and "status=all" in response.location
+    html = client.get(response.location).get_data(as_text=True)
+    assert f'<option value="{project.customer_id}" selected' in html
+
+
+def test_cleared_filters_and_unticked_checkboxes_are_remembered(client):
+    project = db.session.scalar(sa.select(Project).filter_by(name="Verpakkingslijn L3"))
+    client.get(f"/tasks/?project={project.id}&assignee=&all=1&f=1")
+    location = client.get("/tasks/").location
+    assert f"project={project.id}" in location and "all=1" in location
+    client.get("/tasks/?project=&assignee=&f=1")                  # cleared project, unticked "all"
+    assert client.get("/tasks/").status_code == 200              # nothing left to restore
+
+
+def test_links_keep_their_own_values_and_reset_forgets(client):
+    project = db.session.scalar(sa.select(Project).filter_by(name="Verpakkingslijn L3"))
+    client.get("/projects/?q=lijn&status=all&f=1")
+    # A link with one filter keeps it and gets the other remembered ones added.
+    location = client.get(f"/projects/?customer={project.customer_id}").location
+    assert f"customer={project.customer_id}" in location and "q=lijn" in location
+    response = client.get("/projects/?reset=1")
+    assert response.status_code == 302 and response.location.endswith("/projects/")
+    assert client.get("/projects/").status_code == 200
+
+
+def test_filters_are_per_user(app, client):
+    client.get("/projects/?status=all&f=1")
+    other = app.test_client()
+    other.post("/auth/login", data={"username": "jan", "password": "demo1234"})
+    assert other.get("/projects/").status_code == 200
+
+
+def test_week_or_month_view_is_remembered(client):
+    client.get("/team/?view=month&start=2026-02-01")
+    response = client.get("/team/?start=2026-03-02")             # e.g. a link from an Outlook appointment
+    assert "view=month" in response.location and "start=2026-03-02" in response.location

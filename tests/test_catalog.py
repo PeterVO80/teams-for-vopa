@@ -136,7 +136,7 @@ def test_upload_and_filter(client):
     html = client.get(f"/articles/catalog/{catalog.id}?manufacturer=SIEMENS&group=SIE+255").get_data(as_text=True)
     assert "DIGITAL INPU" in html and "CPU 1510SP" not in html
     # Every search word must match: description + manufacturer code.
-    html = client.get(f"/articles/catalog/{catalog.id}?q=et200sp+6BF01").get_data(as_text=True)
+    html = client.get(f"/articles/catalog/{catalog.id}?q=et200sp+6BF01&f=1").get_data(as_text=True)
     assert "1 artikelen gevonden" in html and "DIGITAL INPU" in html
 
 

@@ -31,6 +31,10 @@ def create_app(config_class: type[Config] = Config) -> Flask:
 
     init_security(app)
 
+    from .filter_memory import init_filter_memory
+
+    init_filter_memory(app)
+
     from . import models  # noqa: F401  (registers models for migrations)
 
     _register_blueprints(app)

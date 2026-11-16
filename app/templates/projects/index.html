@@ -4,6 +4,7 @@
 {% block page_actions %}<a class="btn btn-primary" href="{{ url_for('projects.edit') }}"><i class="bi bi-plus-lg"></i> Nieuw project</a>{% endblock %}
 {% block content %}
 <form class="row g-2 align-items-end mb-3" method="get" role="search">
+  {{ filter_marker() }}
   <div class="col-12 col-md-4">
     <label class="form-label small mb-1" for="q">Zoeken</label>
     <div class="input-group">
@@ -35,7 +36,7 @@
   </div>
   <div class="col-6 col-md-1 d-flex gap-1">
     <button class="btn btn-outline-primary" title="Zoeken"><i class="bi bi-funnel"></i></button>
-    {% if filtered %}<a class="btn btn-outline-secondary" href="{{ url_for('projects.index') }}" title="Filters wissen"><i class="bi bi-x-lg"></i></a>{% endif %}
+    {% if filtered %}<a class="btn btn-outline-secondary" href="{{ url_for('projects.index', reset=1) }}" title="Filters wissen"><i class="bi bi-x-lg"></i></a>{% endif %}
   </div>
 </form>
 <p class="small text-body-secondary mb-2">{{ projects|length }} project{{ '' if projects|length == 1 else 'en' }}</p>
@@ -54,7 +55,7 @@
       <td>{{ project_status_badge(p.status) }}</td>
     </tr>
   {% else %}
-    <tr><td colspan="7" class="text-body-secondary">Geen projecten gevonden{% if filtered %} met deze filters. <a href="{{ url_for('projects.index') }}">Filters wissen</a>{% endif %}.</td></tr>
+    <tr><td colspan="7" class="text-body-secondary">Geen projecten gevonden{% if filtered %} met deze filters. <a href="{{ url_for('projects.index', reset=1) }}">Filters wissen</a>{% endif %}.</td></tr>
   {% endfor %}
   </tbody>
 </table>

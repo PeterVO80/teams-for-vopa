@@ -3,6 +3,7 @@
 {% block content %}
 {% include "purchasing/_tabs.html" %}
 <form class="row g-2 mb-3" method="get">
+  {{ filter_marker() }}
   <div class="col-md-5">
     <select class="form-select" name="project" data-autosubmit>
       <option value="">- kies een project -</option>
