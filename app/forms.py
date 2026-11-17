@@ -25,6 +25,7 @@ from wtforms import (
     SelectField,
     StringField,
     TextAreaField,
+    TimeField,
 )
 from wtforms.validators import (
     DataRequired,
@@ -292,6 +293,8 @@ class AssignmentForm(FlaskForm):
     hours_per_day = FloatField(
         "Uren per dag", default=8.0, validators=[DataRequired(), NumberRange(min=0.5, max=24)]
     )
+    start_time = TimeField("Van (uur)", validators=[Optional()])
+    end_time = TimeField("Tot (uur)", validators=[Optional()])
     include_weekends = BooleanField(
         "Weekenddagen inplannen",
         description="Zonder vinkje worden enkel maandag t/m vrijdag van deze periode ingepland.",
@@ -308,6 +311,19 @@ class AssignmentForm(FlaskForm):
         only_weekend = all((start + timedelta(days=i)).weekday() >= 5 for i in range((end - start).days + 1))
         if only_weekend and not self.include_weekends.data:
             raise ValidationError("Deze periode bevat enkel weekenddagen: vink 'Weekenddagen inplannen' aan.")
+
+    def validate(self, extra_validators=None):
+        # Checked here, not in validate_end_time: WTForms skips that for an
+        # empty optional field, and "only a start time" must be refused too.
+        ok = super().validate(extra_validators)
+        start, end = self.start_time.data, self.end_time.data
+        if bool(start) != bool(end):
+            self.end_time.errors.append("Vul zowel het begin- als het einduur in (of laat beide leeg).")
+            return False
+        if start and end and end <= start:
+            self.end_time.errors.append("Het einduur moet na het beginuur liggen.")
+            return False
+        return ok
 
     def validate_project_id(self, field):
         if self.kind.data == AssignmentKind.PROJECT.value and not field.data:

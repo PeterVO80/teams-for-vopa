@@ -38,7 +38,7 @@ import os
 import re
 import zipfile
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -132,7 +132,7 @@ def _script_directory():
 
 
 def _encode(value):
-    if isinstance(value, (datetime, date)):
+    if isinstance(value, (datetime, date, time)):
         return value.isoformat()
     if isinstance(value, Decimal):
         return str(value)
@@ -148,6 +148,8 @@ def _decoder(column: sa.Column):
         return lambda v: None if v is None else datetime.fromisoformat(v)
     if isinstance(kind, sa.Date):
         return lambda v: None if v is None else date.fromisoformat(v)
+    if isinstance(kind, sa.Time):
+        return lambda v: None if v is None else time.fromisoformat(v)
     if isinstance(kind, sa.Numeric) and not isinstance(kind, sa.Float):
         return lambda v: None if v is None else Decimal(v)
     if isinstance(kind, sa.LargeBinary):

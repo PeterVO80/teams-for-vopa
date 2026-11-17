@@ -38,6 +38,9 @@
 #   ADMIN_USERNAME     optional (default: admin)
 #   ADMIN_EMAIL        optional
 #   WORKDAY_HOURS      optional - hours in a working day for planning (default: 8)
+#   WORKDAY_START / WORKDAY_END / BREAK_START / BREAK_END
+#                      optional - the working day (default 08:30 - 17:00, break
+#                      12:00 - 12:30): times of planned days and Outlook appointments
 #   PROJECT_CODE_PREFIX optional - prefix of automatic project codes
 #                      (default: PRJ  ->  PRJ/2026/0001)
 #   MAX_UPLOAD_MB      optional - max. upload size, e.g. supplier price lists (default: 300)
@@ -56,6 +59,10 @@ x-app-env: &app-env
   DOMAIN: ${DOMAIN:-}
   PROXY_COUNT: "1"          # Caddy in front of the app
   WORKDAY_HOURS: ${WORKDAY_HOURS:-8}
+  WORKDAY_START: ${WORKDAY_START:-08:30}
+  WORKDAY_END: ${WORKDAY_END:-17:00}
+  BREAK_START: ${BREAK_START:-12:00}
+  BREAK_END: ${BREAK_END:-12:30}
   PROJECT_CODE_PREFIX: ${PROJECT_CODE_PREFIX:-PRJ}
   MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-300}
   MS365_TENANT_ID: ${MS365_TENANT_ID:-}

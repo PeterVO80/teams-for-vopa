@@ -13,6 +13,15 @@
   {{ render_field(form.end_date, class_="col-md-4") }}
   {{ render_field(form.hours_per_day, class_="col-md-4") }}
 </div>
+{# Optional per-hour planning; static/js/team.js fills "Uren per dag" from the times. #}
+<div class="row" data-workday="{{ workday.start.strftime('%H:%M') }}-{{ workday.end.strftime('%H:%M') }}"
+     data-break="{{ workday.break_start.strftime('%H:%M') }}-{{ workday.break_end.strftime('%H:%M') }}">
+  {{ render_field(form.start_time, class_="col-md-4") }}
+  {{ render_field(form.end_time, class_="col-md-4") }}
+  <div class="col-md-4 form-text pt-md-4 mt-md-2">
+    Leeg = binnen de werkdag ({{ workday.start.strftime('%H:%M') }}–{{ workday.end.strftime('%H:%M') }}, pauze {{ workday.break_start.strftime('%H:%M') }}–{{ workday.break_end.strftime('%H:%M') }}).
+  </div>
+</div>
 {{ render_field(form.include_weekends) }}
 <div class="form-text mt-n2 mb-3">{{ form.include_weekends.description }}</div>
 {{ render_field(form.note) }}

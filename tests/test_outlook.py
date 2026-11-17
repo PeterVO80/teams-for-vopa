@@ -90,37 +90,60 @@ def test_runs_split_unplanned_weekend(app):
     assert outlook._runs(a) == [(date(2026, 11, 13), date(2026, 11, 18))]
 
 
-def test_event_payload_is_all_day_with_category(app):
+def test_event_payload_in_working_hours_as_series(app):
     leave = Assignment(start_date=date(2026, 11, 16), end_date=date(2026, 11, 17),
                        kind=AssignmentKind.LEAVE, hours_per_day=4)
     payload = outlook._event_payload(leave, date(2026, 11, 16), date(2026, 11, 17), "Romance Standard Time", "https://x/")
-    assert payload["isAllDay"] and payload["showAs"] == "oof" and payload["categories"] == ["VOPA Teams"]
-    assert payload["start"]["dateTime"] == "2026-11-16T00:00:00"
-    assert payload["end"]["dateTime"] == "2026-11-18T00:00:00"                     # end is exclusive
+    assert not payload["isAllDay"] and payload["showAs"] == "oof" and payload["categories"] == ["VOPA Teams"]
+    # 4 hours from the start of the working day: 08:30 - 12:30 (before the break ends: +30 min).
+    assert payload["start"]["dateTime"] == "2026-11-16T08:30:00"
+    assert payload["end"]["dateTime"] == "2026-11-16T13:00:00"
     assert payload["subject"] == "Verlof (4u/dag)"
+    assert payload["recurrence"]["pattern"]["daysOfWeek"] == ["monday", "tuesday", "wednesday", "thursday", "friday"]
+    assert payload["recurrence"]["range"] == {"type": "endDate", "startDate": "2026-11-16", "endDate": "2026-11-17",
+                                              "recurrenceTimeZone": "Romance Standard Time"}
     assert "https://x/team/?start=2026-11-16" in payload["body"]["content"]
 
 
-def test_push_writes_and_replaces_appointments(configured):
+def test_full_day_and_per_hour_payloads(app):
+    from datetime import time
+    full = Assignment(start_date=date(2026, 11, 18), end_date=date(2026, 11, 18), kind=AssignmentKind.OTHER,
+                      hours_per_day=8)
+    payload = outlook._event_payload(full, date(2026, 11, 18), date(2026, 11, 18), "Romance Standard Time", "")
+    assert (payload["start"]["dateTime"], payload["end"]["dateTime"]) == ("2026-11-18T08:30:00", "2026-11-18T17:00:00")
+    assert "recurrence" not in payload and payload["subject"] == "Andere"
+    weekend = Assignment(start_date=date(2026, 11, 20), end_date=date(2026, 11, 23), kind=AssignmentKind.OTHER,
+                         hours_per_day=3.5, include_weekends=True, start_time=time(8, 30), end_time=time(12, 0))
+    payload = outlook._event_payload(weekend, date(2026, 11, 20), date(2026, 11, 23), "Romance Standard Time", "")
+    assert (payload["start"]["dateTime"], payload["end"]["dateTime"]) == ("2026-11-20T08:30:00", "2026-11-20T12:00:00")
+    assert len(payload["recurrence"]["pattern"]["daysOfWeek"]) == 7
+    assert payload["subject"] == "Andere"                                   # times are on the appointment
+    assert "Uren: 08:30 - 12:00 (3.5 u per dag)" in payload["body"]["content"]
+
+
+def test_push_writes_one_series_and_replaces_it(configured):
     jan = _user("jan")
-    a = _plan(jan, date(2026, 11, 13), date(2026, 11, 17), kind=AssignmentKind.TRAINING)
+    a = _plan(jan, date(2026, 11, 13), date(2026, 11, 17), kind=AssignmentKind.TRAINING)   # Fri -> Tue
     graph = FakeGraph()
     outlook.push_assignment(graph, a)
     db.session.commit()
-    assert len(graph.posts()) == 2 and "/users/jan@example.com/events" in graph.posts()[0][1]
+    assert len(graph.posts()) == 1 and "/users/jan@example.com/events" in graph.posts()[0][1]
+    assert graph.posts()[0][2]["recurrence"]["range"]["endDate"] == "2026-11-17"
     links = db.session.scalars(sa.select(OutlookLink).where(OutlookLink.assignment_id == a.id)).all()
-    assert sorted(link.event_id for link in links) == ["evt-1", "evt-2"]
+    assert [(link.event_id, link.start_date, link.end_date) for link in links] == [
+        ("evt-1", date(2026, 11, 13), date(2026, 11, 17))]
     assert a.outlook_synced_at is not None
     assert outlook.pending_assignments(date(2026, 11, 1), date(2026, 12, 1)).count(a) == 0
 
-    # A change makes it pending again; pushing deletes the old appointments first.
+    # A change makes it pending again; pushing deletes the old series first.
     a.end_date = date(2026, 11, 13)
     db.session.commit()
     assert a in outlook.pending_assignments(date(2026, 11, 1), date(2026, 12, 1))
     outlook.push_assignment(graph, a)
     db.session.commit()
-    assert {c[1].rsplit("/", 1)[1] for c in graph.deletes()} == {"evt-1", "evt-2"}
-    assert [link.event_id for link in db.session.scalars(sa.select(OutlookLink))] == ["evt-3"]
+    assert [c[1].rsplit("/", 1)[1] for c in graph.deletes()] == ["evt-1"]
+    assert [link.event_id for link in db.session.scalars(sa.select(OutlookLink))] == ["evt-2"]
+    assert "recurrence" not in graph.posts()[-1][2]                        # one day: a single appointment
 
 
 def test_push_skips_users_without_sync(configured):

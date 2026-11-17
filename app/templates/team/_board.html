@@ -108,7 +108,7 @@
       {% if a.project and not hidden %}<div class="opacity-75">{{ a.project.code }}</div>{% endif %}
       <div><i class="bi bi-person"></i> {{ row.user.full_name }}</div>
       <div><i class="bi bi-calendar-range"></i> {{ a.start_date|date }} – {{ a.end_date|date }}</div>
-      <div><i class="bi bi-clock"></i> {{ hours }} u/dag · {{ a.planned_days }} dag{{ 'en' if a.planned_days != 1 }}{% if a.include_weekends %} · incl. weekend{% endif %}</div>
+      <div><i class="bi bi-clock"></i> {% if a.time_label %}{{ a.time_label }} ({{ hours }} u){% else %}{{ hours }} u/dag{% endif %} · {{ a.planned_days }} dag{{ 'en' if a.planned_days != 1 }}{% if a.include_weekends %} · incl. weekend{% endif %}</div>
       {% if a.note and not hidden %}<div class="mt-1 fst-italic">{{ a.note }}</div>{% endif %}
     {% endset %}
     {# data-* attributes are used by static/js/team.js to resize and move bars;
@@ -121,9 +121,9 @@
        data-first="{{ seg.first }}" data-last="{{ seg.last }}"
        data-reschedule-url="{{ url_for('team.reschedule_assignment', assignment_id=a.id) }}"{% endif %}
        data-tooltip-html="{{ tooltip|forceescape }}"
-       title="{{ label }}{% if a.project and not hidden %} ({{ a.project.code }}){% endif %}&#10;{{ a.start_date|date }} – {{ a.end_date|date }} · {{ hours }}u/dag{% if a.include_weekends %} · incl. weekend{% endif %}{% if a.note and not a.kind.is_absence and not hidden %}&#10;{{ a.note }}{% endif %}">
+       title="{{ label }}{% if a.project and not hidden %} ({{ a.project.code }}){% endif %}&#10;{{ a.start_date|date }} – {{ a.end_date|date }} · {% if a.time_label %}{{ a.time_label }}{% else %}{{ hours }}u/dag{% endif %}{% if a.include_weekends %} · incl. weekend{% endif %}{% if a.note and not a.kind.is_absence and not hidden %}&#10;{{ a.note }}{% endif %}">
       {%- if a.kind.is_absence %}<i class="bi bi-{{ {'leave': 'sun', 'sick': 'thermometer-half', 'training': 'mortarboard'}[a.kind.value] }}"></i> {% endif -%}
-      {{ label }}{% if a.hours_per_day < workday_hours %} <span class="opacity-75">· {{ a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') }}u</span>{% endif %}
+      {% if a.time_label %}<span class="opacity-75">{{ a.time_label }} ·</span> {% endif %}{{ label }}{% if a.time_label %}{% elif a.hours_per_day < workday_hours %} <span class="opacity-75">· {{ a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') }}u</span>{% endif %}
       {%- if not locked and seg.is_first and not seg.continues_before %}<span class="bar-handle start" title="Sleep om de startdatum te wijzigen"></span>{% endif %}
       {%- if not locked and seg.is_last and not seg.continues_after %}<span class="bar-handle end" title="Sleep om de einddatum te wijzigen"></span>{% endif %}
     </a>

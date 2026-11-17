@@ -10,6 +10,7 @@ from ..extensions import db
 from ..forms import AssignmentForm, none_if_zero
 from ..models import Assignment, AssignmentKind, OutlookLink, Project, User
 from ..services import outlook
+from ..services.workday import worked_hours, workday
 from ..services.workload import build_overview, planning_period
 from ..utils import int_arg, is_modal_request, next_url
 from . import protected_blueprint
@@ -100,6 +101,9 @@ def edit_assignment(assignment_id: int | None = None):
             assignment = Assignment()
             db.session.add(assignment)
         form.populate_obj(assignment)
+        if assignment.start_time and assignment.end_time:
+            # Planned per hour: the hours follow from the times (break excluded).
+            assignment.hours_per_day = round(worked_hours(assignment.start_time, assignment.end_time), 2)
         assignment.kind = AssignmentKind(form.kind.data)
         # Absences are not linked to a project.
         assignment.project_id = (
@@ -119,6 +123,7 @@ def edit_assignment(assignment_id: int | None = None):
     context = dict(
         form=form,
         assignment=assignment,
+        workday=workday(),
         action_url=url_for("team.edit_assignment", assignment_id=assignment.id) if assignment
         else url_for("team.edit_assignment"),
     )

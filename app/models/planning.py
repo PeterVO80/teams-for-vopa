@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -66,6 +66,11 @@ class Assignment(TimestampMixin, db.Model):
     hours_per_day: Mapped[float] = mapped_column(default=8.0)
     include_weekends: Mapped[bool] = mapped_column(default=False, server_default=sa.false())
     note: Mapped[str | None] = mapped_column(sa.String(300))
+    #: Optional: planned "per hour", e.g. 08:30 - 12:00 on every planned day.
+    #: Empty = the hours fall in the normal working day (services/workday.py).
+    #: When set, hours_per_day is calculated from these times.
+    start_time: Mapped[time | None] = mapped_column(sa.Time)
+    end_time: Mapped[time | None] = mapped_column(sa.Time)
     #: When this entry was last written to the employee's Outlook calendar.
     #: Older than ``updated_at`` (or empty) = still to be synchronised.
     outlook_synced_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
@@ -94,6 +99,13 @@ class Assignment(TimestampMixin, db.Model):
             1 for i in range(days)
             if self.include_weekends or not is_weekend(self.start_date + timedelta(days=i))
         )
+
+    @property
+    def time_label(self) -> str:
+        """"08:30-12:00" when planned per hour, else empty."""
+        if self.start_time and self.end_time:
+            return f"{self.start_time:%H:%M}-{self.end_time:%H:%M}"
+        return ""
 
     @property
     def label(self) -> str:

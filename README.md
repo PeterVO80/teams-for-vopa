@@ -11,7 +11,7 @@ assignment is a **project**. All modules hang off that project:
 | **Articles** | Article database with search and filters, order history per article. **Excel import/export** (round trip: export → edit in Excel → import). **Supplier catalogue**: load a supplier price list (Rexel DBF, hundreds of thousands of articles), filter by manufacturer / product group / search text, select articles across pages (or a whole filter) and import them; a new price list updates the prices of imported articles in one click. Prices with up to 4 decimals (cable per metre). During the Rexel import the **extended description** and the **specifications** are fetched from each article's Rexel Netstore product page (in batches with a progress bar); a new price list keeps that description. |
 | **Stock** | Stock per article and location (warehouse, service vans, ...), minimum stock with an "under minimum" list and a reorder button. Movements in popups: receipt, issue (to a project), transfer, inventory count. Full movement history. Replenishment orders with a stock location put their deliveries in stock automatically; material issued to a project shows in the project's Material tab. Excel export. |
 | **Punch list** | Kanban board with *New · In progress · On hold · Done · Cancelled*. Drag & drop, filters per project/team member, priority, deadline and estimate. |
-| **Team overview** | Planning grid (people × days, weekends included) with load per day and period, absences (leave, sick, training), and open tasks per person. Plan by clicking a day or click-and-dragging over several days; the form opens in a popup. Weekend days are only planned when "Weekenddagen inplannen" is ticked. **Outlook link** (Microsoft 365): appointments from each employee's Outlook calendar appear in the planning (short ones as a calendar icon with tooltip, all-day/multi-day ones as an outlined bar; "out of office" counts as absent), and every planning entry is written to the employee's Outlook calendar as an all-day appointment (category "VOPA Teams"). See [Outlook (Microsoft 365)](#outlook-microsoft-365). |
+| **Team overview** | Planning grid (people × days, weekends included) with load per day and period, absences (leave, sick, training), and open tasks per person. Plan by clicking a day or click-and-dragging over several days; the form opens in a popup. Weekend days are only planned when "Weekenddagen inplannen" is ticked. Optionally an entry is planned **per hour** ("Van (uur)" / "Tot (uur)", e.g. 08:30 - 12:00 every planned day); the hours per day are then calculated, the break excluded. The working day is 08:30 - 17:00 with a break 12:00 - 12:30 (`WORKDAY_START`, `WORKDAY_END`, `BREAK_START`, `BREAK_END`). **Outlook link** (Microsoft 365): appointments from each employee's Outlook calendar appear in the planning (short ones as a calendar icon with tooltip, all-day/multi-day ones as an outlined bar; "out of office" counts as absent), and every planning entry is written to the employee's Outlook calendar as an appointment in the working hours (category "VOPA Teams"). See [Outlook (Microsoft 365)](#outlook-microsoft-365). |
 | **Notes** | Markdown notes with a WYSIWYG editor, **tags** (e.g. *Status meeting*, *Customer feedback*), optional project link, search and pinning. |
 | **Wiki** | A general wiki plus **a wiki per project**. Hierarchical Markdown pages with WYSIWYG editor, `[[Page title]]` links (looked up in the same wiki first), search and **full version history** (view and restore). |
 
@@ -104,9 +104,10 @@ ways (`app/services/outlook.py`):
   next 183 days are read. Appointments marked *free*, cancelled ones and the
   ones this application wrote itself are skipped. Private appointments show
   as "Privé".
-* **Planning → Outlook**: each planning entry becomes an all-day appointment
-  (one per run of planned days, so an unplanned weekend stays free) with
-  category **VOPA Teams**; absences are marked *out of office*. A change in the
+* **Planning → Outlook**: each planning entry becomes an appointment in the
+  working hours (or in the hours planned for it) on every planned day - a
+  recurring series for more than one day, on weekdays only unless the
+  weekends are planned - with category **VOPA Teams**; absences are marked *out of office*. A change in the
   planning is written within seconds; changing or deleting the planning
   updates or removes the appointment. Change the planning in VOPA Teams, not
   in Outlook: changes made in Outlook to these appointments are overwritten.

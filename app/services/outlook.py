@@ -45,6 +45,8 @@ from flask import current_app
 from ..extensions import db
 from ..models import AppSetting, Assignment, CalendarEvent, OutlookLink, User
 from ..models.base import utcnow
+from .workday import fmt, times_for
+from .workday import workday as workday_settings
 
 log = logging.getLogger(__name__)
 
@@ -271,31 +273,53 @@ def _subject(assignment: Assignment, part_time_hours: float | bool = False) -> s
     return subject[:255]
 
 
+#: Graph day names for a weekly recurrence (Monday = 0).
+WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
 def _event_payload(assignment: Assignment, first: date, last: date, timezone: str, app_url: str) -> dict:
-    workday = current_app.config["WORKDAY_HOURS"]
+    """One Outlook appointment (or series) for the planned days ``first`` .. ``last``.
+
+    Every planned day gets an appointment in the working hours (default
+    08:30 - 17:00) or in the hours planned for the entry (08:30 - 12:00).
+    More than one day becomes a recurring series - one item in Outlook, one
+    appointment per planned day - repeating on weekdays only, unless the
+    weekends are planned too.
+    """
+    wd = workday_settings()
+    start_t, end_t = times_for(assignment, wd)
     hours = assignment.hours_per_day
-    subject = _subject(assignment, hours < workday and hours)
+    per_hour = bool(assignment.start_time and assignment.end_time)
+    subject = _subject(assignment, not per_hour and hours < wd.hours and hours)
     lines = []
     if assignment.project:
         lines.append(f"Project: {assignment.project.code} - {assignment.project.name}")
         if assignment.project.customer:
             lines.append(f"Klant: {assignment.project.customer}")
-    lines.append(f"Uren per dag: {hours:g}")
+    lines.append(f"Uren: {fmt(start_t)} - {fmt(end_t)} ({hours:g} u per dag)")
     if assignment.note:
         lines.append(f"Opmerking: {assignment.note}")
     if app_url:
         lines.append(f"Planning: {app_url.rstrip('/')}/team/?start={first.isoformat()}")
     lines.append("Aangemaakt door VOPA Teams - wijzigingen gebeuren in de teamplanning.")
-    return {
+    payload = {
         "subject": subject,
         "body": {"contentType": "text", "content": "\n".join(lines)},
-        "start": {"dateTime": f"{first.isoformat()}T00:00:00", "timeZone": timezone},
-        "end": {"dateTime": f"{(last + timedelta(days=1)).isoformat()}T00:00:00", "timeZone": timezone},
-        "isAllDay": True,
+        "start": {"dateTime": f"{first.isoformat()}T{start_t:%H:%M}:00", "timeZone": timezone},
+        "end": {"dateTime": f"{first.isoformat()}T{end_t:%H:%M}:00", "timeZone": timezone},
+        "isAllDay": False,
         "showAs": "oof" if assignment.kind.is_absence else "busy",
         "categories": [CATEGORY],
         "isReminderOn": False,
     }
+    if last > first:
+        days = WEEKDAYS if assignment.include_weekends else WEEKDAYS[:5]
+        payload["recurrence"] = {
+            "pattern": {"type": "weekly", "interval": 1, "daysOfWeek": days, "firstDayOfWeek": "monday"},
+            "range": {"type": "endDate", "startDate": first.isoformat(), "endDate": last.isoformat(),
+                      "recurrenceTimeZone": timezone},
+        }
+    return payload
 
 
 def push_assignment(client: GraphClient, assignment: Assignment) -> None:
@@ -303,7 +327,7 @@ def push_assignment(client: GraphClient, assignment: Assignment) -> None:
 
     Replacing (delete + create) instead of patching keeps it simple and
     always correct, also when the entry moved to another person or its
-    period was split differently.
+    period changed. Deleting a series removes all its appointments.
     """
     s = settings()
     for link in db.session.scalars(sa.select(OutlookLink).where(OutlookLink.assignment_id == assignment.id)).all():
@@ -311,12 +335,13 @@ def push_assignment(client: GraphClient, assignment: Assignment) -> None:
             client.request("DELETE", f"/users/{urllib.parse.quote(link.user.email)}/events/{link.event_id}")
         db.session.delete(link)
     user = assignment.user
-    if user.email and user.outlook_sync and user.active:
-        for first, last in _runs(assignment):
-            created = client.request("POST", f"/users/{urllib.parse.quote(user.email)}/events",
-                                     _event_payload(assignment, first, last, s["timezone"], s["app_url"]))
-            db.session.add(OutlookLink(assignment_id=assignment.id, user_id=user.id, event_id=created["id"],
-                                       start_date=first, end_date=last))
+    runs = _runs(assignment)
+    if user.email and user.outlook_sync and user.active and runs:
+        first, last = runs[0][0], runs[-1][1]
+        created = client.request("POST", f"/users/{urllib.parse.quote(user.email)}/events",
+                                 _event_payload(assignment, first, last, s["timezone"], s["app_url"]))
+        db.session.add(OutlookLink(assignment_id=assignment.id, user_id=user.id, event_id=created["id"],
+                                   start_date=first, end_date=last))
     mark_synced(assignment)
 
 

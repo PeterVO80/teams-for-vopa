@@ -68,6 +68,12 @@ class Config:
     #: Default number of working hours in one day, used by the team planning
     #: to express workload as a percentage.
     WORKDAY_HOURS = float(os.environ.get("WORKDAY_HOURS", 8))
+    #: The working day (services/workday.py): planned days and Outlook
+    #: appointments fall in these hours; the break does not count as work.
+    WORKDAY_START = os.environ.get("WORKDAY_START", "08:30")
+    WORKDAY_END = os.environ.get("WORKDAY_END", "17:00")
+    BREAK_START = os.environ.get("BREAK_START", "12:00")
+    BREAK_END = os.environ.get("BREAK_END", "12:30")
 
 
 class TestConfig(Config):

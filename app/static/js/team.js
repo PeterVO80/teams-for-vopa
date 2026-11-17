@@ -304,6 +304,29 @@
       checkWeekend();
     });
     end.addEventListener("change", checkWeekend);
+
+    // Per-hour planning: "Uren per dag" follows from the times (break excluded).
+    const fromTime = root.querySelector("#start_time");
+    const toTime = root.querySelector("#end_time");
+    const hours = root.querySelector("#hours_per_day");
+    const pause = root.querySelector("[data-break]")?.dataset.break?.split("-");
+    const minutes = (value) => { const [h, m] = value.split(":").map(Number); return h * 60 + m; };
+    const updateHours = () => {
+      if (!fromTime?.value || !toTime?.value || !hours) {
+        hours?.removeAttribute("readonly");
+        return;
+      }
+      const a = minutes(fromTime.value), b = minutes(toTime.value);
+      let worked = b - a;
+      if (pause) worked -= Math.max(Math.min(b, minutes(pause[1])) - Math.max(a, minutes(pause[0])), 0);
+      if (worked > 0) {
+        hours.value = Math.round(worked / 60 * 100) / 100;
+        hours.setAttribute("readonly", "");   // calculated from the times
+      }
+    };
+    fromTime?.addEventListener("change", updateHours);
+    toTime?.addEventListener("change", updateHours);
+    updateHours();
   }
 
   initAssignmentForm(document);  // full-page form
