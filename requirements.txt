@@ -14,7 +14,9 @@ psycopg[binary]==3.2.3
 # --- Feature libraries ------------------------------------------------------
 openpyxl==3.1.5        # Excel import / export
 dbfread==2.0.7         # supplier price lists in dBase format (Rexel)
-Markdown==3.7          # Markdown -> HTML rendering (notes & wiki)
+markdown-it-py==4.3.0  # Markdown -> HTML (notes & wiki), same dialect as the editor
+mdit-py-plugins==0.7.0 # task lists, heading anchors
+linkify-it-py==2.2.0   # plain web addresses become links
 nh3==0.2.18            # HTML sanitising of rendered Markdown (XSS protection)
 
 # --- Runtime -----------------------------------------------------------------

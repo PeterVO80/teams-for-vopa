@@ -204,3 +204,9 @@ body.planning-dragging .tooltip { display: none !important; }
   border: 1px solid rgba(0,0,0,.15); margin: 0; }
 .btn-check:checked + .color-swatch { outline: 3px solid var(--bs-primary); outline-offset: 2px; }
 .btn-check:focus-visible + .color-swatch { outline: 3px solid var(--bs-primary); outline-offset: 2px; }
+
+/* Task lists in notes and wiki pages ("- [ ] item"): checkbox instead of a bullet. */
+.markdown-body li.task-list-item { list-style: none; }
+.markdown-body .task-list-item-checkbox { margin: 0 .4rem 0 -1.3rem; vertical-align: middle; }
+/* Items of "loose" lists are paragraphs: keep them as compact as normal list items. */
+.markdown-body li > p { margin-bottom: .25rem; }

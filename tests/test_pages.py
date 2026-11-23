@@ -220,3 +220,30 @@ def test_no_application_file_is_ignored_by_git():
     result = subprocess.run(["git", "check-ignore", "--stdin"], input="\n".join(files),
                             capture_output=True, text=True)
     assert result.stdout.strip() == "", f"Ignored by .gitignore: {result.stdout}"
+
+
+def test_markdown_from_the_editor_renders_like_the_editor(app):
+    """The WYSIWYG editor writes CommonMark + GitHub extensions; the page must show the same."""
+    from app.services.markdown_render import render_markdown
+    text = ("Inleiding\n* item 1\n* item 2\n    * genest\n\nTaken:\n* [ ] open\n* [x] klaar\n\n"
+            "~~weg~~ en https://www.vopa.be\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n")
+    with app.test_request_context():
+        html = str(render_markdown(text))
+    assert "<p>Inleiding</p>" in html and "<li>item 1</li>" in html and "* item" not in html
+    assert html.count('type="checkbox"') == 2 and 'checked="checked"' in html and "[x]" not in html
+    assert "<s>weg</s>" in html and '<a href="https://www.vopa.be"' in html
+    assert "<table>" in html and "<td>1</td>" in html
+
+
+def test_markdown_stays_safe(app):
+    from app.services.markdown_render import render_markdown
+    with app.test_request_context():
+        html = str(render_markdown('<script>alert(1)</script>\n\n[x](javascript:alert(1))\n\n<img src=x onerror="alert(1)">'))
+    assert "<script" not in html and 'href="javascript' not in html and "onerror" not in html
+
+
+def test_wiki_links_still_work(app):
+    from app.services.markdown_render import render_markdown
+    with app.test_request_context():
+        html = str(render_markdown("Zie \\[\\[Installatie PLC\\]\\] en [[Andere|label]]", wiki_links=True))
+    assert "/wiki/go?title=Installatie+PLC" in html and ">label</a>" in html

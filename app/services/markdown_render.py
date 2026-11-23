@@ -2,8 +2,11 @@
 
 Rendering happens in two steps:
 
-1. ``markdown`` converts the text to HTML (with tables, code blocks, a table
-   of contents, ...).
+1. ``markdown-it-py`` converts the text to HTML, with the same Markdown
+   dialect as the WYSIWYG editor (Toast UI writes CommonMark with GitHub
+   extensions): lists right after a paragraph, task lists, tables,
+   strikethrough, links typed as plain addresses, ... A different dialect
+   would show parts of a page as raw Markdown (``* item``, ``[x]``, ``~~``).
 2. ``nh3`` *sanitises* that HTML with an allow-list of tags and attributes.
    Markdown permits raw HTML, so without this step a user could inject
    ``<script>`` tags (stored XSS).
@@ -19,13 +22,21 @@ from __future__ import annotations
 import re
 import unicodedata
 
-import markdown
 import nh3
+from markdown_it import MarkdownIt
+from mdit_py_plugins.anchors import anchors_plugin
+from mdit_py_plugins.tasklists import tasklists_plugin
 from flask import url_for
 from markupsafe import Markup
 
-#: Markdown extensions: tables, fenced code, task lists, auto TOC anchors, ...
-_EXTENSIONS = ["extra", "sane_lists", "toc", "nl2br"]
+#: CommonMark + the GitHub extensions the editor uses. ``breaks``: a single
+#: line break in the text is a line break on the page (as in the editor).
+_MD = (
+    MarkdownIt("commonmark", {"html": True, "linkify": True, "breaks": True})
+    .enable(["table", "strikethrough", "linkify"])
+    .use(tasklists_plugin)
+    .use(anchors_plugin, min_level=1, max_level=4)
+)
 
 #: HTML tags that may survive sanitisation.
 _ALLOWED_TAGS = {
@@ -39,6 +50,7 @@ _ALLOWED_ATTRIBUTES = {
     "a": {"href", "title"},
     "img": {"src", "alt", "title", "width", "height"},
     "input": {"type", "checked", "disabled"},  # task-list checkboxes
+    "code": {"class"},
     "td": {"align"},
     "th": {"align"},
 }
@@ -89,7 +101,7 @@ def render_markdown(
         # undo that so wiki links typed in WYSIWYG mode also work.
         text = text.replace("\\[\\[", "[[").replace("\\]\\]", "]]")
         text = _expand_wiki_links(text, wiki_project_id)
-    html = markdown.markdown(text, extensions=_EXTENSIONS, output_format="html")
+    html = _MD.render(text)
     clean = nh3.clean(
         html,
         tags=_ALLOWED_TAGS,
