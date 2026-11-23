@@ -1,5 +1,6 @@
 /**
- * WYSIWYG Markdown editor (Toast UI Editor) for notes and wiki pages.
+ * WYSIWYG Markdown editor (Toast UI Editor) for notes, wiki pages and task
+ * descriptions. Optional: data-md-height="360px" on the textarea.
  *
  * Every <textarea data-md-editor> is replaced by an editor. The textarea
  * stays in the form (hidden) and receives the Markdown right before the
@@ -29,7 +30,7 @@
         initialValue: textarea.value,
         initialEditType: "wysiwyg",
         previewStyle: "vertical",
-        height: "560px",
+        height: textarea.dataset.mdHeight || "560px",
         language: "nl-NL",
         usageStatistics: false,  // do not send usage data to the vendor
         toolbarItems: [

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import render_field, post_button %}
 {% block title %}{{ 'Taak bewerken' if task else 'Nieuwe taak' }}{% endblock %}
+{% block head %}{% include "_editor.html" %}{% endblock %}
 {% block content %}
 <div class="card" style="max-width: 900px"><div class="card-body">
   <form method="post" novalidate>
@@ -14,7 +15,10 @@
       {{ render_field(form.due_date, class_="col-md-3") }}
       {{ render_field(form.estimated_hours, class_="col-md-3") }}
     </div>
-    {{ render_field(form.description) }}
+    {# WYSIWYG Markdown editor (static/js/editor.js), e.g. for check lists. #}
+    <label class="form-label" for="description">{{ form.description.label.text }}</label>
+    {{ form.description(**{"data-md-editor": "", "data-md-height": "360px", "class": "d-none"}) }}
+    <div class="mb-3"></div>
     <div class="d-flex gap-2">
       <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Opslaan</button>
       <a class="btn btn-link" href="{{ cancel_url }}">Annuleren</a>

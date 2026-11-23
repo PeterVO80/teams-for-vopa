@@ -4,12 +4,17 @@ from __future__ import annotations
 
 from datetime import date
 
+import re
+
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensions import db
 from .base import LabeledEnum, TimestampMixin, enum_column
 
+
+#: A task-list item in Markdown: "* [ ] text", "- [x] text", "1. [ ] text".
+_CHECKBOX = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+\[([ xX])\]", re.MULTILINE)
 
 class TaskStatus(LabeledEnum):
     """Kanban columns, in the order they are displayed."""
@@ -63,6 +68,16 @@ class Task(TimestampMixin, db.Model):
     project = relationship("Project")
     assignee = relationship("User", foreign_keys=[assignee_id])
     created_by = relationship("User", foreign_keys=[created_by_id])
+
+    @property
+    def checklist(self) -> tuple[int, int]:
+        """(ticked, total) of the check boxes in the description, e.g. (2, 5).
+
+        The description is Markdown from the WYSIWYG editor, where a check
+        list is written as ``* [ ] item`` / ``* [x] item``.
+        """
+        boxes = _CHECKBOX.findall(self.description or "")
+        return sum(1 for b in boxes if b.lower() == "x"), len(boxes)
 
     @property
     def is_overdue(self) -> bool:
