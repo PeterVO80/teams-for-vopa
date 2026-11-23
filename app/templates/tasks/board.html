@@ -6,10 +6,21 @@
 {% extends "base.html" %}
 {% from "_macros.html" import priority_badge, avatar %}
 {% block title %}Punchlijst{% endblock %}
-{% block page_actions %}<a class="btn btn-primary" href="{{ url_for('tasks.edit', project=project_id, next=request.full_path) }}"><i class="bi bi-plus-lg"></i> Nieuwe taak</a>{% endblock %}
+{% block page_actions %}
+<div class="d-flex gap-2">
+  <div class="btn-group" role="group" aria-label="Weergave">
+    <a class="btn {{ 'btn-secondary' if view == 'kanban' else 'btn-outline-secondary' }}" href="{{ url_for('tasks.board', view='kanban') }}" title="Kanbanbord"><i class="bi bi-kanban"></i> Kanban</a>
+    <a class="btn {{ 'btn-secondary' if view == 'table' else 'btn-outline-secondary' }}" href="{{ url_for('tasks.board', view='table') }}" title="Tabel"><i class="bi bi-table"></i> Tabel</a>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('tasks.edit', project=project_id, next=request.full_path) }}"><i class="bi bi-plus-lg"></i> Nieuwe taak</a>
+</div>
+{% endblock %}
 {% block content %}
 <form class="row g-2 mb-3" method="get">
   {{ filter_marker() }}
+  {# Keep the chosen view and sort order when a filter changes. #}
+  <input type="hidden" name="view" value="{{ view }}">
+  {% if view == 'table' %}<input type="hidden" name="sort" value="{{ sort }}">{% if descending %}<input type="hidden" name="dir" value="desc">{% endif %}{% endif %}
   <div class="col-md-4">
     <select class="form-select" name="project" data-autosubmit>
       <option value="">Alle projecten</option>
@@ -32,6 +43,47 @@
   </div>
 </form>
 
+{% if view == 'table' %}
+{% macro sort_header(key, label, cls='') -%}
+  {%- set active = sort == key -%}
+  <th class="{{ cls }} text-nowrap"><a class="text-body text-decoration-none" href="{{ url_for('tasks.board', view='table', sort=key, dir=('asc' if descending else 'desc') if active else 'asc') }}">{{ label }}{% if active %} <i class="bi bi-caret-{{ 'down' if descending else 'up' }}-fill small"></i>{% endif %}</a></th>
+{%- endmacro %}
+{% set status_colors = {'new': 'secondary', 'in_progress': 'primary', 'on_hold': 'warning', 'done': 'success', 'cancelled': 'dark'} %}
+<p class="small text-body-secondary mb-2">{{ tasks|length }} ta{{ 'ak' if tasks|length == 1 else 'ken' }}</p>
+<div class="card"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0 task-table">
+  <thead><tr>
+    {{ sort_header('title', 'Taak') }}
+    {{ sort_header('project', 'Project') }}
+    {{ sort_header('status', 'Status') }}
+    {{ sort_header('priority', 'Prioriteit') }}
+    {{ sort_header('assignee', 'Toegewezen aan') }}
+    {{ sort_header('due', 'Deadline') }}
+    <th class="text-end text-nowrap">Uren</th>
+    <th class="text-nowrap" title="Afgevinkte punten in de omschrijving">Checklist</th>
+    {{ sort_header('updated', 'Gewijzigd') }}
+  </tr></thead>
+  <tbody>
+  {% for task in tasks %}
+    {% set done, total = task.checklist %}
+    <tr class="clickable-row {{ 'table-danger' if task.is_overdue }}" data-href="{{ url_for('tasks.edit', task_id=task.id, next=request.full_path) }}">
+      <td class="fw-medium"><a class="text-body" href="{{ url_for('tasks.edit', task_id=task.id, next=request.full_path) }}">{{ task.title }}</a></td>
+      <td class="small">{% if task.project %}<span title="{{ task.project.code }}">{{ task.project.customer_label }}</span>{% endif %}</td>
+      <td><span class="badge text-bg-{{ status_colors[task.status.value] }}">{{ task.status.label }}</span></td>
+      <td>{{ priority_badge(task.priority) }}</td>
+      <td class="text-nowrap">{% if task.assignee %}{{ avatar(task.assignee) }} {{ task.assignee.full_name }}{% endif %}</td>
+      <td class="text-nowrap {{ 'text-danger fw-semibold' if task.is_overdue }}">{{ task.due_date|date if task.due_date else '' }}</td>
+      <td class="text-end">{{ task.estimated_hours|round(1)|string|replace('.0', '')|replace('.', ',') if task.estimated_hours else '' }}</td>
+      <td class="text-nowrap {{ 'text-success' if total and done == total else 'text-body-secondary' }}">{% if total %}<i class="bi bi-check2-square"></i> {{ done }}/{{ total }}{% endif %}</td>
+      <td class="small text-body-secondary text-nowrap">{{ task.updated_at|date }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="9" class="text-body-secondary">Geen taken met deze filters.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% else %}
 <div class="kanban" data-move-url="{{ url_for('tasks.move', task_id=0) }}">
   {% set header_colors = {'new': 'secondary', 'in_progress': 'primary', 'on_hold': 'warning', 'done': 'success', 'cancelled': 'dark'} %}
   {% for status, tasks in columns.items() %}
@@ -62,8 +114,11 @@
   </section>
   {% endfor %}
 </div>
+{% endif %}
 {% endblock %}
 {% block scripts %}
+{% if view != 'table' %}
 <script src="{{ url_for('static', filename='vendor/sortablejs/Sortable.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/kanban.js') }}"></script>
+{% endif %}
 {% endblock %}

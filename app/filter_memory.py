@@ -29,7 +29,7 @@ from markupsafe import Markup
 REMEMBERED: dict[str, tuple[tuple[str, ...], bool]] = {
     "projects.index": (("q", "customer", "manager", "status"), False),
     "projects.detail": (("planning_view", "planning_weeks"), False),
-    "tasks.board": (("project", "assignee", "all"), False),
+    "tasks.board": (("project", "assignee", "all", "view", "sort", "dir"), False),
     "articles.index": (("q", "category", "inactive"), False),
     "catalog.detail": (("q", "manufacturer", "group", "status"), True),
     "notes.index": (("q", "project", "tag"), False),

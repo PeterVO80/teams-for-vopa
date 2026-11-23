@@ -20,6 +20,21 @@ from . import protected_blueprint
 
 bp = protected_blueprint("tasks", __name__)
 
+_STATUS_ORDER = {status: i for i, status in enumerate(TaskStatus)}
+_PRIORITY_ORDER = {p: i for i, p in enumerate(TaskPriority)}
+_FAR = date.max
+
+#: Sortable columns of the table view: sort key per column.
+TABLE_SORTS = {
+    "title": lambda t: t.title.lower(),
+    "project": lambda t: (t.project.customer_label.lower() if t.project else "~"),
+    "status": lambda t: (_STATUS_ORDER[t.status], t.position, t.id),
+    "priority": lambda t: (-_PRIORITY_ORDER[t.priority], _STATUS_ORDER[t.status]),
+    "assignee": lambda t: (t.assignee.full_name.lower() if t.assignee else "~"),
+    "due": lambda t: (t.due_date or _FAR, _STATUS_ORDER[t.status]),
+    "updated": lambda t: t.updated_at,
+}
+
 #: Finished cards older than this are hidden from the board to keep it usable.
 DONE_VISIBLE_DAYS = 30
 
@@ -50,12 +65,24 @@ def board():
         )
 
     columns: dict[TaskStatus, list[Task]] = {status: [] for status in TaskStatus}
-    for task in db.session.scalars(query):
+    tasks = db.session.scalars(query).all()
+    for task in tasks:
         columns[task.status].append(task)
+
+    # Kanban board or table; both use the same filters (and remember them).
+    view = request.args.get("view") if request.args.get("view") in ("kanban", "table") else "kanban"
+    sort = request.args.get("sort") if request.args.get("sort") in TABLE_SORTS else "status"
+    descending = request.args.get("dir") == "desc"
+    if view == "table":
+        tasks = sorted(tasks, key=TABLE_SORTS[sort], reverse=descending)
 
     return render_template(
         "tasks/board.html",
         columns=columns,
+        tasks=tasks,
+        view=view,
+        sort=sort,
+        descending=descending,
         projects=Project.open_choices(include_empty=False),
         users=User.active_choices(),
         project_id=project_id,
