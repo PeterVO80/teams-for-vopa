@@ -453,6 +453,12 @@ and reach it through an SSH tunnel
 * **Opladen**: upload a back-up, e.g. from another server, then restore it.
 * The `backup` container makes one automatically every day and deletes
   automatic back-ups older than `BACKUP_KEEP_DAYS` (default 14).
+* **Before every update** of the database structure (migrations) the web
+  container makes a back-up first (`flask backup-before-upgrade`). If that
+  back-up fails, the container stops without touching the database.
+* Administrators see a warning on the dashboard (and on the Back-ups page)
+  when the newest back-up is older than 26 hours, i.e. the automatic back-ups
+  stopped.
 
 Back-ups are stored in the volume `vopa_app_backups` (`/app/backups`). They
 contain everything, including password hashes: store downloads safely, and

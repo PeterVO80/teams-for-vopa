@@ -16,7 +16,7 @@ CONFIRM_WORD = "HERSTEL"
 @bp.route("/")
 @admin_required
 def index():
-    return render_template("backups/index.html", backups=backup.list_backups(),
+    return render_template("backups/index.html", backups=backup.list_backups(), warning=backup.backup_warning(),
                            revision=backup.current_revision(), confirm_word=CONFIRM_WORD,
                            keep_days=current_app.config["BACKUP_KEEP_DAYS"])
 

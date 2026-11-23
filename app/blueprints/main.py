@@ -8,6 +8,7 @@ from flask_login import current_user
 
 from ..access import project_scope, visible_projects_condition
 from ..extensions import db
+from ..services import backup
 from ..models import (
     OPEN_STATUSES,
     Note,
@@ -79,4 +80,6 @@ def dashboard():
         open_orders=open_orders,
         recent_notes=recent_notes,
         stats=stats,
+        # Administrators are warned when the automatic back-ups stop.
+        backup_warning=backup.backup_warning() if current_user.is_admin else None,
     )

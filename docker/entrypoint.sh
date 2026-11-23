@@ -2,7 +2,9 @@
 # ---------------------------------------------------------------------------
 # Container start-up script.
 #   1. Wait until PostgreSQL accepts connections.
-#   2. Apply pending database migrations (safe to run on every start).
+#   2. Before an update of the database: make a back-up of all data first
+#      (if that fails, stop: never migrate without a back-up).
+#      Then apply pending database migrations (safe to run on every start).
 #   3. Create the first administrator if the database has no users yet.
 #   4. Start the command given as CMD (gunicorn by default).
 # ---------------------------------------------------------------------------
@@ -28,6 +30,8 @@ PY
 # the Outlook synchronisation) set RUN_MIGRATIONS=0 to avoid running the same
 # migration twice at the same time.
 if [ "${RUN_MIGRATIONS:-1}" != "0" ]; then
+    echo "Back-up before database migrations (only when an update is pending)..."
+    flask backup-before-upgrade
     echo "Applying database migrations..."
     flask db upgrade
     flask ensure-admin

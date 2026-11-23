@@ -194,3 +194,29 @@ def test_download_now_and_upload_with_immediate_restore(client, backup_dir):
     assert response.status_code == 302 and "/auth/login" in response.location
     db.session.expire_all()
     assert db.session.scalar(sa.select(Task).filter_by(title="Na download")) is None
+
+
+def test_backup_warning_when_backups_stop(app, client, backup_dir):
+    assert "nog geen enkele back-up" in backup.backup_warning()
+    assert "nog geen enkele back-up" in client.get("/").get_data(as_text=True)
+    info = backup.create_backup("auto")
+    assert backup.backup_warning() is None
+    assert "Back-ups:" not in client.get("/").get_data(as_text=True)
+    # Make the only back-up 30 hours old.
+    with zipfile.ZipFile(info.path) as zf:
+        manifest = json.loads(zf.read("manifest.json"))
+        members = {n: zf.read(n) for n in zf.namelist() if n != "manifest.json"}
+    manifest["created_at"] = (datetime.now(timezone.utc) - timedelta(hours=30)).isoformat()
+    with zipfile.ZipFile(info.path, "w") as zf:
+        zf.writestr("manifest.json", json.dumps(manifest))
+        for name, data in members.items():
+            zf.writestr(name, data)
+    assert "Controleer de container 'backup'" in backup.backup_warning()
+    jan = app.test_client()
+    jan.post("/auth/login", data={"username": "jan", "password": "demo1234"})
+    assert "Back-ups:" not in jan.get("/").get_data(as_text=True)          # only administrators
+
+
+def test_backup_before_upgrade_skips_when_nothing_to_migrate(app, backup_dir):
+    result = app.test_cli_runner().invoke(args=["backup-before-upgrade"])
+    assert "Geen database-update nodig" in result.output and result.exit_code == 0

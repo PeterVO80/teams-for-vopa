@@ -145,6 +145,22 @@ def register_cli(app: Flask) -> None:
             db.session.remove()
             time.sleep(interval)
 
+    @app.cli.command("backup-before-upgrade")
+    def backup_before_upgrade():
+        """Back up the data before the database is migrated (Docker entrypoint).
+
+        Runs only when migrations are pending, i.e. after an update of the
+        app. If the back-up fails, the command fails and the container does
+        not migrate the database - better not to start than to risk data.
+        """
+        from .services import backup
+
+        if not backup.migrations_pending():
+            click.echo("Geen database-update nodig: geen extra back-up.")
+            return
+        info = backup.create_backup("update", "update")
+        click.echo(f"Back-up voor de update: {info.name} ({info.rows} records)")
+
     @app.cli.command("backup-restore")
     @click.argument("name")
     @click.confirmation_option(prompt="Alle huidige gegevens worden vervangen. Doorgaan?")

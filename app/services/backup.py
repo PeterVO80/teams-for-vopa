@@ -250,6 +250,38 @@ def prune(kind: str, keep_days: int) -> int:
     return removed
 
 
+def latest_backup() -> BackupInfo | None:
+    """The newest readable back-up (any kind), or None."""
+    return next((b for b in list_backups() if not b.error and b.created_at), None)
+
+
+#: Older than this, the newest back-up counts as missing (daily job + margin).
+STALE_AFTER = timedelta(hours=26)
+
+
+def backup_warning() -> str | None:
+    """Text for administrators when the automatic back-ups seem not to run."""
+    try:
+        newest = latest_backup()
+    except OSError as exc:
+        return f"De back-upmap is niet leesbaar ({exc})."
+    if newest is None:
+        return "Er is nog geen enkele back-up. Maak er nu één via Back-ups."
+    age = datetime.now(timezone.utc) - newest.created_at
+    if age > STALE_AFTER:
+        return (f"De laatste back-up is van {newest.created_at.astimezone():%d/%m/%Y %H:%M} "
+                f"({age.days} dag(en) geleden). Controleer de container 'backup'.")
+    return None
+
+
+def migrations_pending() -> bool:
+    """Does the database still need migrations (an update of the app)?"""
+    current = current_revision()
+    if current is None:
+        return False
+    return current not in {s for s in _script_directory().get_heads()}
+
+
 # ------------------------------------------------------------------ restore
 def _check_revision(target: str | None, current: str | None) -> None:
     if target == current or current is None or target is None:

@@ -13,6 +13,7 @@
 </div>
 {% endblock %}
 {% block content %}
+{% if warning %}<div class="alert alert-warning"><i class="bi bi-exclamation-triangle-fill"></i> {{ warning }}</div>{% endif %}
 <p class="text-body-secondary small mb-3">
   Een back-up bevat <strong>alle gegevens</strong> van de app: projecten, taken, bestellingen, artikels, stock, notities,
   wiki, planning, relaties en gebruikers (met hun versleutelde wachtwoorden). Elke dag wordt er automatisch één gemaakt;
@@ -35,6 +36,7 @@
         {% if b.kind == 'auto' %}<span class="badge text-bg-light border">automatisch</span>
         {% elif b.kind == 'safety' %}<span class="badge text-bg-warning" title="Automatisch gemaakt vlak voor het terugzetten van een back-up">vóór terugzetten</span>
         {% elif b.kind == 'upload' %}<span class="badge text-bg-info">opgeladen</span>
+        {% elif b.kind == 'update' %}<span class="badge text-bg-light border" title="Automatisch gemaakt vlak voor een update van de app">vóór update</span>
         {% else %}<span class="badge text-bg-secondary">manueel</span>{% endif %}
       </td>
       <td class="text-end">{{ b.rows }}</td>
