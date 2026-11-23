@@ -79,7 +79,9 @@ def edit(task_id: int | None = None):
             form.assignee_id.data = task.assignee_id or 0
         else:  # pre-fill from the board filters / query string
             form.project_id.data = int_arg("project") or 0
-            form.assignee_id.data = int_arg("assignee") or 0
+            # By default the person creating the task gets it (can be changed in the form).
+            default_assignee = current_user.id if any(uid == current_user.id for uid, _ in form.assignee_id.choices) else 0
+            form.assignee_id.data = int_arg("assignee") or default_assignee
             if request.args.get("status") in TaskStatus._value2member_map_:
                 form.status.data = request.args["status"]
 

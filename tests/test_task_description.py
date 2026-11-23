@@ -36,3 +36,16 @@ def test_markdown_description_is_saved_as_is(client):
         "description": "Checklist\n\n* [ ] eerste\n* [x] tweede"})
     db.session.refresh(task)
     assert task.description == "Checklist\n\n* [ ] eerste\n* [x] tweede" and task.checklist == (1, 2)
+
+
+def test_new_task_is_assigned_to_the_creator_by_default(app, client):
+    admin_html = client.get("/tasks/new").get_data(as_text=True)
+    from app.models import User
+    admin = db.session.scalar(sa.select(User).filter_by(username="admin"))
+    assert f'<option selected value="{admin.id}">' in admin_html
+    jan = db.session.scalar(sa.select(User).filter_by(username="jan"))
+    other = app.test_client()
+    other.post("/auth/login", data={"username": "jan", "password": "demo1234"})
+    assert f'<option selected value="{jan.id}">' in other.get("/tasks/new").get_data(as_text=True)
+    # An explicit choice in the link still wins.
+    assert f'<option selected value="{jan.id}">' in client.get(f"/tasks/new?assignee={jan.id}").get_data(as_text=True)
