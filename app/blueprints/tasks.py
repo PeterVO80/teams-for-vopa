@@ -35,6 +35,13 @@ TABLE_SORTS = {
     "updated": lambda t: t.updated_at,
 }
 
+#: "Toon" filter: label per option (default "recent").
+SHOW_OPTIONS = {
+    "open": "Open taken",
+    "recent": "Open + recent afgewerkt (30 dagen)",
+    "all": "Alle taken (ook oud afgewerkt)",
+}
+
 #: Finished cards older than this are hidden from the board to keep it usable.
 DONE_VISIBLE_DAYS = 30
 
@@ -43,7 +50,8 @@ DONE_VISIBLE_DAYS = 30
 def board():
     project_id = int_arg("project")
     assignee = request.args.get("assignee", "")
-    show_all = bool(request.args.get("all"))
+    # Which tasks: open ones, open + recently finished (default), or all.
+    show = request.args.get("show") if request.args.get("show") in SHOW_OPTIONS else "recent"
 
     # Employees only see tasks without a project or of their own projects.
     query = sa.select(Task).where(project_scope(Task.project_id)).order_by(Task.position, Task.id)
@@ -55,14 +63,12 @@ def board():
         query = query.where(Task.assignee_id.is_(None))
     elif assignee.isdigit():
         query = query.where(Task.assignee_id == int(assignee))
-    if not show_all:
+    finished = [TaskStatus.DONE, TaskStatus.CANCELLED]
+    if show == "open":
+        query = query.where(Task.status.not_in(finished))
+    elif show == "recent":
         cutoff = date.today() - timedelta(days=DONE_VISIBLE_DAYS)
-        query = query.where(
-            sa.or_(
-                Task.status.not_in([TaskStatus.DONE, TaskStatus.CANCELLED]),
-                Task.updated_at >= cutoff,
-            )
-        )
+        query = query.where(sa.or_(Task.status.not_in(finished), Task.updated_at >= cutoff))
 
     columns: dict[TaskStatus, list[Task]] = {status: [] for status in TaskStatus}
     tasks = db.session.scalars(query).all()
@@ -87,7 +93,8 @@ def board():
         users=User.active_choices(),
         project_id=project_id,
         assignee=assignee,
-        show_all=show_all,
+        show=show,
+        show_options=SHOW_OPTIONS,
     )
 
 

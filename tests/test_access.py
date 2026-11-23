@@ -52,7 +52,7 @@ def test_project_manager_counts_as_linked(app):
 
 
 def test_kanban_notes_orders_and_dashboard(lies):
-    board = lies.get("/tasks/?all=1").get_data(as_text=True)
+    board = lies.get("/tasks/?show=all").get_data(as_text=True)
     assert "SCADA tags importeren" in board and "HMI schermen tekenen" not in board
     kroon_task = db.session.scalar(sa.select(Task).filter_by(title="HMI schermen tekenen"))
     assert lies.get(f"/tasks/{kroon_task.id}/edit").status_code == 404

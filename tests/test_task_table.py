@@ -48,3 +48,26 @@ def test_table_sorting(client):
     assert rows.index("ZZZ laatste") < rows.index("AAA eerste")
     html = client.get("/tasks/?view=table&sort=bogus&f=1").get_data(as_text=True)   # unknown: default order
     assert "task-table" in html
+
+
+
+def test_show_filter_open_recent_all(client):
+    from datetime import datetime, timedelta, timezone
+    from app.models import TaskStatus
+    old = Task(title="Oud afgewerkt", status=TaskStatus.DONE, created_by_id=1)
+    recent = Task(title="Net afgewerkt", status=TaskStatus.DONE, created_by_id=1)
+    open_task = Task(title="Nog te doen", created_by_id=1)
+    db.session.add_all([old, recent, open_task])
+    db.session.commit()
+    db.session.execute(sa.update(Task).where(Task.id == old.id).values(
+        updated_at=datetime.now(timezone.utc) - timedelta(days=60)))
+    db.session.commit()
+
+    def titles(show):
+        return _table(client.get(f"/tasks/?view=table&show={show}&f=1").get_data(as_text=True))
+    rows = titles("open")
+    assert "Nog te doen" in rows and "Net afgewerkt" not in rows and "Oud afgewerkt" not in rows
+    rows = titles("recent")
+    assert "Nog te doen" in rows and "Net afgewerkt" in rows and "Oud afgewerkt" not in rows
+    rows = titles("all")
+    assert "Nog te doen" in rows and "Net afgewerkt" in rows and "Oud afgewerkt" in rows

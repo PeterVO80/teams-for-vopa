@@ -35,7 +35,7 @@ def test_wrong_password_is_rejected(app):
         "/purchasing/deliveries",
         "/purchasing/new",
         "/tasks/",
-        "/tasks/?assignee=me&all=1",
+        "/tasks/?assignee=me&show=all",
         "/tasks/new",
         "/team/",
         "/team/?weeks=4&start=2026-01-05",

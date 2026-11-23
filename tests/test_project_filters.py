@@ -86,11 +86,17 @@ def test_filters_are_remembered_between_pages(client):
 
 def test_cleared_filters_and_unticked_checkboxes_are_remembered(client):
     project = db.session.scalar(sa.select(Project).filter_by(name="Verpakkingslijn L3"))
-    client.get(f"/tasks/?project={project.id}&assignee=&all=1&f=1")
+    client.get(f"/tasks/?project={project.id}&assignee=&show=all&f=1")
     location = client.get("/tasks/").location
-    assert f"project={project.id}" in location and "all=1" in location
-    client.get("/tasks/?project=&assignee=&f=1")                  # cleared project, unticked "all"
-    assert client.get("/tasks/").status_code == 200              # nothing left to restore
+    assert f"project={project.id}" in location and "show=all" in location
+    client.get("/tasks/?project=&assignee=&show=recent&f=1")      # cleared project
+    location = client.get("/tasks/").location
+    assert "project=" not in location and "show=recent" in location
+    # An unticked checkbox is remembered too.
+    client.get("/articles/?q=&category=&inactive=1&f=1")
+    assert "inactive=1" in client.get("/articles/").location
+    client.get("/articles/?q=&category=&f=1")
+    assert client.get("/articles/").status_code == 200            # nothing left to restore
 
 
 def test_links_keep_their_own_values_and_reset_forgets(client):

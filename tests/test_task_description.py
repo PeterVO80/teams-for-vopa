@@ -23,7 +23,7 @@ def test_board_shows_checklist_progress(client):
     task = db.session.scalar(sa.select(Task))
     task.description = "* [x] stap 1\n* [ ] stap 2\n* [ ] stap 3"
     db.session.commit()
-    html = client.get("/tasks/?all=1&f=1").get_data(as_text=True)
+    html = client.get("/tasks/?show=all&f=1").get_data(as_text=True)
     card = html.split(f'data-id="{task.id}"', 1)[1].split("</article>", 1)[0]
     assert "1/3" in card and "1 van 3 afgevinkt" in card
 

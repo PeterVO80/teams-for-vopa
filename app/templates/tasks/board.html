@@ -35,11 +35,10 @@
       {% for id, name in users %}<option value="{{ id }}" {{ 'selected' if assignee == id|string }}>{{ name }}</option>{% endfor %}
     </select>
   </div>
-  <div class="col-md-3 d-flex align-items-center">
-    <div class="form-check">
-      <input class="form-check-input" type="checkbox" name="all" value="1" id="show-all" {{ 'checked' if show_all }} data-autosubmit>
-      <label class="form-check-label" for="show-all">Ook oude voltooide taken</label>
-    </div>
+  <div class="col-md-3">
+    <select class="form-select" name="show" data-autosubmit title="Welke taken tonen">
+      {% for value, label in show_options.items() %}<option value="{{ value }}" {{ 'selected' if show == value }}>{{ label }}</option>{% endfor %}
+    </select>
   </div>
 </form>
 
