@@ -33,6 +33,10 @@ class Config:
 
     #: Public domain name (e.g. teams.vopa.be) when running on the internet.
     DOMAIN = os.environ.get("DOMAIN", "").strip()
+    #: Optional Google Maps key (Distance Matrix API) for distances to customers;
+    #: without it OpenStreetMap is used (services/distance.py).
+    GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+
     #: Production on the internet behind an HTTPS reverse proxy (see
     #: security.py). Defaults to on as soon as a DOMAIN is set.
     HTTPS = os.environ.get("HTTPS", "1" if DOMAIN else "0").lower() in ("1", "true", "yes")

@@ -8,6 +8,8 @@ and searches. One company can be both a customer and a supplier.
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,6 +34,12 @@ class Company(TimestampMixin, db.Model):
     email: Mapped[str | None] = mapped_column(sa.String(120))
     website: Mapped[str | None] = mapped_column(sa.String(200))
     notes: Mapped[str | None] = mapped_column(sa.Text)
+    #: Distance office -> this address by road, one way, in km (services/distance.py).
+    #: Used for the kilometres of field service in the time registration.
+    distance_km: Mapped[Decimal | None] = mapped_column(sa.Numeric(7, 1))
+    #: True when distance_km was calculated (and may be recalculated when the
+    #: address changes); False when someone typed it in.
+    distance_auto: Mapped[bool] = mapped_column(default=False, server_default=sa.false())
     #: Inactive relations are hidden from selection lists but keep their history.
     active: Mapped[bool] = mapped_column(default=True, server_default=sa.true())
 

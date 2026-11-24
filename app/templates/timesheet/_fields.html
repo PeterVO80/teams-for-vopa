@@ -1,0 +1,32 @@
+{# Fields of the time registration form (popup and page). Project options carry
+   the customer, customer options the distance: static/js/timesheet.js uses
+   them to fill the customer and the kilometres (there and back). #}
+{% from "_macros.html" import render_field %}
+{{ form.hidden_tag() }}
+<div class="row" data-time-form>
+  {{ render_field(form.work_date, class_="col-md-5") }}
+  {{ render_field(form.hours, class_="col-md-3") }}
+  <div class="col-12 mb-3">
+    <label class="form-label" for="project_id">{{ form.project_id.label.text }}</label>
+    <select class="form-select {{ 'is-invalid' if form.project_id.errors }}" id="project_id" name="project_id">
+      <option value="0">- kies een project -</option>
+      {% for p in projects %}
+      <option value="{{ p.id }}" data-customer="{{ p.customer_id or '' }}" {{ 'selected' if form.project_id.data == p.id }}>{{ p.display_name }}</option>
+      {% endfor %}
+    </select>
+    {% for error in form.project_id.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+  </div>
+  <div class="col-12">{{ render_field(form.description) }}</div>
+  <div class="col-12">{{ render_field(form.field_service) }}</div>
+  <div class="col-md-8 mb-3" data-field-service>
+    <label class="form-label" for="customer_id">{{ form.customer_id.label.text }}</label>
+    <select class="form-select" id="customer_id" name="customer_id">
+      <option value="0" data-distance="">- kies de klant -</option>
+      {% for c in customers %}
+      <option value="{{ c.id }}" data-distance="{{ c.distance_km if c.distance_km is not none else '' }}" {{ 'selected' if form.customer_id.data == c.id }}>{{ c.name }}{% if c.distance_km is not none %} ({{ c.distance_km|string|replace('.', ',') }} km){% endif %}</option>
+      {% endfor %}
+    </select>
+    <div class="form-text" data-distance-note></div>
+  </div>
+  <div class="col-md-4" data-field-service>{{ render_field(form.km) }}</div>
+</div>

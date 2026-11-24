@@ -127,6 +127,10 @@ class CompanyForm(FlaskForm):
     postal_code = StringField("Postcode", validators=[Optional(), Length(max=20)])
     city = StringField("Gemeente", validators=[Optional(), Length(max=120)])
     country = StringField("Land", default="België", validators=[Optional(), Length(max=80)])
+    distance_km = DecimalField(
+        "Afstand vanaf kantoor (km, enkel)", places=1, validators=[Optional(), NumberRange(min=0, max=5000)],
+        description="Wordt berekend uit het adres; je kan ze zelf aanpassen. Buitendienst = heen en terug.",
+    )
     notes = TextAreaField("Opmerkingen", validators=[Optional()])
     active = BooleanField("Actief", default=True)
 
@@ -289,6 +293,19 @@ class ReceiptForm(FlaskForm):
     quantity = DecimalField("Ontvangen aantal", places=2, validators=[DataRequired(), NumberRange(min=0.01)])
     received_on = DateField("Ontvangen op", validators=[DataRequired()])
     note = StringField("Opmerking / leveringsbon", validators=[Optional(), Length(max=300)])
+
+
+# ------------------------------------------------------------ time registration
+class TimeEntryForm(FlaskForm):
+    """Hours on a project (blueprints/timesheet.py)."""
+
+    work_date = DateField("Datum", validators=[DataRequired()])
+    project_id = SelectField("Project", coerce=int, validators=[DataRequired(message="Kies een project.")])
+    hours = DecimalField("Uren", places=2, validators=[DataRequired(), NumberRange(min=0.25, max=24)])
+    description = TextAreaField("Omschrijving / opmerking", validators=[Optional()], render_kw={"rows": 3})
+    field_service = BooleanField("Buitendienst (bij de klant)")
+    customer_id = SelectField("Klant", coerce=int)
+    km = DecimalField("Gereden km (heen en terug)", places=1, validators=[Optional(), NumberRange(min=0, max=5000)])
 
 
 # ------------------------------------------------------------------ tasks

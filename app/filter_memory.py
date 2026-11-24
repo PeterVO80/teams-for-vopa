@@ -40,6 +40,7 @@ REMEMBERED: dict[str, tuple[tuple[str, ...], bool]] = {
     "stock.movements": (("location", "project", "kind"), False),
     "team.overview": (("view", "weeks"), False),
     "team.assignments": (("user",), False),
+    "timesheet.index": (("user", "project"), False),
 }
 
 #: Query parameter that marks a submitted filter form (the complete filter state).

@@ -18,4 +18,12 @@
   {{ render_field(form.city, class_="col-md-5") }}
   {{ render_field(form.country, class_="col-md-4") }}
 </div>
+{# Distance to the office: calculated (static/js/distance.js / on saving) or typed. #}
+<div class="row align-items-end" data-distance-url="{{ url_for('relations.calc_distance') }}">
+  <div class="col-md-5">{{ render_field(form.distance_km) }}</div>
+  <div class="col-md-7 mb-3">
+    <button type="button" class="btn btn-outline-secondary" data-calc-distance><i class="bi bi-signpost-2"></i> Bereken afstand</button>
+    <span class="small ms-2" data-distance-status></span>
+  </div>
+</div>
 {{ render_field(form.notes) }}

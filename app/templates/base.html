@@ -24,6 +24,7 @@
   ('projects.index', 'kanban-fill', 'Projecten', 'projects'),
   ('tasks.board', 'list-check', 'Punchlijst', 'tasks'),
   ('team.overview', 'people-fill', 'Team', 'team'),
+  ('timesheet.index', 'clock-history', 'Uren', 'timesheet'),
   ('purchasing.index', 'cart3', 'Bestellingen', 'purchasing'),
   ('articles.index', 'box-seam', 'Artikelen', 'articles catalog'),
   ('stock.index', 'boxes', 'Stock', 'stock'),
@@ -51,6 +52,7 @@
       <li><a class="dropdown-item" href="{{ url_for('users.index') }}"><i class="bi bi-person-gear"></i> Gebruikersbeheer</a></li>
       <li><a class="dropdown-item" href="{{ url_for('users.outlook_status') }}"><i class="bi bi-microsoft"></i> Outlook-koppeling</a></li>
       <li><a class="dropdown-item" href="{{ url_for('backups.index') }}"><i class="bi bi-safe"></i> Back-ups</a></li>
+      <li><a class="dropdown-item" href="{{ url_for('users.settings') }}"><i class="bi bi-sliders"></i> Instellingen</a></li>
       {% endif %}
       <li><hr class="dropdown-divider"></li>
       <li>
@@ -113,6 +115,8 @@
 <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script src="{{ url_for('static', filename='js/modal_form.js') }}"></script>
+<script src="{{ url_for('static', filename='js/distance.js') }}"></script>
+<script src="{{ url_for('static', filename='js/timesheet.js') }}"></script>
 <script src="{{ url_for('static', filename='js/stock.js') }}"></script>
 {% block scripts %}{% endblock %}
 </body>

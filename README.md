@@ -189,6 +189,25 @@ Microsoft logins are not remembered beyond the browser session: after
 closing the browser the user clicks the button again (usually without typing
 anything, Microsoft still knows them).
 
+### Time registration and distances to customers
+
+Everybody registers hours under **Uren** (menu) or with *Uren registreren* on a
+project: date, project, hours, a description and - for work at the customer -
+*Buitendienst* with the kilometres driven. With field service ticked the
+customer of the project is filled in and the kilometres become twice the
+customer's distance from the office (there and back); both can be changed.
+
+* **Office address**: admin menu > *Instellingen* (company name and address,
+  also printed on the timesheet).
+* **Distance of a relation** (one way, field *Afstand vanaf kantoor*): calculated
+  when a relation with an address is saved, or with *Bereken afstand*. A value
+  typed by hand is kept. Without configuration OpenStreetMap is used (free,
+  Nominatim + OSRM). Set `GOOGLE_MAPS_API_KEY` (Distance Matrix API enabled) to
+  use Google Maps instead.
+* **Timesheet (urenstaat)**: *Uren > Urenstaat* or the button on a project. It
+  shows the hours per day per employee for a period - by default the previous
+  month - and downloads as PDF (ReportLab).
+
 ### Useful commands
 
 ```bash

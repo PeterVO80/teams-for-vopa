@@ -114,3 +114,25 @@ def outlook_status():
                            counts=counts, written=written, pending=pending,
                            palette=outlook.CATEGORY_PALETTE, color=outlook.category_color() or "",
                            category=outlook.CATEGORY)
+
+
+@bp.route("/settings", methods=["GET", "POST"])
+@admin_required
+def settings():
+    """Company settings: name and office address (used for distances and the timesheet PDF)."""
+    from ..models import AppSetting
+    from ..services import distance
+
+    fields = [("company.name", "Bedrijfsnaam (op de urenstaat)"), ("office.street", "Straat en nummer"),
+              ("office.postal_code", "Postcode"), ("office.city", "Gemeente"), ("office.country", "Land")]
+    if request.method == "POST":
+        for key, _ in fields:
+            AppSetting.put(key, (request.form.get(key) or "").strip()[:200])
+        db.session.commit()
+        flash("Instellingen opgeslagen.", "success")
+        return redirect(url_for("users.settings"))
+    values = {key: AppSetting.get(key) or "" for key, _ in fields}
+    if not values["office.country"]:
+        values["office.country"] = "België"
+    return render_template("users/settings.html", fields=fields, values=values,
+                           provider=distance.provider_name())

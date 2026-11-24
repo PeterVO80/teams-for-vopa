@@ -13,6 +13,7 @@ psycopg[binary]==3.2.3
 
 # --- Feature libraries ------------------------------------------------------
 xlrd==2.0.2            # old .xls files (Rexel order info)
+reportlab==5.1.0       # PDF timesheet (urenstaat)
 openpyxl==3.1.5        # Excel import / export
 dbfread==2.0.7         # supplier price lists in dBase format (Rexel)
 markdown-it-py==4.3.0  # Markdown -> HTML (notes & wiki), same dialect as the editor

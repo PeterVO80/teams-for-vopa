@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "_macros.html" import avatar, post_button %}
+{% block title %}Uren{% endblock %}
+{% block page_actions %}
+<div class="d-flex gap-2">
+  <a class="btn btn-outline-secondary" href="{{ url_for('timesheet.report', project=project_id) }}"><i class="bi bi-file-earmark-pdf"></i> Urenstaat</a>
+  <a class="btn btn-primary" href="{{ url_for('timesheet.edit', project=project_id, next=request.full_path) }}"
+     data-modal-url="{{ url_for('timesheet.edit', project=project_id) }}"><i class="bi bi-plus-lg"></i> Uren registreren</a>
+</div>
+{% endblock %}
+{% block content %}
+{% set day_names = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'] %}
+<form class="row g-2 align-items-center mb-3" method="get">
+  {{ filter_marker() }}
+  <input type="hidden" name="month" value="{{ month }}">
+  <div class="col-auto">
+    <div class="btn-group">
+      <a class="btn btn-outline-secondary" href="{{ url_for('timesheet.index', month=prev_month) }}" title="Vorige maand"><i class="bi bi-chevron-left"></i></a>
+      <span class="btn btn-outline-secondary disabled text-capitalize" style="min-width: 9rem">{{ ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'][first.month - 1] }} {{ first.year }}</span>
+      <a class="btn btn-outline-secondary" href="{{ url_for('timesheet.index', month=next_month) }}" title="Volgende maand"><i class="bi bi-chevron-right"></i></a>
+    </div>
+  </div>
+  {% if users %}
+  <div class="col-md-3">
+    <select class="form-select" name="user" data-autosubmit>
+      <option value="">Mijn uren</option>
+      <option value="all" {{ 'selected' if user_arg == 'all' }}>Iedereen</option>
+      {% for id, name in users %}<option value="{{ id }}" {{ 'selected' if user_arg == id|string }}>{{ name }}</option>{% endfor %}
+    </select>
+  </div>
+  {% endif %}
+  <div class="col-md-4">
+    <select class="form-select" name="project" data-autosubmit>
+      <option value="">Alle projecten</option>
+      {% for id, label in projects %}<option value="{{ id }}" {{ 'selected' if project_id == id }}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto ms-auto small text-body-secondary">
+    Totaal <strong>{{ total_hours|qty }}</strong> uur{% if total_km %} · <strong>{{ total_km|qty }}</strong> km{% endif %}
+  </div>
+</form>
+<div class="card"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+  <thead><tr><th>Datum</th>{% if user_id is none or users %}<th>Medewerker</th>{% endif %}<th>Project</th><th class="text-end">Uren</th><th>Omschrijving</th><th class="text-end">Km</th><th></th></tr></thead>
+  <tbody>
+  {% for e in entries %}
+    <tr>
+      <td class="text-nowrap">{{ day_names[e.work_date.weekday()] }} {{ e.work_date|date }}</td>
+      {% if user_id is none or users %}<td class="text-nowrap">{{ avatar(e.user) }} {{ e.user.full_name }}</td>{% endif %}
+      <td class="small"><span title="{{ e.project.code }}">{{ e.project.customer_label }}</span></td>
+      <td class="text-end fw-semibold">{{ e.hours|qty }}</td>
+      <td class="small" style="white-space: pre-line">{% if e.field_service %}<span class="badge text-bg-info me-1">buitendienst{% if e.customer %} · {{ e.customer.name }}{% endif %}</span>{% endif %}{{ e.description or '' }}</td>
+      <td class="text-end text-nowrap">{{ e.km|qty if e.km else '' }}</td>
+      <td class="text-end text-nowrap">
+        {% if current_user.is_admin or e.user_id == current_user.id %}
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('timesheet.edit', entry_id=e.id, next=request.full_path) }}"
+           data-modal-url="{{ url_for('timesheet.edit', entry_id=e.id) }}" title="Bewerken"><i class="bi bi-pencil"></i></a>
+        {{ post_button(url_for('timesheet.delete', entry_id=e.id), '', icon='trash', class_='btn btn-sm btn-outline-danger', confirm='Registratie verwijderen?', next=request.full_path) }}
+        {% endif %}
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="text-body-secondary">Geen uren geregistreerd in deze maand.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Instellingen{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 760px"><div class="card-body">
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h2 class="h6">Bedrijf en kantoor</h2>
+    <p class="small text-body-secondary">Het kantooradres is het vertrekpunt voor de afstand naar klanten
+      (kilometers bij buitendienst in de urenregistratie). Afstanden worden berekend met {{ provider }}.</p>
+    <div class="row">
+      {% for key, label in fields %}
+      <div class="mb-3 {{ 'col-md-12' if key in ('company.name', 'office.street') else ('col-md-3' if key == 'office.postal_code' else 'col-md-5' if key == 'office.city' else 'col-md-4') }}">
+        <label class="form-label" for="{{ key }}">{{ label }}</label>
+        <input class="form-control" id="{{ key }}" name="{{ key }}" value="{{ values[key] }}" maxlength="200">
+      </div>
+      {% endfor %}
+    </div>
+    <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Opslaan</button>
+  </form>
+</div></div>
+{% endblock %}

@@ -13,6 +13,7 @@ from ..access import project_scope, visible_projects_condition
 from ..extensions import db
 from ..forms import CompanyForm
 from ..models import Article, Company, Project, PurchaseOrder, SupplierCatalog
+from ..services import distance
 from ..utils import is_modal_request
 from . import protected_blueprint
 
@@ -97,8 +98,11 @@ def edit(company_id: int | None = None):
             if company is None:
                 company = Company()
                 db.session.add(company)
+            old_address = _address(company)
+            old_distance, was_auto = company.distance_km, company.distance_auto
             form.populate_obj(company)
             company.name = " ".join(form.name.data.split())  # no double / surrounding spaces
+            _update_distance(company, old_address, old_distance, was_auto)
             db.session.commit()
             if is_modal_request():
                 if select_field:
@@ -114,6 +118,45 @@ def edit(company_id: int | None = None):
         return render_template("relations/_form_modal.html", form=form, company=company,
                                action=request.full_path), status
     return render_template("relations/edit.html", form=form, company=company)
+
+
+def _address(company: Company) -> str:
+    return distance.address_text(company.street, company.postal_code, company.city, company.country)
+
+
+def _update_distance(company: Company, old_address: str, old_distance, was_auto: bool) -> None:
+    """Keep ``distance_km`` up to date (services/distance.py).
+
+    A value typed by the user is kept (``distance_auto`` False). The distance
+    is (re)calculated when it is empty, or when it was calculated and the
+    address changed. A failing calculation never blocks saving.
+    """
+    typed = company.distance_km is not None and company.distance_km != old_distance
+    if typed:
+        company.distance_auto = False
+        return
+    address = _address(company)
+    needed = company.distance_km is None or (was_auto and address != old_address)
+    if not needed or not (company.street or company.city) or not distance.office_text():
+        return                              # nothing to do, or no office address set yet
+    try:
+        company.distance_km = distance.road_distance_km(address)
+        company.distance_auto = True
+    except distance.DistanceError as exc:
+        if was_auto and address != old_address:
+            company.distance_km = None      # the old calculated value is no longer right
+        flash(f"Afstand niet berekend: {exc}", "warning")
+
+
+@bp.route("/distance")
+def calc_distance():
+    """JSON for the "Bereken afstand" button in the relation form."""
+    address = distance.address_text(*(request.args.get(f, "") for f in ("street", "postal_code", "city", "country")))
+    try:
+        km = distance.road_distance_km(address)
+    except distance.DistanceError as exc:
+        return jsonify(ok=False, error=str(exc))
+    return jsonify(ok=True, km=float(km), provider=distance.provider_name())
 
 
 @bp.route("/<int:company_id>/delete", methods=["POST"])
