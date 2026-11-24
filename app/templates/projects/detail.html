@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import project_status_badge, task_status_badge, priority_badge, order_status_badge, tag_badge, avatar %}
+{% from "_macros.html" import project_status_badge, task_status_badge, priority_badge, order_status_badge, tag_badge, avatar, post_button %}
 {% from "wiki/_tree.html" import wiki_tree %}
 {% block title %}{{ project.code }}{% endblock %}
 {% block heading %}{{ project.code }} <span class="text-body-secondary fw-normal">{{ project.name }}</span> {{ project_status_badge(project.status) }}{% endblock %}
@@ -72,6 +72,7 @@
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-material">Materiaal ({{ material.open_rows }} open)</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-notes">Notities ({{ notes|length }})</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-planning">Planning ({{ project_assignments|length }})</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-hours">Uren ({{ time_total_hours|qty }})</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-wiki">Wiki ({{ wiki_count }})</button></li>
 </ul>
 <div class="tab-content card border-top-0 rounded-top-0">
@@ -79,9 +80,6 @@
     <div class="p-2 d-flex gap-2">
       <a class="btn btn-sm btn-primary" href="{{ url_for('tasks.edit', project=project.id, next=request.path) }}"><i class="bi bi-plus-lg"></i> Taak</a>
       <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('tasks.board', project=project.id) }}"><i class="bi bi-kanban"></i> Kanbanbord</a>
-      <a class="btn btn-sm btn-outline-secondary ms-auto" href="{{ url_for('timesheet.edit', project=project.id, next=request.path) }}"
-         data-modal-url="{{ url_for('timesheet.edit', project=project.id) }}"><i class="bi bi-clock-history"></i> Uren registreren</a>
-      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('timesheet.report', project=project.id) }}"><i class="bi bi-file-earmark-pdf"></i> Urenstaat</a>
     </div>
     <table class="table table-sm table-hover align-middle mb-0">
       <tbody>
@@ -182,6 +180,42 @@
       {% endif %}
     </table>
     </div>
+  </div>
+  <div class="tab-pane fade" id="tab-hours">
+    <div class="p-2 d-flex gap-2 align-items-center">
+      <a class="btn btn-sm btn-primary" href="{{ url_for('timesheet.edit', project=project.id, next=request.path ~ '#hours') }}"
+         data-modal-url="{{ url_for('timesheet.edit', project=project.id) }}"><i class="bi bi-plus-lg"></i> Uren registreren</a>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('timesheet.report', project=project.id) }}"><i class="bi bi-file-earmark-pdf"></i> Urenstaat (PDF)</a>
+      <span class="ms-auto small text-body-secondary">Totaal <strong>{{ time_total_hours|qty }}</strong> uur{% if time_total_km %} · <strong>{{ time_total_km|qty }}</strong> km{% endif %}</span>
+    </div>
+    {% if time_entries %}
+    <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead><tr><th>Datum</th><th>Medewerker</th><th class="text-end">Uren</th><th>Omschrijving</th><th class="text-end">Km</th><th></th></tr></thead>
+      <tbody>
+      {% set day_names = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'] %}
+      {% for e in time_entries %}
+        <tr>
+          <td class="text-nowrap small">{{ day_names[e.work_date.weekday()] }} {{ e.work_date|date }}</td>
+          <td class="text-nowrap">{{ avatar(e.user) }} {{ e.user.full_name }}</td>
+          <td class="text-end fw-semibold">{{ e.hours|qty }}</td>
+          <td class="small" style="white-space: pre-line">{% if e.field_service %}<span class="badge text-bg-info me-1">buitendienst</span>{% endif %}{{ e.description or '' }}</td>
+          <td class="text-end text-nowrap">{{ e.km|qty if e.km else '' }}</td>
+          <td class="text-end text-nowrap">
+            {% if current_user.is_admin or e.user_id == current_user.id %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('timesheet.edit', entry_id=e.id, next=request.path ~ '#hours') }}"
+               data-modal-url="{{ url_for('timesheet.edit', entry_id=e.id) }}" title="Bewerken"><i class="bi bi-pencil"></i></a>
+            {{ post_button(url_for('timesheet.delete', entry_id=e.id), '', icon='trash', class_='btn btn-sm btn-outline-danger', confirm='Registratie verwijderen?', next=request.path ~ '#hours') }}
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="small text-body-secondary px-3 pb-3 mb-0">Nog geen uren geregistreerd op dit project.</p>
+    {% endif %}
   </div>
   <div class="tab-pane fade" id="tab-wiki">
     <div class="p-2 d-flex gap-2">

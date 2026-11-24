@@ -184,3 +184,14 @@ def test_project_page_links_to_timesheet(client):
     p = project()
     html = client.get(f"/projects/{p.id}").get_data(as_text=True)
     assert f"/time/report?project={p.id}" in html and f"/time/new?project={p.id}" in html
+
+
+def test_project_hours_tab_and_dashboard_button(client):
+    p = project()
+    db.session.add(TimeEntry(user=user("lies"), project=p, work_date=date(2026, 10, 6), hours=Decimal("7.5"),
+                             description="Bekabeling kast", field_service=True, km=Decimal("61")))
+    db.session.commit()
+    html = client.get(f"/projects/{p.id}").get_data(as_text=True)
+    assert 'data-bs-target="#tab-hours">Uren (7,5)' in html
+    assert "Bekabeling kast" in html and "Lies" in html
+    assert "/time/new" in client.get("/").get_data(as_text=True)

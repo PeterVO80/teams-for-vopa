@@ -1,5 +1,7 @@
 """Projects: list, create/edit and a detail page tying all modules together."""
 
+from decimal import Decimal
+
 import sqlalchemy as sa
 from flask import abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user
@@ -17,6 +19,7 @@ from ..models import (
     PurchaseOrder,
     Task,
     TaskStatus,
+    TimeEntry,
     User,
     OutlookLink,
     StockMovement,
@@ -121,6 +124,11 @@ def detail(project_id: int):
         sa.select(Assignment).filter_by(project_id=project.id).order_by(Assignment.start_date)
     ).all()
     stock_usage = stock_svc.project_usage(project.id)
+    # Hours tab: every registration on the project, newest first (models/timesheet.py).
+    time_entries = db.session.scalars(
+        sa.select(TimeEntry).filter_by(project_id=project.id)
+        .order_by(TimeEntry.work_date.desc(), TimeEntry.id.desc())
+    ).all()
 
     # Task count per status for the progress summary.
     status_counts = {s: 0 for s in TaskStatus}
@@ -149,6 +157,9 @@ def detail(project_id: int):
         stock_usage=stock_usage,
         wiki_count=wiki_count,
         status_counts=status_counts,
+        time_entries=time_entries,
+        time_total_hours=sum((e.hours for e in time_entries), Decimal("0")),
+        time_total_km=sum((e.km or Decimal("0") for e in time_entries), Decimal("0")),
     )
 
 

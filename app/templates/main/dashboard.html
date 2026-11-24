@@ -2,6 +2,10 @@
 {% from "_macros.html" import task_status_badge, priority_badge, order_status_badge, tag_badge %}
 {% block title %}Dashboard{% endblock %}
 {% block heading %}Goeiedag, {{ current_user.full_name.split()[0] }}{% endblock %}
+{% block page_actions %}
+<a class="btn btn-primary" href="{{ url_for('timesheet.edit', next=request.path) }}" data-modal-url="{{ url_for('timesheet.edit') }}">
+  <i class="bi bi-clock-history"></i> Uren registreren</a>
+{% endblock %}
 {% block content %}
 {% if backup_warning %}
 <div class="alert alert-warning d-flex align-items-center gap-2">
