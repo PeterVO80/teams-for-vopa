@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_field %}
+{% block title %}Bestelling importeren{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card"><div class="card-body">
+      <form method="post" enctype="multipart/form-data" novalidate>
+        {{ form.hidden_tag() }}
+        {{ render_field(form.file) }}
+        {{ render_field(form.supplier_id) }}
+        {{ render_field(form.project_id) }}
+        {{ render_field(form.stock_location_id) }}
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary"><i class="bi bi-upload"></i> Importeren</button>
+          <a class="btn btn-link" href="{{ url_for('purchasing.index') }}">Annuleren</a>
+        </div>
+      </form>
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card"><div class="card-body small">
+      <h2 class="h6">Hoe werkt het?</h2>
+      <ol class="mb-0 ps-3">
+        <li>Download in de Rexel-webshop de orderinfo als Excel (<em>Rexel_Order_Info.xls</em>).</li>
+        <li>Elk <strong>Rexel ordernummer</strong> in het bestand wordt één bestelling (status <em>Besteld</em>), met de besteldatum
+          en leveringsdatum uit het bestand. Het Rexel ordernummer komt in het veld <em>Leverancier ordernummer</em>.</li>
+        <li>Een artikel wordt gekoppeld aan de artikeldatabank als de <strong>Rexel productreferentie</strong>
+          gelijk is aan de leveranciersreferentie van een artikel. Anders komt het als vrije tekst in de bestelling.</li>
+        <li>Een Rexel-order die al geïmporteerd is, wordt <strong>niet opnieuw</strong> ingelezen.</li>
+        <li>Prijzen: de netto eenheidsprijs (zonder Ecotax).</li>
+      </ol>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

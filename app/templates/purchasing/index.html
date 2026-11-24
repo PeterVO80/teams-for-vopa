@@ -1,7 +1,12 @@
 {% extends "base.html" %}
 {% from "_macros.html" import order_status_badge %}
 {% block title %}Bestellingen{% endblock %}
-{% block page_actions %}<a class="btn btn-primary" href="{{ url_for('purchasing.edit', project=project_id) }}"><i class="bi bi-plus-lg"></i> Nieuwe bestelling</a>{% endblock %}
+{% block page_actions %}
+<div class="d-flex gap-2">
+  <a class="btn btn-outline-primary" href="{{ url_for('purchasing.import_supplier_order', project=project_id) }}"><i class="bi bi-file-earmark-arrow-up"></i> Rexel-bestelling importeren</a>
+  <a class="btn btn-primary" href="{{ url_for('purchasing.edit', project=project_id) }}"><i class="bi bi-plus-lg"></i> Nieuwe bestelling</a>
+</div>
+{% endblock %}
 {% block content %}
 {% include "purchasing/_tabs.html" %}
 <form class="row g-2 mb-3" method="get">
@@ -28,7 +33,7 @@
     <tr class="clickable-row" data-href="{{ url_for('purchasing.detail', order_id=o.id) }}">
       <td class="fw-semibold"><a href="{{ url_for('purchasing.detail', order_id=o.id) }}">{{ o.number }}</a></td>
       <td>{{ o.project.code if o.project else '' }}</td>
-      <td>{{ o.supplier }}</td>
+      <td>{{ o.supplier }}{% if o.supplier_order_number %}<div class="small text-body-secondary">order {{ o.supplier_order_number }}</div>{% endif %}</td>
       <td class="small">{{ o.order_date|date }}</td>
       <td class="small {{ 'text-danger fw-semibold' if o.is_overdue }}">{{ o.expected_date|date }}</td>
       <td style="width: 130px"><div class="progress" style="height: 6px" title="{{ o.delivery_progress }}%"><div class="progress-bar bg-success" style="width: {{ o.delivery_progress }}%"></div></div></td>

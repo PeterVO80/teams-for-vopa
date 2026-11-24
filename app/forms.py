@@ -213,6 +213,10 @@ class PurchaseOrderForm(FlaskForm):
     number = StringField("Bestelnummer", validators=[DataRequired(), Length(max=40)])
     project_id = SelectField("Project", coerce=int)
     supplier_id = SelectField("Leverancier", coerce=int, validators=[DataRequired(message="Kies een leverancier.")])
+    supplier_order_number = StringField(
+        "Leverancier ordernummer", validators=[Optional(), Length(max=60)],
+        description="Het ordernummer van de leverancier zelf (bv. het Rexel ordernummer).",
+    )
     status = SelectField("Status", choices=OrderStatus.choices(), default="draft")
     stock_location_id = SelectField(
         "Op stock leggen in", coerce=int,
@@ -221,6 +225,21 @@ class PurchaseOrderForm(FlaskForm):
     order_date = DateField("Besteldatum", validators=[Optional()])
     expected_date = DateField("Verwachte levering", validators=[Optional()])
     notes = TextAreaField("Opmerkingen", validators=[Optional()])
+
+
+class SupplierOrderImportForm(FlaskForm):
+    """Upload an order file of a supplier (Rexel "Order Info" Excel)."""
+
+    file = FileField(
+        "Orderbestand van Rexel (.xls of .xlsx)",
+        validators=[FileRequired(), FileAllowed(["xls", "xlsx", "XLS", "XLSX"], "Enkel .xls of .xlsx bestanden.")],
+    )
+    supplier_id = SelectField("Leverancier", coerce=int, validators=[DataRequired(message="Kies een leverancier.")])
+    project_id = SelectField("Project", coerce=int)
+    stock_location_id = SelectField(
+        "Op stock leggen in", coerce=int,
+        description="Enkel voor stockaanvullingen: leveringen van gekoppelde artikels gaan dan automatisch op stock.",
+    )
 
 
 class OrderLineForm(FlaskForm):

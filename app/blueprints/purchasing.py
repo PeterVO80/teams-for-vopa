@@ -7,11 +7,13 @@ from io import BytesIO
 import sqlalchemy as sa
 from flask import flash, jsonify, redirect, render_template, request, send_file, url_for
 from flask_login import current_user
+from markupsafe import Markup, escape
 from openpyxl import Workbook
 
 from ..access import project_scope, require_project
 from ..extensions import db
-from ..forms import AddArticleToOrderForm, OrderLineForm, PurchaseOrderForm, ReceiptForm, none_if_zero
+from ..forms import (AddArticleToOrderForm, OrderLineForm, PurchaseOrderForm, ReceiptForm,
+                     SupplierOrderImportForm, none_if_zero)
 from ..models import (
     Article,
     Company,
@@ -23,6 +25,7 @@ from ..models import (
     StockLocation,
 )
 from ..services.material import export_material, project_material
+from ..services import order_import
 from ..services.numbering import next_number
 from ..services.stock import receive_into_stock
 from ..utils import int_arg, is_modal_request, next_url
@@ -113,13 +116,25 @@ def edit(order_id: int | None = None):
                 PurchaseOrder.number == form.number.data, PurchaseOrder.id != (order_id or 0)
             )
         )
+        supplier_ref = (form.supplier_order_number.data or "").strip() or None
+        same_supplier_order = supplier_ref and db.session.scalar(
+            sa.select(PurchaseOrder).where(
+                PurchaseOrder.supplier_id == form.supplier_id.data,
+                PurchaseOrder.supplier_order_number == supplier_ref,
+                PurchaseOrder.id != (order_id or 0),
+            )
+        )
         if duplicate:
             form.number.errors.append("Dit bestelnummer bestaat al.")
+        elif same_supplier_order:
+            form.supplier_order_number.errors.append(
+                f"Dit ordernummer van de leverancier staat al op bestelling {same_supplier_order.number}.")
         else:
             if order is None:
                 order = PurchaseOrder(created_by_id=current_user.id)
                 db.session.add(order)
             form.populate_obj(order)
+            order.supplier_order_number = supplier_ref
             order.project_id = none_if_zero(form.project_id.data)
             order.stock_location_id = none_if_zero(form.stock_location_id.data)
             order.status = OrderStatus(form.status.data)
@@ -136,6 +151,55 @@ def edit(order_id: int | None = None):
         title="Bestelling bewerken" if order else "Nieuwe bestelling",
         cancel_url=url_for("purchasing.detail", order_id=order.id) if order else url_for("purchasing.index"),
     )
+
+
+@bp.route("/import", methods=["GET", "POST"])
+def import_supplier_order():
+    """Create purchase orders from a supplier's order file (services/order_import.py)."""
+    form = SupplierOrderImportForm()
+    form.supplier_id.choices = Company.choices("supplier", empty="- kies een leverancier -")
+    form.project_id.choices = Project.open_choices()
+    form.stock_location_id.choices = StockLocation.choices(include_empty="- niet op stock (projectmateriaal) -")
+    if not form.is_submitted():
+        rexel = db.session.scalar(sa.select(Company.id).where(
+            Company.is_supplier.is_(True), Company.name.ilike("%rexel%")).order_by(Company.name))
+        form.supplier_id.data = rexel or 0
+        form.project_id.data = int_arg("project") or 0
+
+    if form.validate_on_submit():
+        supplier = db.session.get(Company, form.supplier_id.data)
+        project_id = none_if_zero(form.project_id.data)
+        if project_id:
+            require_project(db.session.get(Project, project_id))
+        try:
+            orders = order_import.parse_rexel_order_file(form.file.data.read())
+            result = order_import.import_orders(
+                orders, supplier, number_for=_next_order_number, project_id=project_id,
+                stock_location_id=none_if_zero(form.stock_location_id.data), user_id=current_user.id)
+            db.session.commit()
+        except order_import.OrderImportError as exc:
+            db.session.rollback()
+            form.file.errors.append(str(exc))
+        except sa.exc.IntegrityError:
+            # Someone imported the same order at the very same moment.
+            db.session.rollback()
+            form.file.errors.append("Deze bestelling werd net al geïmporteerd. Vernieuw de lijst met bestellingen.")
+        else:
+            for number, existing in result.skipped:
+                flash(Markup(
+                    f"{escape(supplier.name)}-order {escape(number)} werd al eerder geïmporteerd als "
+                    f'<a href="{url_for("purchasing.detail", order_id=existing.id)}">{escape(existing.number)}</a>'
+                    " en is niet opnieuw ingelezen."), "warning")
+            if result.created:
+                lines = result.linked + result.free_text
+                flash(f"{len(result.created)} bestelling(en) geïmporteerd met {lines} lijn(en): "
+                      f"{result.linked} gekoppeld aan de artikeldatabank, {result.free_text} als vrije tekst.",
+                      "success")
+                if len(result.created) == 1:
+                    return redirect(url_for("purchasing.detail", order_id=result.created[0].id))
+            return redirect(url_for("purchasing.index"))
+
+    return render_template("purchasing/import.html", form=form)
 
 
 @bp.route("/<int:order_id>/status/<status>", methods=["POST"])

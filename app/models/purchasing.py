@@ -39,6 +39,9 @@ class PurchaseOrder(TimestampMixin, db.Model):
         sa.ForeignKey("projects.id"), index=True
     )
     supplier_id: Mapped[int] = mapped_column(sa.ForeignKey("companies.id"), index=True)
+    #: The supplier's own order number (e.g. Rexel ordernummer 7634972).
+    #: Unique per supplier, so an order file can't be imported twice.
+    supplier_order_number: Mapped[str | None] = mapped_column(sa.String(60), index=True)
     status: Mapped[OrderStatus] = mapped_column(
         enum_column(OrderStatus), default=OrderStatus.DRAFT
     )
@@ -53,6 +56,10 @@ class PurchaseOrder(TimestampMixin, db.Model):
     project = relationship("Project")
     supplier = relationship("Company")
     stock_location = relationship("StockLocation")
+
+    __table_args__ = (
+        sa.UniqueConstraint("supplier_id", "supplier_order_number", name="uq_purchase_orders_supplier_order_number"),
+    )
     created_by = relationship("User")
     lines: Mapped[list["PurchaseOrderLine"]] = relationship(
         back_populates="order",

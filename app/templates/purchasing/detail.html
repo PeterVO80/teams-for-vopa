@@ -35,7 +35,8 @@
 {% block content %}
 <div class="card mb-3"><div class="card-body">
   <div class="row small">
-    <div class="col-md-3"><div class="text-body-secondary">Leverancier</div>{{ order.supplier }}</div>
+    <div class="col-md-3"><div class="text-body-secondary">Leverancier</div>{{ order.supplier }}
+      {% if order.supplier_order_number %}<div class="text-body-secondary mt-1">Leverancier ordernummer</div>{{ order.supplier_order_number }}{% endif %}</div>
     <div class="col-md-3"><div class="text-body-secondary">Project</div>{% if order.project %}<a href="{{ url_for('projects.detail', project_id=order.project.id) }}">{{ order.project.display_name }}</a>{% else %}-{% endif %}</div>
     <div class="col-md-2"><div class="text-body-secondary">Besteld op</div>{{ order.order_date|date or '-' }}</div>
     <div class="col-md-2"><div class="text-body-secondary">Verwacht</div><span class="{{ 'text-danger fw-semibold' if order.is_overdue }}">{{ order.expected_date|date or '-' }}</span></div>
@@ -44,7 +45,7 @@
     </div>
   </div>
   {% if order.stock_location %}<div class="alert alert-info py-1 px-2 small mt-3 mb-0"><i class="bi bi-boxes"></i> Leveringen van gekoppelde artikels gaan automatisch op stock in <strong>{{ order.stock_location.name }}</strong>.</div>{% endif %}
-  {% if order.notes %}<hr><div class="small">{{ order.notes }}</div>{% endif %}
+  {% if order.notes %}<hr><div class="small" style="white-space: pre-line">{{ order.notes }}</div>{% endif %}
 </div></div>
 
 <div class="card mb-3"><div class="table-responsive">
