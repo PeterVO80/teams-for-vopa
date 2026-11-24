@@ -127,11 +127,11 @@ def edit(entry_id: int | None = None):
             form.populate_obj(entry)
             if entry.field_service:
                 customer = db.session.get(Company, none_if_zero(form.customer_id.data) or project.customer_id or 0)
-                entry.customer = customer
+                entry.customer_id = customer.id if customer else None   # never the "0 = none" choice
                 if entry.km is None and customer and customer.distance_km is not None:
                     entry.km = customer.distance_km * 2                # there and back
             else:
-                entry.customer, entry.km = None, None
+                entry.customer_id, entry.km = None, None
             db.session.commit()
             flash(f"{entry.hours.normalize():f}".replace(".", ",") + f" uur op {project.code} geregistreerd.", "success")
             if is_modal_request():

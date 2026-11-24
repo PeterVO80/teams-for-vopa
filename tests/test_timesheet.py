@@ -195,3 +195,18 @@ def test_project_hours_tab_and_dashboard_button(client):
     assert 'data-bs-target="#tab-hours">Uren (7,5)' in html
     assert "Bekabeling kast" in html and "Lies" in html
     assert "/time/new" in client.get("/").get_data(as_text=True)
+
+
+def test_edit_without_customer_stores_no_customer(client):
+    """The "no customer" choice (0) must never reach the database (foreign key on PostgreSQL)."""
+    p = project()
+    for field_service in ({}, {"field_service": "y"}):
+        response = client.post("/time/new", headers=MODAL, data={
+            "work_date": "2026-10-05", "project_id": p.id, "hours": "2", "customer_id": 0, **field_service})
+        assert response.status_code == 200
+        entry = db.session.scalars(sa.select(TimeEntry).order_by(TimeEntry.id.desc())).first()
+        response = client.post(f"/time/{entry.id}/edit", headers=MODAL, data={
+            "work_date": "2026-10-06", "project_id": p.id, "hours": "3", "customer_id": 0})
+        assert response.get_json() == {"ok": True}
+        db.session.refresh(entry)
+        assert entry.hours == Decimal("3") and entry.customer_id is None
