@@ -41,6 +41,8 @@ class MaterialRow:
     #: Quantity on placed orders (ordered, partially or fully delivered).
     qty_ordered: Decimal = ZERO
     qty_received: Decimal = ZERO
+    #: Not used on the project and put in stock afterwards (stock "Retour van project").
+    qty_returned: Decimal = ZERO
     #: Value of the ordered + draft quantity (unit price x quantity).
     amount: Decimal = ZERO
     #: Purchase orders containing this material, in order of appearance.
@@ -48,6 +50,11 @@ class MaterialRow:
     #: Earliest expected delivery date of the orders that are still open.
     expected_date: date | None = None
     is_overdue: bool = False
+
+    @property
+    def qty_returnable(self) -> Decimal:
+        """Delivered for the project and not yet returned to stock (articles only)."""
+        return max(self.qty_received - self.qty_returned, ZERO) if self.article else ZERO
 
     @property
     def qty_outstanding(self) -> Decimal:
@@ -141,6 +148,13 @@ def project_material(project_id: int, only_open: bool = False) -> MaterialOvervi
         if order not in row.orders:
             row.orders.append(order)
 
+    # Material returned to stock (only articles: stock is kept per article).
+    from .stock import returned_to_stock
+    returned = returned_to_stock(project_id)
+    for row in rows.values():
+        if row.article and row.article.id in returned:
+            row.qty_returned = returned.pop(row.article.id)
+
     result = sorted(
         rows.values(),
         key=lambda r: (
@@ -164,7 +178,7 @@ def export_material(project, overview: MaterialOverview) -> BytesIO:
     ws.append([f"Afgedrukt op {date.today():%d/%m/%Y}"])
     ws.append([])
     headers = ["Artikelnummer", "Bestelcode fabrikant", "Omschrijving", "Eenheid", "In concept",
-               "Besteld", "Geleverd", "Openstaand", "Status", "Verwacht", "Bestellingen", "Bedrag"]
+               "Besteld", "Geleverd", "Openstaand", "Naar stock", "Status", "Verwacht", "Bestellingen", "Bedrag"]
     ws.append(headers)
     for cell in ws[4]:
         cell.font = Font(bold=True, color="FFFFFF")
@@ -179,13 +193,14 @@ def export_material(project, overview: MaterialOverview) -> BytesIO:
             float(row.qty_ordered),
             float(row.qty_received),
             float(row.qty_outstanding),
+            float(row.qty_returned),
             row.status_label,
             row.expected_date,
             ", ".join(o.number for o in row.orders),
             float(row.amount),
         ])
-        ws.cell(row=ws.max_row, column=10).number_format = "DD/MM/YYYY"
-    for col, width in zip("ABCDEFGHIJKL", (16, 22, 45, 9, 11, 9, 10, 11, 16, 12, 28, 12)):
+        ws.cell(row=ws.max_row, column=11).number_format = "DD/MM/YYYY"
+    for col, width in zip("ABCDEFGHIJKLM", (16, 22, 45, 9, 11, 9, 10, 11, 11, 16, 12, 28, 12)):
         ws.column_dimensions[col].width = width
     ws.freeze_panes = "A5"
     buffer = BytesIO()

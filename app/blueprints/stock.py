@@ -5,6 +5,7 @@ The logic (stock levels, validation of movements) lives in
 """
 
 from datetime import date
+from decimal import Decimal
 
 import sqlalchemy as sa
 from flask import current_app, flash, jsonify, redirect, render_template, request, send_file, url_for
@@ -112,6 +113,7 @@ def move(article_id: int | None = None):
         form.article_id.data = article.id if article else 0
         form.kind.data = request.args.get("kind", "issue")
         form.project_id.data = int_arg("project") or 0
+        form.quantity.data = request.args.get("qty", type=Decimal)
         # Default location: the one asked for, else where this article has the
         # most stock, else the first location.
         active_ids = [loc_id for loc_id, _ in form.location_id.choices]
@@ -131,6 +133,11 @@ def move(article_id: int | None = None):
                 svc.register_receipt(chosen, form.location_id.data, form.quantity.data,
                                      project_id=none_if_zero(form.project_id.data), **args)
                 message = f"{form.quantity.data.normalize():f} {chosen.unit} {chosen.article_number} op stock gelegd."
+            elif form.kind.data == "return":
+                svc.register_return(chosen, form.location_id.data, form.quantity.data,
+                                    project_id=none_if_zero(form.project_id.data), **args)
+                message = (f"{form.quantity.data.normalize():f} {chosen.unit} {chosen.article_number} "
+                           "van het project terug op stock gelegd.")
             elif form.kind.data == "transfer":
                 if not form.to_location_id.data:
                     raise svc.StockError("Kies de locatie waar het materiaal naartoe gaat.")

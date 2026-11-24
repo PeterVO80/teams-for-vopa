@@ -168,6 +168,48 @@ def register_receipt(article, location_id, quantity, user_id, moved_on=None, pro
     return _movement(article, location_id, MovementKind.RECEIPT, quantity, user_id, moved_on, project_id, note)
 
 
+def returnable_to_stock(article: Article, project_id: int) -> Decimal:
+    """How much of ``article`` delivered for the project can still go to stock.
+
+    Delivered on the project's own purchase orders (not cancelled, not
+    already delivered into stock) minus what was already returned to stock.
+    """
+    from ..models import OrderStatus, PurchaseOrder, PurchaseOrderLine
+    delivered = db.session.scalar(
+        sa.select(sa.func.coalesce(sa.func.sum(GoodsReceipt.quantity), 0))
+        .join(PurchaseOrderLine, GoodsReceipt.line_id == PurchaseOrderLine.id)
+        .join(PurchaseOrder, PurchaseOrderLine.order_id == PurchaseOrder.id)
+        .where(PurchaseOrder.project_id == project_id, PurchaseOrder.status != OrderStatus.CANCELLED,
+               PurchaseOrderLine.article_id == article.id,
+               # Deliveries of orders with a stock location went into stock already.
+               PurchaseOrder.stock_location_id.is_(None))
+    ) or Decimal("0")
+    return Decimal(delivered) - returned_to_stock(project_id).get(article.id, Decimal("0"))
+
+
+def returned_to_stock(project_id: int) -> dict[int, Decimal]:
+    """Quantity per article returned from the project to stock."""
+    rows = db.session.execute(
+        sa.select(StockMovement.article_id, sa.func.sum(StockMovement.quantity))
+        .where(StockMovement.project_id == project_id, StockMovement.kind == MovementKind.RETURN)
+        .group_by(StockMovement.article_id)
+    ).all()
+    return {article_id: Decimal(qty) for article_id, qty in rows}
+
+
+def register_return(article, location_id, quantity, user_id, project_id, moved_on=None, note=None):
+    """Put material ordered for a project, but not used, in stock."""
+    _check_positive(quantity)
+    if not project_id:
+        raise StockError("Kies het project waarvan het materiaal terugkomt.")
+    available = returnable_to_stock(article, project_id)
+    if quantity > available:
+        raise StockError(
+            f"Er is maar {max(available, Decimal('0')).normalize():f} {article.unit} van {article.article_number} "
+            "geleverd voor dit project dat nog niet naar stock teruggezet is.")
+    return _movement(article, location_id, MovementKind.RETURN, quantity, user_id, moved_on, project_id, note)
+
+
 def register_issue(article, location_id, quantity, user_id, moved_on=None, project_id=None, note=None):
     """Take material out of stock, usually for a project."""
     _check_positive(quantity)

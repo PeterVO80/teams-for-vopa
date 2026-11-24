@@ -49,6 +49,8 @@ class MovementKind(LabeledEnum):
     TRANSFER = ("transfer", "Verplaatsing")
     COUNT = ("count", "Inventaris")
     CORRECTION = ("correction", "Correctie")
+    #: Material ordered for a project but not used, put in stock afterwards.
+    RETURN = ("return", "Retour van project")
 
     @property
     def css_class(self) -> str:
@@ -58,6 +60,7 @@ class MovementKind(LabeledEnum):
             "transfer": "info",
             "count": "secondary",
             "correction": "warning",
+            "return": "success",
         }[self.value]
 
 

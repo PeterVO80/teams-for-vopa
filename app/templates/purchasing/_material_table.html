@@ -20,6 +20,7 @@
       <th>Artikel</th><th>Omschrijving</th>
       <th class="text-end" title="Op conceptbestellingen, nog niet besteld">Concept</th>
       <th class="text-end">Besteld</th><th class="text-end">Geleverd</th><th class="text-end">Open</th>
+      <th class="text-end" title="Niet gebruikt en terug op stock gelegd">Naar stock</th>
       <th>Status</th><th>Verwacht</th><th>Bestellingen</th>
     </tr>
   </thead>
@@ -34,12 +35,21 @@
       <td class="text-end text-nowrap">{{ row.qty_ordered|qty }} {{ row.unit }}</td>
       <td class="text-end text-nowrap">{{ row.qty_received|qty }}</td>
       <td class="text-end text-nowrap fw-semibold">{{ row.qty_outstanding|qty if row.qty_outstanding else '' }}</td>
+      <td class="text-end text-nowrap">
+        {% if row.qty_returned %}<span class="text-success" title="Terug op stock gelegd">{{ row.qty_returned|qty }}</span>{% endif %}
+        {% if row.qty_returnable %}
+        <button type="button" class="btn btn-sm btn-link p-0 ms-1" title="Niet gebruikt materiaal op stock leggen"
+                data-modal-url="{{ url_for('stock.move', article_id=row.article.id, kind='return', project=project.id, qty=row.qty_returnable|string) }}"><i class="bi bi-box-arrow-in-down"></i></button>
+        {% elif not row.article and row.qty_received %}
+        <i class="bi bi-info-circle text-body-tertiary" title="Vrije lijn: koppel de bestellijn eerst aan een artikel om het op stock te kunnen leggen"></i>
+        {% endif %}
+      </td>
       <td><span class="badge text-bg-{{ colors[row.status] }}">{{ row.status_label }}</span></td>
       <td class="small text-nowrap {{ 'text-danger fw-semibold' if row.is_overdue }}">{{ row.expected_date|date }}</td>
       <td class="small">{% for o in row.orders %}<a href="{{ url_for('purchasing.detail', order_id=o.id) }}">{{ o.number }}</a>{{ ', ' if not loop.last }}{% endfor %}</td>
     </tr>
   {% else %}
-    <tr><td colspan="9" class="text-body-secondary">Nog geen materiaal besteld voor dit project.</td></tr>
+    <tr><td colspan="10" class="text-body-secondary">Nog geen materiaal besteld voor dit project.</td></tr>
   {% endfor %}
   </tbody>
 </table>

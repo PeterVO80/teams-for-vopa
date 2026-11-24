@@ -269,6 +269,7 @@ class StockMovementForm(FlaskForm):
         ("receipt", "Ontvangst (op stock leggen)"),
         ("transfer", "Verplaatsen naar andere locatie"),
         ("count", "Inventaris (geteld aantal invoeren)"),
+        ("return", "Retour van project (overschot op stock leggen)"),
     ])
     location_id = SelectField("Locatie", coerce=int, validators=[DataRequired(message="Kies een locatie.")])
     to_location_id = SelectField("Naar locatie", coerce=int)

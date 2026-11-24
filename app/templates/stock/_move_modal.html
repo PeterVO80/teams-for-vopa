@@ -33,7 +33,8 @@
       </div>
       <div class="col-md-6">{{ render_field(form.moved_on) }}</div>
     </div>
-    <div data-show-for="issue receipt">{{ render_field(form.project_id) }}</div>
+    <div data-show-for="issue receipt return">{{ render_field(form.project_id) }}</div>
+    <div class="form-text mt-n2 mb-3" data-show-for="return">Materiaal dat voor het project besteld en geleverd werd, maar niet gebruikt: het gaat op stock en wordt in het materiaaloverzicht van het project als "naar stock" getoond.</div>
     {{ render_field(form.note) }}
   </div>
   <div class="modal-footer">
