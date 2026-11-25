@@ -162,7 +162,7 @@ def test_quote_pdf_has_no_internal_prices(client):
     assert f"Offerte {quote.number} Aquafin.pdf" in response.headers["Content-Disposition"]
     content = "".join(page.extract_text() for page in PdfReader(io.BytesIO(response.data)).pages)
     for expected in ("Offerte", quote.number, "Retrofit pompstation", "Vervangen van de PLC", "Schakelkast",
-                     "Volgens schema", "Draadgoot", "Inclusief deksels", "Bekabeling", "Subtotaal Schakelkast",
+                     "Volgens schema", "Draadgoot", "Inclusief deksels", "Bekabeling",
                      "€ 65,00", "€ 585,00", "€ 707,85", "Voor akkoord", "BE0999.888.777"):
         assert expected in content, expected
     for internal in ("12,5", "Inkoop", "30%", "korting", "Marge"):

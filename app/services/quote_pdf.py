@@ -2,7 +2,7 @@
 
 Layout (A4 portrait): the letter header (pdf_layout.py), title "Offerte" with
 number, date, validity and subject, the introduction, the lines (section
-titles, material and labour with their notes, a subtotal per section), the
+titles with their subtotal on the right, material and labour with their notes), the
 totals (material, labour, excl. VAT, VAT, incl. VAT) and a "voor akkoord"
 block for the customer's signature.
 
@@ -81,8 +81,10 @@ def build_quote_pdf(quote: Quote, company: str, office: str, logo: str | None = 
             content = [Paragraph(f"<b>{escape(section.title.description)}</b>", st["normal"])]
             if section.title.note:
                 content.append(Paragraph(text(section.title.note), note))
-            data.append([content, "", "", "", ""])
-            commands += [("SPAN", (0, row), (-1, row)), ("BACKGROUND", (0, row), (-1, row), LIGHT),
+            # The section's subtotal on the right of its title.
+            subtotal = Paragraph(f"<b>{money(section.total)}</b>", right) if section.lines else ""
+            data.append([content, "", "", "", subtotal])
+            commands += [("SPAN", (0, row), (3, row)), ("BACKGROUND", (0, row), (-1, row), LIGHT),
                          ("TOPPADDING", (0, row), (-1, row), 5)]
         for line in section.lines:
             content = [Paragraph(escape(line.description), cell)]
@@ -96,11 +98,6 @@ def build_quote_pdf(quote: Quote, company: str, office: str, logo: str | None = 
                 Paragraph(money(line.total), right),
             ])
             commands.append(("LINEBELOW", (0, len(data) - 1), (-1, len(data) - 1), 0.25, colors.HexColor("#DDDDDD")))
-        if section.title is not None and section.lines:
-            row = len(data)
-            data.append([Paragraph(f"Subtotaal {escape(section.title.description)}", right), "", "", "",
-                         Paragraph(f"<b>{money(section.total)}</b>", right)])
-            commands += [("SPAN", (0, row), (3, row)), ("LINEABOVE", (4, row), (4, row), 0.6, colors.black)]
     if len(data) == 1:
         data.append([Paragraph("<i>Deze offerte bevat nog geen lijnen.</i>", cell), "", "", "", ""])
     widths = [None, 18 * mm, 13 * mm, 26 * mm, 26 * mm]

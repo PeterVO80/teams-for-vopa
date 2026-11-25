@@ -105,7 +105,7 @@
       {% set s = section.title %}
       <tr class="table-light quote-section-title" id="line-{{ s.id }}">
         {% if write %}{{ move_buttons(s) }}{% endif %}
-        <td colspan="5">
+        <td colspan="4">
           <div class="d-flex flex-wrap align-items-center gap-2">
             <span class="fw-bold fs-6">{{ s.description }}</span>
             {% if write %}
@@ -119,6 +119,7 @@
           </div>
           {% if s.note %}<div class="small text-body-secondary" style="white-space: pre-line">{{ s.note }}</div>{% endif %}
         </td>
+        <td class="text-end text-nowrap fw-bold align-top" title="Subtotaal {{ s.description }}">{{ section.total|money if section.lines else '' }}</td>
         {% if write %}{{ line_actions(s) }}{% endif %}
       </tr>
       {% endif %}
@@ -139,14 +140,6 @@
         {% if write %}{{ line_actions(line) }}{% endif %}
       </tr>
       {% endfor %}
-      {% if section.title and section.lines %}
-      <tr class="quote-subtotal">
-        {% if write %}<td></td>{% endif %}
-        <td colspan="4" class="text-end small text-body-secondary">Subtotaal {{ section.title.description }}</td>
-        <td class="text-end text-nowrap fw-semibold border-top border-dark-subtle">{{ section.total|money }}</td>
-        {% if write %}<td></td>{% endif %}
-      </tr>
-      {% endif %}
     </tbody>
     {% else %}
     <tbody><tr><td colspan="7" class="text-body-secondary">Nog geen lijnen. Begin met een sectie (bv. "Schakelkast"), en voeg er materiaal en werkuren aan toe.</td></tr></tbody>
