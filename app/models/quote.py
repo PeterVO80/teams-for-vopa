@@ -43,6 +43,27 @@ class QuoteLineKind(LabeledEnum):
     LABOUR = ("labour", "Werkuren")
 
 
+#: Statuses in which a quote is locked: only the status can still change.
+LOCKED_STATUSES = (QuoteStatus.SENT, QuoteStatus.ACCEPTED)
+
+
+class ServiceType(db.Model):
+    """A kind of service with its hourly rate (Instellingen), chosen on labour lines."""
+
+    __tablename__ = "service_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(120), unique=True)
+    #: Hourly rate excluding VAT (empty: typed on the quote line).
+    hourly_rate: Mapped[Decimal | None] = mapped_column(sa.Numeric(10, 2))
+    position: Mapped[int] = mapped_column(default=0)
+    active: Mapped[bool] = mapped_column(default=True, server_default=sa.true())
+
+    @classmethod
+    def choices(cls) -> list["ServiceType"]:
+        return list(db.session.scalars(sa.select(cls).where(cls.active.is_(True)).order_by(cls.position, cls.name)))
+
+
 class Quote(TimestampMixin, db.Model):
     __tablename__ = "quotes"
 
@@ -67,6 +88,11 @@ class Quote(TimestampMixin, db.Model):
     created_by = relationship("User")
     lines: Mapped[list["QuoteLine"]] = relationship(
         back_populates="quote", cascade="all, delete-orphan", order_by="(QuoteLine.position, QuoteLine.id)")
+
+    @property
+    def locked(self) -> bool:
+        """Sent or accepted: lines and details can't be changed any more (only the status)."""
+        return self.status in LOCKED_STATUSES
 
     @property
     def priced_lines(self) -> list["QuoteLine"]:
@@ -155,6 +181,8 @@ class QuoteLine(db.Model):
     position: Mapped[int] = mapped_column(default=0)
     kind: Mapped[QuoteLineKind] = mapped_column(enum_column(QuoteLineKind), default=QuoteLineKind.MATERIAL)
     article_id: Mapped[int | None] = mapped_column(sa.ForeignKey("articles.id"))
+    #: Labour: the kind of service (its name and hourly rate are suggested).
+    service_type_id: Mapped[int | None] = mapped_column(sa.ForeignKey("service_types.id"))
     #: The text of the line; for a section: its title.
     description: Mapped[str] = mapped_column(sa.String(300))
     quantity: Mapped[Decimal | None] = mapped_column(sa.Numeric(12, 2))
@@ -168,6 +196,7 @@ class QuoteLine(db.Model):
 
     quote: Mapped[Quote] = relationship(back_populates="lines")
     article = relationship("Article")
+    service_type = relationship("ServiceType")
 
     @property
     def total(self) -> Decimal:

@@ -145,15 +145,79 @@ def settings():
     fields = [("company.name", "Bedrijfsnaam (op urenstaat en offerte)"),
               ("company.vat", "Btw-nummer"), ("company.phone", "Telefoon"), ("company.email", "E-mail"), ("office.street", "Straat en nummer"),
               ("office.box", "Bus"), ("office.postal_code", "Postcode"), ("office.city", "Gemeente"), ("office.country", "Land"),
-              ("quote.hourly_rate", "Standaard uurprijs (€, excl. btw)"), ("quote.markup", "Standaard marge op materiaal (%)")]
+              ("quote.hourly_rate", "Uurtarief zonder soort dienst (€, excl. btw)"), ("quote.markup", "Standaard marge op materiaal (%)")]
     if request.method == "POST":
         for key, _ in fields:
             AppSetting.put(key, (request.form.get(key) or "").strip()[:200])
-        db.session.commit()
-        flash("Instellingen opgeslagen.", "success")
+        errors = _save_service_types()
+        if errors:
+            db.session.rollback()
+            for error in errors:
+                flash(error, "danger")
+        else:
+            db.session.commit()
+            flash("Instellingen opgeslagen.", "success")
         return redirect(url_for("users.settings"))
     values = {key: AppSetting.get(key) or "" for key, _ in fields}
     if not values["office.country"]:
         values["office.country"] = "België"
-    return render_template("users/settings.html", fields=fields, values=values,
+    from ..models import ServiceType
+
+    service_types = db.session.scalars(sa.select(ServiceType).order_by(ServiceType.position, ServiceType.name)).all()
+    return render_template("users/settings.html", fields=fields, values=values, service_types=service_types,
                            provider=distance.provider_name())
+
+
+def _rate(value: str | None, name: str, errors: list[str]):
+    """Hourly rate typed on the settings page ("65" / "72,50"); None when empty."""
+    from decimal import Decimal, InvalidOperation
+
+    text = (value or "").strip().replace("€", "").replace(" ", "").replace(",", ".")
+    if not text:
+        return None
+    try:
+        rate = Decimal(text)
+    except InvalidOperation:
+        errors.append(f"Uurtarief van \"{name}\" is geen geldig bedrag: {value}")
+        return None
+    if rate < 0 or rate > 100000:
+        errors.append(f"Uurtarief van \"{name}\" is ongeldig: {value}")
+        return None
+    return rate.quantize(Decimal("0.01"))
+
+
+def _save_service_types() -> list[str]:
+    """Kinds of service and their hourly rates (quotes): edit, add, remove."""
+    from ..models import QuoteLine, ServiceType
+
+    errors: list[str] = []
+    services = db.session.scalars(sa.select(ServiceType)).all()
+    for service in services:
+        prefix = f"service-{service.id}-"
+        if f"{prefix}name" not in request.form:
+            continue
+        if request.form.get(f"{prefix}delete"):
+            used = db.session.scalar(sa.select(sa.func.count(QuoteLine.id)).where(QuoteLine.service_type_id == service.id))
+            if used:
+                service.active = False          # keep it for the quote lines that use it
+            else:
+                db.session.delete(service)
+            continue
+        name = " ".join((request.form.get(f"{prefix}name") or "").split())[:120]
+        if not name:
+            errors.append("Een dienst heeft een naam nodig.")
+            continue
+        service.name = name
+        service.hourly_rate = _rate(request.form.get(f"{prefix}rate"), name, errors)
+        service.active = bool(request.form.get(f"{prefix}active"))
+    name = " ".join((request.form.get("service-new-name") or "").split())[:120]
+    if name:
+        position = max((s.position for s in services), default=0) + 10
+        db.session.add(ServiceType(name=name, hourly_rate=_rate(request.form.get("service-new-rate"), name, errors),
+                                   position=position))
+    names = [s.name.lower() for s in services if s not in db.session.deleted]   # unique, also inactive ones
+    if name:
+        names.append(name.lower())
+    if len(names) != len(set(names)):
+        errors.append("Elke dienst moet een andere naam hebben.")
+    return errors

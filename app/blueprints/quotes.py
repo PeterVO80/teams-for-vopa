@@ -7,6 +7,10 @@
                                       (``&section=<id>``: at the end of that section)
 * ``/quotes/<id>/create-project``   - make a project from the quote and link it
 
+A sent or accepted quote is locked: its details and lines can't change any
+more, only its status (back to "Concept" unlocks it) - or make a copy.
+Labour lines pick a kind of service; its hourly rate (Instellingen) is suggested.
+
 Prices: the purchase price of an article is suggested as ``cost_price``; the
 sales price is purchase price + markup (default markup and hourly rate on the
 *Instellingen* page). Quotes on a project follow the project's visibility.
@@ -35,6 +39,7 @@ from ..models import (
     QuoteLine,
     QuoteLineKind,
     QuoteStatus,
+    ServiceType,
 )
 from ..services import distance
 from ..services.numbering import insert_with_unique_number, next_number
@@ -69,6 +74,18 @@ def _get_quote(quote_id: int) -> Quote:
     quote = db.get_or_404(Quote, quote_id)
     require_project(quote.project)
     return quote
+
+
+def _locked(quote: Quote):
+    """Response when ``quote`` is sent / accepted and may no longer change, else None."""
+    if not quote.locked:
+        return None
+    message = (f"Offerte {quote.number} is {quote.status.label.lower()} en kan niet meer gewijzigd worden. "
+               "Maak een kopie voor een nieuwe versie, of zet de status terug op Concept.")
+    if is_modal_request():
+        return render_template("quotes/_locked_modal.html", message=message), 409 if request.method == "POST" else 200
+    flash(message, "warning")
+    return redirect(url_for("quotes.detail", quote_id=quote.id))
 
 
 def _assign_number(quote: Quote) -> None:
@@ -115,6 +132,8 @@ def _project_choices(current: Project | None) -> list[tuple[int, str]]:
 @bp.route("/<int:quote_id>/edit", methods=["GET", "POST"])
 def edit(quote_id: int | None = None):
     quote = _get_quote(quote_id) if quote_id else None
+    if quote is not None and (blocked := _locked(quote)):
+        return blocked
     form = QuoteForm(obj=quote)
     form.customer_id.choices = [(0, "- kies een klant -")] + [
         (c.id, c.name) for c in db.session.scalars(
@@ -188,6 +207,8 @@ def set_status(quote_id: int):
 @bp.route("/<int:quote_id>/delete", methods=["POST"])
 def delete(quote_id: int):
     quote = _get_quote(quote_id)
+    if blocked := _locked(quote):
+        return blocked
     number = quote.number
     db.session.delete(quote)
     db.session.commit()
@@ -205,6 +226,7 @@ def copy(quote_id: int):
                   created_by_id=current_user.id)
     for line in source.lines:
         quote.lines.append(QuoteLine(position=line.position, kind=line.kind, article_id=line.article_id,
+                                     service_type_id=line.service_type_id,
                                      description=line.description, quantity=line.quantity, unit=line.unit,
                                      unit_price=line.unit_price, cost_price=line.cost_price, note=line.note))
     insert_with_unique_number(quote, lambda: _assign_number(quote))
@@ -238,9 +260,20 @@ def create_project(quote_id: int):
 # ------------------------------------------------------------------ lines
 def _line_form(line: QuoteLine | None, kind: QuoteLineKind) -> QuoteLineForm:
     form = QuoteLineForm(obj=line)
+    services = ServiceType.choices()
+    if line is not None and line.service_type is not None and line.service_type not in services:
+        services.append(line.service_type)                 # deactivated since
+    form.service_types = services
+    form.service_type_id.choices = [(0, "- kies de soort dienst -")] + [(s.id, s.name) for s in services]
+    if kind == QuoteLineKind.SECTION:
+        form.description.label.text = "Titel van de sectie"
+    elif kind == QuoteLineKind.LABOUR:
+        form.quantity.label.text = "Aantal uren"
+        form.unit_price.label.text = "Uurtarief (€, excl. btw)"
     if not form.is_submitted():
         form.kind.data = kind.value
         if line is not None:
+            form.service_type_id.data = line.service_type_id or 0
             form.markup.data = line.markup
         elif kind == QuoteLineKind.LABOUR:
             form.unit.data = "u"
@@ -252,12 +285,21 @@ def _line_form(line: QuoteLine | None, kind: QuoteLineKind) -> QuoteLineForm:
 
 
 def _validate_amounts(form: QuoteLineForm, kind: QuoteLineKind) -> bool:
+    service = db.session.get(ServiceType, form.service_type_id.data or 0)
+    if not (form.description.data or "").strip():
+        if kind == QuoteLineKind.LABOUR and service:
+            form.description.data = service.name
+        else:
+            form.description.errors.append("Vul " + ("de titel" if kind == QuoteLineKind.SECTION else "de omschrijving") + " in.")
+            return False
     if kind == QuoteLineKind.SECTION:
         return True
     ok = True
     if not form.quantity.data:
         form.quantity.errors.append("Vul " + ("het aantal uren" if kind == QuoteLineKind.LABOUR else "het aantal") + " in.")
         ok = False
+    if kind == QuoteLineKind.LABOUR and form.unit_price.data is None and service and service.hourly_rate is not None:
+        form.unit_price.data = service.hourly_rate
     if form.unit_price.data is None:
         if kind == QuoteLineKind.MATERIAL and form.cost_price.data is not None and form.markup.data is not None:
             form.unit_price.data = (form.cost_price.data * (1 + form.markup.data / 100)).quantize(Decimal("0.0001"))
@@ -272,7 +314,7 @@ def _fill_line(line: QuoteLine, form: QuoteLineForm, kind: QuoteLineKind) -> Non
     line.description = form.description.data.strip()
     line.note = (form.note.data or "").strip() or None
     if kind == QuoteLineKind.SECTION:
-        line.article_id = line.quantity = line.unit = line.unit_price = line.cost_price = None
+        line.article_id = line.quantity = line.unit = line.unit_price = line.cost_price = line.service_type_id = None
         return
     line.quantity = form.quantity.data
     line.unit = (form.unit.data or "").strip() or None
@@ -281,8 +323,11 @@ def _fill_line(line: QuoteLine, form: QuoteLineForm, kind: QuoteLineKind) -> Non
         article = db.session.get(Article, int(form.article_id.data)) if (form.article_id.data or "").isdigit() else None
         line.article_id = article.id if article else None
         line.cost_price = form.cost_price.data
+        line.service_type_id = None
     else:
         line.article_id = line.cost_price = None
+        service = db.session.get(ServiceType, form.service_type_id.data or 0)
+        line.service_type_id = service.id if service else None
 
 
 def _line_response(form, quote, line, kind, action):
@@ -305,6 +350,8 @@ def _done(quote: Quote, message: str):
 @bp.route("/<int:quote_id>/lines/new", methods=["GET", "POST"])
 def add_line(quote_id: int):
     quote = _get_quote(quote_id)
+    if blocked := _locked(quote):
+        return blocked
     try:
         kind = QuoteLineKind(request.values.get("kind", "material"))
     except ValueError:
@@ -335,6 +382,8 @@ def add_line(quote_id: int):
 def edit_line(line_id: int):
     line = db.get_or_404(QuoteLine, line_id)
     quote = _get_quote(line.quote_id)
+    if blocked := _locked(quote):
+        return blocked
     kind = line.kind
     form = _line_form(line, kind)
     if form.validate_on_submit() and _validate_amounts(form, kind):
@@ -348,6 +397,8 @@ def edit_line(line_id: int):
 def delete_line(line_id: int):
     line = db.get_or_404(QuoteLine, line_id)
     quote = _get_quote(line.quote_id)
+    if blocked := _locked(quote):
+        return blocked
     quote.lines.remove(line)
     db.session.flush()
     quote.renumber()
@@ -360,6 +411,8 @@ def move_line(line_id: int):
     """Move a line one place up or down (``direction`` = up / down)."""
     line = db.get_or_404(QuoteLine, line_id)
     quote = _get_quote(line.quote_id)
+    if blocked := _locked(quote):
+        return blocked
     quote.renumber()
     lines = sorted(quote.lines, key=lambda l: l.position)
     index = lines.index(line)

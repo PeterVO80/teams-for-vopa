@@ -12,15 +12,26 @@
   {% endif %}
   <a class="btn btn-primary" href="{{ url_for('quotes.pdf', quote_id=quote.id) }}"><i class="bi bi-file-earmark-pdf"></i> PDF</a>
   {% if can_write('quotes') %}
+  {% if not quote.locked %}
   <a class="btn btn-outline-secondary" href="{{ url_for('quotes.edit', quote_id=quote.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>
+  {% endif %}
   {{ post_button(url_for('quotes.copy', quote_id=quote.id), 'Kopiëren', icon='copy', class_='btn btn-outline-secondary',
                  confirm='Een nieuwe offerte (concept) maken met dezelfde gegevens en lijnen?') }}
+  {% if not quote.locked %}
   {{ post_button(url_for('quotes.delete', quote_id=quote.id), '', icon='trash', class_='btn btn-outline-danger',
                  confirm='Offerte ' ~ quote.number ~ ' en al haar lijnen definitief verwijderen?') }}
+  {% endif %}
   {% endif %}
 </div>
 {% endblock %}
 {% block content %}
+{% if quote.locked %}
+<div class="alert alert-info d-flex align-items-center gap-2">
+  <i class="bi bi-lock-fill"></i>
+  <div>Deze offerte is <strong>{{ quote.status.label|lower }}</strong> en kan niet meer gewijzigd worden; enkel de status kan nog veranderen.
+    Maak een kopie voor een nieuwe versie, of zet de status terug op <em>Concept</em> om ze aan te passen.</div>
+</div>
+{% endif %}
 <div class="row g-3 mb-3">
   <div class="col-lg-7">
     <div class="card h-100"><div class="card-body">
@@ -64,7 +75,7 @@
   </div>
 </div>
 
-{% set write = can_write('quotes') %}
+{% set write = can_write('quotes') and not quote.locked %}
 <div class="card">
   {% if write %}
   <div class="card-header d-flex flex-wrap gap-2">

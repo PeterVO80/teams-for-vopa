@@ -21,4 +21,27 @@
       if (p !== null) markup.value = show((p / c - 1) * 100, 1);
     }
   });
+
+  // Labour: choosing a kind of service fills the description and the hourly
+  // rate - unless the user typed something else than the previous service's.
+  document.addEventListener("change", (event) => {
+    const select = event.target.closest("[data-service-select]");
+    if (!select) return;
+    const form = select.form;
+    const option = select.options[select.selectedIndex];
+    const previous = select.dataset.previous ? JSON.parse(select.dataset.previous) : { name: "", rate: "" };
+    const description = form.elements.description, price = form.elements.unit_price;
+    if (!description.value.trim() || description.value === previous.name) description.value = option.dataset.name;
+    const rate = option.dataset.rate ? show(parseFloat(option.dataset.rate), 2) : "";
+    const previousRate = previous.rate ? parseFloat(previous.rate.replace(",", ".")) : null;
+    if (rate && (!price.value.trim() || num(price) === previousRate)) price.value = rate;
+    select.dataset.previous = JSON.stringify({ name: option.dataset.name, rate });
+  });
+  // Remember what the current service filled in (edit popup).
+  const remember = (root) => root.querySelectorAll("[data-service-select]").forEach((select) => {
+    const option = select.options[select.selectedIndex];
+    select.dataset.previous = JSON.stringify({ name: option.dataset.name || "", rate: option.dataset.rate ? show(parseFloat(option.dataset.rate), 2) : "" });
+  });
+  remember(document);
+  document.addEventListener("modal:loaded", (event) => remember(event.target));
 })();

@@ -3,9 +3,23 @@
 {{ form.hidden_tag() }}
 <div class="row" data-quote-line>
   {% if kind == kinds.SECTION %}
-    <div class="col-12">{{ render_field(form.description) | replace('>Omschrijving<', '>Titel van de sectie<') }}</div>
+    <div class="col-12">{{ render_field(form.description) }}</div>
   {% else %}
     {% if kind == kinds.MATERIAL %}<div class="col-12">{% include "purchasing/_article_picker.html" %}</div>{% endif %}
+    {% if kind == kinds.LABOUR %}
+    <div class="col-12 mb-3">
+      <label class="form-label" for="service_type_id">{{ form.service_type_id.label.text }}</label>
+      <select class="form-select" id="service_type_id" name="service_type_id" data-service-select>
+        <option value="0" data-rate="" data-name="">- kies de soort dienst -</option>
+        {% for s in form.service_types %}
+        <option value="{{ s.id }}" data-rate="{{ s.hourly_rate if s.hourly_rate is not none else '' }}" data-name="{{ s.name }}"
+                {{ 'selected' if form.service_type_id.data == s.id }}>{{ s.name }}{% if s.hourly_rate is not none %} ({{ s.hourly_rate|money }}/u){% endif %}</option>
+        {% endfor %}
+      </select>
+      {% if not form.service_types %}<div class="form-text">Nog geen diensten: een beheerder stelt ze in bij Instellingen.</div>
+      {% else %}<div class="form-text">Vult de omschrijving en het uurtarief in; beide kan je nog aanpassen.</div>{% endif %}
+    </div>
+    {% endif %}
     <div class="col-12">{{ render_field(form.description) }}</div>
     {% if kind == kinds.MATERIAL %}
       {{ render_field(form.quantity, class_="col-6 col-md-3") }}
@@ -16,9 +30,9 @@
       {{ render_field(form.unit_price, class_="col-md-5") }}
       <div class="col-12 small text-body-secondary mt-n2 mb-3"><i class="bi bi-lock"></i> Inkoopprijs en marge zijn intern. De verkoopprijs = inkoopprijs + marge; je kan hem ook zelf invullen.</div>
     {% else %}
-      {{ render_field(form.quantity, class_="col-md-4") | replace('>Aantal<', '>Aantal uren<') }}
+      {{ render_field(form.quantity, class_="col-md-4") }}
       {{ render_field(form.unit, class_="col-md-3") }}
-      {{ render_field(form.unit_price, class_="col-md-5") | replace('>Verkoopprijs (€)<', '>Uurprijs (€)<') }}
+      {{ render_field(form.unit_price, class_="col-md-5") }}
     {% endif %}
   {% endif %}
   <div class="col-12">{{ render_field(form.note) }}</div>

@@ -73,7 +73,12 @@ class PriceField(DecimalField):
 
 
 class HoursField(DecimalField):
-    """Hours (or km) that also accept a decimal comma: "7,5" = 7.5."""
+    """Hours (or km) that also accept a decimal comma: "7,5" = 7.5.
+
+    A text input: type=number refuses a comma in many browsers.
+    """
+
+    widget = TextInput()
 
     def process_formdata(self, valuelist):
         if valuelist:
@@ -471,7 +476,10 @@ class QuoteLineForm(FlaskForm):
 
     kind = HiddenField()
     article_id = HiddenField()
-    description = StringField("Omschrijving", validators=[DataRequired(), Length(max=300)])
+    #: Checked in blueprints/quotes.py (only on labour lines; may be absent).
+    service_type_id = SelectField("Soort dienst", coerce=int, default=0, validate_choice=False)
+    #: Required, checked in blueprints/quotes.py (labour: the service's name when empty).
+    description = StringField("Omschrijving", validators=[Optional(), Length(max=300)])
     quantity = HoursField("Aantal", places=2, validators=[Optional(), NumberRange(min=0)],
                           render_kw={"inputmode": "decimal"})
     unit = StringField("Eenheid", validators=[Optional(), Length(max=20)])

@@ -218,7 +218,12 @@ optionally linked to a project, with lines in a fixed order:
   text: quantity x sales price. The article's price is the purchase price; the
   sales price = purchase price + markup (or typed by hand). Purchase price and
   margin are internal;
-* **Werkuren** - hours x hourly rate.
+* **Werkuren** - a kind of service (Bespreking met klant / functionele
+  beschrijving, PLC & HMI engineer, Technieker bordenbouw, ...) x hours; the
+  service's hourly rate is suggested. Services and rates: *Instellingen*.
+
+A **sent or accepted** quote is locked: only its status can change (back to
+*Concept* unlocks it), or make a copy for a new version.
 
 Every line can have a note. Lines move up/down; "+ materiaal / + werkuren" on
 a section title adds a line at the end of that section. Totals: material,

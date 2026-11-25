@@ -25,6 +25,28 @@
       </div>
       {% endfor %}
     </div>
+    <h2 class="h6 mt-2">Diensten en uurtarieven</h2>
+    <p class="small text-body-secondary">Bij werkuren op een offerte kies je de soort dienst; het uurtarief wordt dan voorgesteld.
+      Een dienst die al op offertes staat, wordt bij "verwijderen" enkel verborgen.</p>
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Dienst</th><th style="width: 9rem">Uurtarief (€)</th><th class="text-center" style="width: 5rem">Actief</th><th class="text-center" style="width: 6rem">Verwijderen</th></tr></thead>
+      <tbody>
+      {% for s in service_types %}
+        <tr class="{{ 'text-body-tertiary' if not s.active }}">
+          <td><input class="form-control form-control-sm" name="service-{{ s.id }}-name" value="{{ s.name }}" maxlength="120" aria-label="Naam"></td>
+          <td><input class="form-control form-control-sm text-end" name="service-{{ s.id }}-rate" inputmode="decimal" aria-label="Uurtarief"
+                     value="{{ s.hourly_rate|string|replace('.', ',') if s.hourly_rate is not none else '' }}" placeholder="0,00"></td>
+          <td class="text-center"><input class="form-check-input" type="checkbox" name="service-{{ s.id }}-active" {{ 'checked' if s.active }} aria-label="Actief"></td>
+          <td class="text-center"><input class="form-check-input" type="checkbox" name="service-{{ s.id }}-delete" aria-label="Verwijderen"></td>
+        </tr>
+      {% endfor %}
+        <tr>
+          <td><input class="form-control form-control-sm" name="service-new-name" maxlength="120" placeholder="Nieuwe dienst..." aria-label="Nieuwe dienst"></td>
+          <td><input class="form-control form-control-sm text-end" name="service-new-rate" inputmode="decimal" placeholder="0,00" aria-label="Uurtarief nieuwe dienst"></td>
+          <td colspan="2"></td>
+        </tr>
+      </tbody>
+    </table>
     <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Opslaan</button>
   </form>
 </div></div>

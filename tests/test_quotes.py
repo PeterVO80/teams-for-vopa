@@ -43,7 +43,7 @@ def test_quote_with_sections_material_labour_and_notes(client):
     programming = add(client, quote, "section", description="Programmatie")
     # The forms suggest the hourly rate and the markup from the settings.
     html = client.get(f"/quotes/{quote.id}/lines/new?kind=labour", headers=MODAL).get_data(as_text=True)
-    assert 'value="65.00"' in html and "Uurprijs" in html
+    assert 'value="65.00"' in html and "Uurtarief" in html
     html = client.get(f"/quotes/{quote.id}/lines/new?kind=material", headers=MODAL).get_data(as_text=True)
     assert 'name="markup"' in html and 'value="25"' in html and "data-article-picker" in html
 
@@ -122,6 +122,7 @@ def test_copy_status_and_delete(client):
     copy = db.session.scalars(sa.select(Quote).order_by(Quote.id.desc())).first()
     assert copy.id != quote.id and copy.status == QuoteStatus.DRAFT and copy.number != quote.number
     assert [(l.kind, l.description) for l in copy.lines] == [(QuoteLineKind.SECTION, "Titel"), (QuoteLineKind.LABOUR, "Uren")]
+    client.post(f"/quotes/{quote.id}/status", data={"status": "draft"})          # sent quotes can't be deleted
     client.post(f"/quotes/{quote.id}/delete")
     assert db.session.get(Quote, quote.id) is None
     assert db.session.scalar(sa.select(sa.func.count(QuoteLine.id)).where(QuoteLine.quote_id == quote.id)) == 0
@@ -167,3 +168,100 @@ def test_quote_pdf_has_no_internal_prices(client):
         assert expected in content, expected
     for internal in ("12,5", "Inkoop", "30%", "korting", "Marge"):
         assert internal not in content, internal
+
+
+def test_sent_or_accepted_quote_is_locked_except_status(client):
+    quote = new_quote(client)
+    line = add(client, quote, "labour", description="Uren", quantity="2", unit_price="60")
+    client.post(f"/quotes/{quote.id}/status", data={"status": "sent"})
+    db.session.refresh(quote)
+    assert quote.locked
+
+    html = client.get(f"/quotes/{quote.id}").get_data(as_text=True)
+    assert "kan niet meer gewijzigd worden" in html
+    assert f"/quotes/{quote.id}/edit" not in html and f"/quotes/lines/{line.id}/edit" not in html
+    assert f"/quotes/{quote.id}/lines/new" not in html and f"/quotes/{quote.id}/delete" not in html
+
+    # The server refuses every change ...
+    assert client.post(f"/quotes/{quote.id}/edit", data={"title": "Gewijzigd", "customer_id": 0, "project_id": 0,
+                                                         "status": "draft", "vat_rate": "21"}).status_code == 302
+    assert client.post(f"/quotes/{quote.id}/lines/new?kind=labour", headers=MODAL,
+                       data={"description": "x", "quantity": "1", "unit_price": "1"}).status_code == 409
+    assert client.post(f"/quotes/lines/{line.id}/edit", headers=MODAL,
+                       data={"description": "y", "quantity": "9", "unit_price": "1"}).status_code == 409
+    assert client.post(f"/quotes/lines/{line.id}/delete", headers=MODAL).status_code == 409
+    client.post(f"/quotes/lines/{line.id}/move", data={"direction": "up"})
+    client.post(f"/quotes/{quote.id}/delete")
+    db.session.refresh(quote)
+    db.session.refresh(line)
+    assert quote.title == "Retrofit pompstation" and line.description == "Uren" and len(quote.lines) == 1
+    assert "kan niet meer gewijzigd worden" in client.get(f"/quotes/lines/{line.id}/edit", headers=MODAL).get_data(as_text=True)
+
+    # ... except the status (and copying, and making a project).
+    client.post(f"/quotes/{quote.id}/status", data={"status": "accepted"})
+    db.session.refresh(quote)
+    assert quote.status == QuoteStatus.ACCEPTED and quote.locked
+    client.post(f"/quotes/{quote.id}/copy")
+    copy = db.session.scalars(sa.select(Quote).order_by(Quote.id.desc())).first()
+    assert copy.id != quote.id and not copy.locked
+    client.post(f"/quotes/{quote.id}/status", data={"status": "draft"})
+    db.session.refresh(quote)
+    assert not quote.locked
+    add(client, quote, "labour", description="Extra", quantity="1", unit_price="60")
+
+
+def test_labour_with_kind_of_service(client):
+    from app.models import ServiceType
+
+    engineer = ServiceType(name="PLC & HMI engineer", hourly_rate=Decimal("75"), position=20)
+    bordenbouw = ServiceType(name="Technieker bordenbouw", hourly_rate=None, position=30)
+    db.session.add_all([engineer, bordenbouw])
+    db.session.commit()
+    quote = new_quote(client)
+    html = client.get(f"/quotes/{quote.id}/lines/new?kind=labour", headers=MODAL).get_data(as_text=True)
+    assert "Soort dienst" in html and 'data-rate="75.00"' in html and "PLC &amp; HMI engineer" in html
+    assert '<label class="form-label" for="quantity">Aantal uren</label>' in html
+    assert '<label class="form-label" for="unit_price">Uurtarief (€, excl. btw)</label>' in html
+
+    # Description and rate empty: taken from the service.
+    line = add(client, quote, "labour", service_type_id=str(engineer.id), description="", quantity="10", unit_price="")
+    assert line.service_type == engineer and line.description == "PLC & HMI engineer" and line.unit_price == Decimal("75")
+    # Own description and rate are kept.
+    line = add(client, quote, "labour", service_type_id=str(engineer.id), description="Programmatie lijn 3",
+               quantity="5", unit_price="80")
+    assert line.description == "Programmatie lijn 3" and line.unit_price == Decimal("80")
+    # A service without a rate needs a rate on the line.
+    response = client.post(f"/quotes/{quote.id}/lines/new?kind=labour", headers=MODAL,
+                           data={"service_type_id": str(bordenbouw.id), "quantity": "8"})
+    assert response.status_code == 422 and "Vul de uurprijs in" in response.get_data(as_text=True)
+
+
+def test_settings_manage_service_types(client):
+    from app.models import ServiceType
+
+    used = ServiceType(name="E&I engineer", hourly_rate=Decimal("70"), position=10)
+    unused = ServiceType(name="Oud", position=20)
+    db.session.add_all([used, unused])
+    db.session.commit()
+    quote = new_quote(client)
+    add(client, quote, "labour", service_type_id=str(used.id), quantity="1", unit_price="")
+    html = client.get("/users/settings").get_data(as_text=True)
+    assert "Diensten en uurtarieven" in html and 'value="70,00"' in html
+    base = {"company.name": "VOPA"}
+    client.post("/users/settings", data={**base,
+        f"service-{used.id}-name": "E&I engineer", f"service-{used.id}-rate": "72,50", f"service-{used.id}-active": "y",
+        f"service-{unused.id}-name": "Oud", f"service-{unused.id}-rate": "", f"service-{unused.id}-delete": "y",
+        "service-new-name": "On site inbedrijfname", "service-new-rate": "85"})
+    db.session.expire_all()
+    assert db.session.get(ServiceType, used.id).hourly_rate == Decimal("72.50")
+    assert db.session.get(ServiceType, unused.id) is None
+    assert db.session.scalar(sa.select(ServiceType).filter_by(name="On site inbedrijfname")).hourly_rate == Decimal("85")
+    # A service that is used on quotes is hidden instead of deleted.
+    client.post("/users/settings", data={**base, f"service-{used.id}-name": "E&I engineer", f"service-{used.id}-delete": "y"})
+    db.session.expire_all()
+    assert db.session.get(ServiceType, used.id).active is False
+    # Bad rate: nothing saved.
+    response = client.post("/users/settings", follow_redirects=True,
+                           data={**base, "service-new-name": "Test", "service-new-rate": "veel"})
+    assert "geen geldig bedrag" in response.get_data(as_text=True)
+    assert db.session.scalar(sa.select(ServiceType).filter_by(name="Test")) is None
