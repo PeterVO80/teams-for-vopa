@@ -259,7 +259,7 @@ def report_pdf():
     if project is None:
         abort(404)
     sheet = svc.build(project.id, start, end)
-    pdf = build_pdf(project, start, end, sheet, distance.company_name(), distance.office_text())
+    pdf = build_pdf(project, start, end, sheet, distance.company_name(), distance.office_display_text())
     current_app.logger.info("Urenstaat %s %s-%s gedownload door %s", project.code, start, end, current_user.username)
     name = f"Urenstaat {project.code.replace('/', '-')} {start:%Y-%m-%d} tot {end:%Y-%m-%d}.pdf"
     from io import BytesIO

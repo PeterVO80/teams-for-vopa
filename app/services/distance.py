@@ -51,7 +51,17 @@ def address_text(street: str | None, postal_code: str | None, city: str | None, 
 
 
 def office_text() -> str:
+    """Office address for the route services (without box number: same building)."""
     return address_text(**office_address())
+
+
+def office_display_text() -> str:
+    """Office address as printed (timesheet header), with the box number: "Kerkstraat 1 bus 3, ..."."""
+    address = office_address()
+    box = (AppSetting.get("office.box") or "").strip()
+    if box and address["street"]:
+        address["street"] = f"{address['street'].strip()} bus {box}"
+    return address_text(**address)
 
 
 def _get_json(url: str) -> dict | list:

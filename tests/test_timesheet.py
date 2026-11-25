@@ -266,3 +266,11 @@ def test_hours_accept_decimal_comma(client):
                                                               "hours": "2,25"})
     assert response.get_json() == {"ok": True}
     assert db.session.scalar(sa.select(TimeEntry)).hours == Decimal("2.25")
+
+
+def test_office_box_number(client, routes):
+    client.post("/users/settings", data={"company.name": "VOPA", "office.street": "Industrieweg 1", "office.box": "3",
+                                         "office.postal_code": "9000", "office.city": "Gent", "office.country": "België"})
+    assert 'name="office.box" value="3"' in client.get("/users/settings").get_data(as_text=True).replace('id="office.box" ', "")
+    assert distance.office_display_text() == "Industrieweg 1 bus 3, 9000 Gent, België"     # printed on the timesheet
+    assert distance.office_text() == "Industrieweg 1, 9000 Gent, België"                   # used for the route
