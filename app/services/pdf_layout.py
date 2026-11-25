@@ -73,8 +73,9 @@ def text(value: str | None) -> str:
 
 
 def letter_header(company: str, office: str, customer=None, logo_path: str | None = None,
-                  company_lines: list[str] | None = None) -> Table:
-    """Logo + our name and address (left), the customer's full address (right)."""
+                  company_lines: list[str] | None = None, contact=None) -> Table:
+    """Logo + our name and address (left), the customer's full address (right),
+    with "t.a.v. <contact person>" when one is given."""
     st = styles()
     ours = []
     image = logo(logo_path)
@@ -88,6 +89,8 @@ def letter_header(company: str, office: str, customer=None, logo_path: str | Non
     theirs = []
     if customer is not None:
         theirs.append(Paragraph(f"<b>{escape(customer.name)}</b>", st["normal"]))
+        if contact is not None:
+            theirs.append(Paragraph(f"t.a.v. {escape(contact.full_name)}", st["normal"]))
         theirs += [Paragraph(escape(line), st["normal"]) for line in customer.address_lines]
         if customer.vat_number:
             theirs.append(Paragraph(f"Btw {escape(customer.vat_number)}", st["small"]))

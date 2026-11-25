@@ -39,6 +39,11 @@
         <dt class="col-sm-3">Klant</dt>
         <dd class="col-sm-9">{% if quote.customer %}<a href="{{ url_for('relations.detail', company_id=quote.customer_id) }}">{{ quote.customer }}</a>
           {% if quote.customer.address_lines %}<div class="text-body-secondary">{{ quote.customer.address_lines|join(', ') }}</div>{% endif %}{% else %}<span class="text-body-secondary">-</span>{% endif %}</dd>
+        {% if quote.contact %}
+        <dt class="col-sm-3">T.a.v.</dt>
+        <dd class="col-sm-9">{{ quote.contact.full_name }}{% if quote.contact.function %} <span class="text-body-secondary">· {{ quote.contact.function }}</span>{% endif %}
+          {% if quote.contact.email %}<div><a href="mailto:{{ quote.contact.email }}">{{ quote.contact.email }}</a></div>{% endif %}</dd>
+        {% endif %}
         <dt class="col-sm-3">Project</dt>
         <dd class="col-sm-9">{% if quote.project %}<a href="{{ url_for('projects.detail', project_id=quote.project_id) }}">{{ quote.project.display_name }}</a>{% else %}<span class="text-body-secondary">niet gekoppeld</span>{% endif %}</dd>
         <dt class="col-sm-3">Datum</dt>

@@ -47,7 +47,8 @@ def build_quote_pdf(quote: Quote, company: str, office: str, logo: str | None = 
                             topMargin=16 * mm, bottomMargin=18 * mm,
                             title=f"Offerte {quote.number}", author=company)
 
-    story = [letter_header(company, office, quote.customer, logo, company_lines), Spacer(1, 10 * mm)]
+    story = [letter_header(company, office, quote.customer, logo, company_lines, contact=quote.contact),
+             Spacer(1, 10 * mm)]
 
     # Title and reference data.
     facts = [("Offertenummer", quote.number)]

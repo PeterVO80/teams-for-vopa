@@ -8,8 +8,18 @@
     {% if not quote %}<div class="alert alert-light border small">Het offertenummer (OFF-{{ today().year }}-…) wordt automatisch toegekend. Na het opslaan voeg je secties, materiaal en werkuren toe.</div>{% endif %}
     <div class="row">
       {{ render_field(form.title, class_="col-12") }}
-      {{ render_field(form.customer_id, class_="col-md-6") }}
-      {{ render_field(form.project_id, class_="col-md-6") }}
+      {{ render_field(form.customer_id, class_="col-md-4") }}
+      <div class="col-md-4 mb-3">
+        <label class="form-label" for="contact_id">{{ form.contact_id.label.text }}</label>
+        <select class="form-select" id="contact_id" name="contact_id" data-contact-select>
+          <option value="0">- geen contactpersoon -</option>
+          {% for p in contacts %}
+          <option value="{{ p.id }}" data-company="{{ p.company_id }}" {{ 'selected' if form.contact_id.data == p.id }}>{{ p.full_name }}{% if p.function %} ({{ p.function }}){% endif %}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text" data-contact-help>Komt als "t.a.v." op de offerte. Contactpersonen beheer je bij de klant (Relaties).</div>
+      </div>
+      {{ render_field(form.project_id, class_="col-md-4") }}
       {{ render_field(form.quote_date, class_="col-md-3") }}
       {{ render_field(form.valid_until, class_="col-md-3") }}
       {{ render_field(form.status, class_="col-md-3") }}

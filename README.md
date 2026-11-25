@@ -232,6 +232,9 @@ optionally linked to a project, with lines in a fixed order:
 A **sent or accepted** quote is locked: only its status can change (back to
 *Concept* unlocks it), or make a copy for a new version.
 
+The quote's **contact person** (one of the customer's contact persons) is
+printed as "t.a.v." on the PDF.
+
 Template texts for the accompanying text (*Instellingen*): choose one on the
 quote form; it is copied into the quote, where it can be changed or extended.
 

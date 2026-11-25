@@ -337,3 +337,40 @@ def test_text_templates_for_the_accompanying_text(client):
     client.post("/users/settings", data={"company.name": "VOPA", f"template-{template.id}-name": "Standaard retrofit",
                                          f"template-{template.id}-body": "x", f"template-{template.id}-delete": "y"})
     assert db.session.scalar(sa.select(sa.func.count(QuoteTextTemplate.id))) == 0
+
+
+def test_contact_person_on_quote_and_pdf(client):
+    import io
+
+    from pypdf import PdfReader
+
+    from app.models import Contact
+
+    aquafin = Company.by_name("Aquafin")
+    kroon = Company.by_name("Brouwerij De Kroon")
+    els = Contact(company=aquafin, last_name="Janssens", first_name="Els", function="Projectingenieur")
+    other = Contact(company=kroon, last_name="Maes", first_name="Sofie")
+    db.session.add_all([els, other])
+    db.session.commit()
+
+    html = client.get("/quotes/new").get_data(as_text=True)
+    assert f'data-company="{aquafin.id}"' in html and "Els Janssens (Projectingenieur)" in html
+    quote = new_quote(client, contact_id=els.id)
+    assert quote.contact == els
+    assert "T.a.v." in client.get(f"/quotes/{quote.id}").get_data(as_text=True)
+    pdf = client.get(f"/quotes/{quote.id}/pdf").data
+    content = "".join(page.extract_text() for page in PdfReader(io.BytesIO(pdf)).pages)
+    assert "t.a.v. Els Janssens" in content
+
+    # A contact person of another relation is not accepted.
+    client.post(f"/quotes/{quote.id}/edit", data={
+        "title": quote.title, "customer_id": aquafin.id, "contact_id": other.id, "project_id": 0, "status": "draft",
+        "vat_rate": "21"})
+    db.session.refresh(quote)
+    assert quote.contact_id is None
+    # A copy keeps the contact person.
+    quote.contact = els
+    db.session.commit()
+    client.post(f"/quotes/{quote.id}/copy")
+    copy = db.session.scalars(sa.select(Quote).order_by(Quote.id.desc())).first()
+    assert copy.contact == els

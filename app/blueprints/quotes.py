@@ -34,6 +34,7 @@ from ..models import (
     AppSetting,
     Article,
     Company,
+    Contact,
     Project,
     Quote,
     QuoteLine,
@@ -147,6 +148,7 @@ def edit(quote_id: int | None = None):
     if not form.is_submitted():
         if quote:
             form.customer_id.data = quote.customer_id or 0
+            form.contact_id.data = quote.contact_id or 0
             form.project_id.data = quote.project_id or 0
         else:
             form.quote_date.data = date.today()
@@ -167,6 +169,9 @@ def edit(quote_id: int | None = None):
             quote = Quote(created_by_id=current_user.id)
         form.populate_obj(quote)
         quote.customer_id = none_if_zero(form.customer_id.data)
+        # The contact person must belong to the chosen customer.
+        contact = db.session.get(Contact, form.contact_id.data or 0)
+        quote.contact_id = contact.id if contact is not None and contact.company_id == quote.customer_id else None
         quote.project_id = project.id if project else None
         if is_new:
             insert_with_unique_number(quote, lambda: _assign_number(quote))
@@ -174,7 +179,14 @@ def edit(quote_id: int | None = None):
         flash(f"Offerte {quote.number} {'aangemaakt' if is_new else 'opgeslagen'}.", "success")
         return redirect(url_for("quotes.detail", quote_id=quote.id))
 
+    # Contact persons of all customers; the form shows those of the chosen customer.
+    contacts = db.session.scalars(
+        sa.select(Contact).join(Company, Contact.company_id == Company.id)
+        .where(sa.or_(sa.and_(Contact.active.is_(True), Company.is_customer.is_(True)),
+                      Contact.id == ((quote.contact_id if quote else None) or 0)))
+        .order_by(Contact.last_name, Contact.first_name)).all()
     return render_template("quotes/edit.html", form=form, quote=quote, text_templates=QuoteTextTemplate.ordered(),
+                           contacts=contacts,
                            cancel_url=url_for("quotes.detail", quote_id=quote.id) if quote else url_for("quotes.index"))
 
 
@@ -222,7 +234,8 @@ def delete(quote_id: int):
 def copy(quote_id: int):
     """New draft quote with the same customer and lines (e.g. a revised version)."""
     source = _get_quote(quote_id)
-    quote = Quote(title=source.title, customer_id=source.customer_id, project_id=source.project_id,
+    quote = Quote(title=source.title, customer_id=source.customer_id, contact_id=source.contact_id,
+                  project_id=source.project_id,
                   introduction=source.introduction, notes=source.notes, vat_rate=source.vat_rate,
                   quote_date=date.today(), valid_until=date.today() + timedelta(days=VALID_DAYS),
                   created_by_id=current_user.id)

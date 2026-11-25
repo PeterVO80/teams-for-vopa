@@ -459,6 +459,8 @@ class QuoteForm(FlaskForm):
     title = StringField("Onderwerp", validators=[DataRequired(), Length(max=200)],
                         description="Bv. \"Retrofit verpakkingslijn L3\" - wordt ook de naam van een project dat je ervan maakt.")
     customer_id = SelectField("Klant", coerce=int, default=0)
+    #: Rendered by hand (options per customer, static/js/quote_template.js); checked in blueprints/quotes.py.
+    contact_id = SelectField("Contactpersoon (t.a.v.)", coerce=int, default=0, validate_choice=False)
     project_id = SelectField("Project", coerce=int, default=0,
                              description="Optioneel: koppel de offerte aan een bestaand project.")
     status = SelectField("Status", choices=QuoteStatus.choices(), default="draft")

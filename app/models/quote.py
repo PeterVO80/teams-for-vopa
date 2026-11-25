@@ -95,6 +95,8 @@ class Quote(TimestampMixin, db.Model):
     number: Mapped[str] = mapped_column(sa.String(40), unique=True, index=True)
     title: Mapped[str] = mapped_column(sa.String(200))
     customer_id: Mapped[int | None] = mapped_column(sa.ForeignKey("companies.id"), index=True)
+    #: Contact person of the customer ("t.a.v." on the PDF).
+    contact_id: Mapped[int | None] = mapped_column(sa.ForeignKey("contacts.id", ondelete="SET NULL"))
     project_id: Mapped[int | None] = mapped_column(sa.ForeignKey("projects.id"), index=True)
     status: Mapped[QuoteStatus] = mapped_column(enum_column(QuoteStatus), default=QuoteStatus.DRAFT)
     quote_date: Mapped[date | None]
@@ -107,6 +109,7 @@ class Quote(TimestampMixin, db.Model):
     created_by_id: Mapped[int | None] = mapped_column(sa.ForeignKey("users.id"))
 
     customer = relationship("Company")
+    contact = relationship("Contact")
     project = relationship("Project")
     created_by = relationship("User")
     lines: Mapped[list["QuoteLine"]] = relationship(
