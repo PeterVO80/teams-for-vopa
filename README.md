@@ -225,6 +225,9 @@ optionally linked to a project, with lines in a fixed order:
 A **sent or accepted** quote is locked: only its status can change (back to
 *Concept* unlocks it), or make a copy for a new version.
 
+Per section you choose what the customer sees on the PDF: all details,
+only quantities (no prices) or only the subtotal.
+
 Every line can have a note. Lines move up/down; "+ materiaal / + werkuren" on
 a section title adds a line at the end of that section. Totals: material,
 labour (hours), excl. VAT, VAT, incl. VAT. **Project aanmaken** creates a

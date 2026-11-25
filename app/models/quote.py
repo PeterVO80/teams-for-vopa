@@ -43,6 +43,14 @@ class QuoteLineKind(LabeledEnum):
     LABOUR = ("labour", "Werkuren")
 
 
+class PdfDetail(LabeledEnum):
+    """How much of a section's lines the customer sees on the PDF."""
+
+    FULL = ("full", "Volledige details (aantal, eenheidsprijs, totaal)")
+    QUANTITIES = ("quantities", "Enkel aantallen (zonder prijzen)")
+    TOTAL = ("total", "Enkel het subtotaal (lijnen niet tonen)")
+
+
 #: Statuses in which a quote is locked: only the status can still change.
 LOCKED_STATUSES = (QuoteStatus.SENT, QuoteStatus.ACCEPTED)
 
@@ -193,6 +201,9 @@ class QuoteLine(db.Model):
     cost_price: Mapped[Decimal | None] = mapped_column(sa.Numeric(12, 4))
     #: Optional note / comment shown under the line.
     note: Mapped[str | None] = mapped_column(sa.Text)
+    #: Section titles: how the section's lines appear on the PDF.
+    pdf_detail: Mapped[PdfDetail] = mapped_column(enum_column(PdfDetail), default=PdfDetail.FULL,
+                                                  server_default=PdfDetail.FULL.value)
 
     quote: Mapped[Quote] = relationship(back_populates="lines")
     article = relationship("Article")

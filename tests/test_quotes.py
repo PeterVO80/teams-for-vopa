@@ -265,3 +265,45 @@ def test_settings_manage_service_types(client):
                            data={**base, "service-new-name": "Test", "service-new-rate": "veel"})
     assert "geen geldig bedrag" in response.get_data(as_text=True)
     assert db.session.scalar(sa.select(ServiceType).filter_by(name="Test")) is None
+
+
+def test_pdf_detail_per_section(client):
+    import io
+
+    from pypdf import PdfReader
+
+    from app.models import PdfDetail
+
+    quote = new_quote(client)
+    materials = add(client, quote, "section", description="Materialen hoofdbord", pdf_detail="quantities")
+    add(client, quote, "material", section=materials, description="Contactor 3RT2016", quantity="6", unit="st",
+        unit_price="23,17")
+    cabling = add(client, quote, "section", description="Bekabeling", pdf_detail="total")
+    add(client, quote, "material", section=cabling, description="Kabel XVB 3G2,5", quantity="120", unit="m",
+        unit_price="1,25")
+    labour = add(client, quote, "section", description="Werkuren")                     # default: full details
+    add(client, quote, "labour", section=labour, description="PLC-programmatie", quantity="16", unit="u",
+        unit_price="65")
+    assert materials.pdf_detail == PdfDetail.QUANTITIES and cabling.pdf_detail == PdfDetail.TOTAL
+    assert labour.pdf_detail == PdfDetail.FULL
+
+    html = client.get(f"/quotes/{quote.id}").get_data(as_text=True)
+    assert "enkel aantallen" in html and "enkel subtotaal" in html
+    form = client.get(f"/quotes/lines/{materials.id}/edit", headers=MODAL).get_data(as_text=True)
+    assert '<option selected value="quantities">' in form
+
+    pdf = client.get(f"/quotes/{quote.id}/pdf").data
+    content = "".join(page.extract_text() for page in PdfReader(io.BytesIO(pdf)).pages)
+    # Quantities only: the line and its quantity, no unit price or line total; the subtotal on the title.
+    assert "Contactor 3RT2016" in content and "€ 23,17" not in content and "€ 139,02" in content
+    # Subtotal only: the line is not shown.
+    assert "Bekabeling" in content and "Kabel XVB" not in content and "€ 150,00" in content
+    # Full details.
+    assert "PLC-programmatie" in content and "€ 65,00" in content and "€ 1.040,00" in content
+    assert "€ 1.329,02" in content                                                      # total excl. VAT
+
+    # A copy keeps the choice.
+    client.post(f"/quotes/{quote.id}/copy")
+    copy = db.session.scalars(sa.select(Quote).order_by(Quote.id.desc())).first()
+    assert [l.pdf_detail for l in copy.lines if l.kind == QuoteLineKind.SECTION] == [
+        PdfDetail.QUANTITIES, PdfDetail.TOTAL, PdfDetail.FULL]

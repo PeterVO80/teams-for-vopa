@@ -4,6 +4,7 @@
 <div class="row" data-quote-line>
   {% if kind == kinds.SECTION %}
     <div class="col-12">{{ render_field(form.description) }}</div>
+    <div class="col-12">{{ render_field(form.pdf_detail) }}</div>
   {% else %}
     {% if kind == kinds.MATERIAL %}<div class="col-12">{% include "purchasing/_article_picker.html" %}</div>{% endif %}
     {% if kind == kinds.LABOUR %}

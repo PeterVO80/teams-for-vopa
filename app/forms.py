@@ -45,6 +45,7 @@ from .models import (
     AssignmentKind,
     OrderStatus,
     ProjectStatus,
+    PdfDetail,
     QuoteStatus,
     TaskPriority,
     TaskStatus,
@@ -489,3 +490,6 @@ class QuoteLineForm(FlaskForm):
     unit_price = AmountField("Verkoopprijs (€)", render_kw={"inputmode": "decimal"})
     note = TextAreaField("Notitie / commentaar", validators=[Optional()], render_kw={"rows": 2},
                          description="Optioneel: extra uitleg onder de lijn.")
+    #: Section titles only (absent on other lines: checked in blueprints/quotes.py).
+    pdf_detail = SelectField("Op de offerte-PDF", choices=PdfDetail.choices(), default="full", validate_choice=False,
+                             description="Bv. materiaal enkel met aantallen, werkuren met alle details.")

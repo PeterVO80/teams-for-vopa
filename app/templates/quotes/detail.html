@@ -119,6 +119,8 @@
         <td colspan="4">
           <div class="d-flex flex-wrap align-items-center gap-2">
             <span class="fw-bold fs-6">{{ s.description }}</span>
+            {% if s.pdf_detail.value != 'full' %}<span class="badge text-bg-light border fw-normal" title="Zo staat deze sectie op de offerte-PDF">
+              <i class="bi bi-file-earmark-pdf"></i> {{ 'enkel aantallen' if s.pdf_detail.value == 'quantities' else 'enkel subtotaal' }}</span>{% endif %}
             {% if write %}
             <span class="ms-auto d-flex gap-1">
               <a class="btn btn-sm btn-link py-0" href="{{ url_for('quotes.add_line', quote_id=quote.id, kind='material', section=s.id) }}"

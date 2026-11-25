@@ -2,7 +2,8 @@
 
 Layout (A4 portrait): the letter header (pdf_layout.py), title "Offerte" with
 number, date, validity and subject, the introduction, the lines (section
-titles with their subtotal on the right, material and labour with their notes), the
+titles with their subtotal on the right, material and labour with their notes -
+per section: all details, only quantities or only the subtotal), the
 totals (material, labour, excl. VAT, VAT, incl. VAT) and a "voor akkoord"
 block for the customer's signature.
 
@@ -19,7 +20,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from ..models import Quote
+from ..models import PdfDetail, Quote
 from .pdf_layout import LIGHT, MARGIN, WIDTH, footer, header_row_style, letter_header, money, num, styles, text
 
 PRICE_PLACES = 4
@@ -86,6 +87,10 @@ def build_quote_pdf(quote: Quote, company: str, office: str, logo: str | None = 
             data.append([content, "", "", "", subtotal])
             commands += [("SPAN", (0, row), (3, row)), ("BACKGROUND", (0, row), (-1, row), LIGHT),
                          ("TOPPADDING", (0, row), (-1, row), 5)]
+        detail = section.title.pdf_detail if section.title is not None else PdfDetail.FULL
+        if detail == PdfDetail.TOTAL:
+            continue                        # only the subtotal on the section title
+        show_prices = detail != PdfDetail.QUANTITIES
         for line in section.lines:
             content = [Paragraph(escape(line.description), cell)]
             if line.note:
@@ -94,8 +99,8 @@ def build_quote_pdf(quote: Quote, company: str, office: str, logo: str | None = 
                 content,
                 Paragraph(num(line.quantity) if line.quantity is not None else "", right),
                 Paragraph(escape(line.unit or ""), cell),
-                Paragraph(_price(line.unit_price), right),
-                Paragraph(money(line.total), right),
+                Paragraph(_price(line.unit_price), right) if show_prices else "",
+                Paragraph(money(line.total), right) if show_prices else "",
             ])
             commands.append(("LINEBELOW", (0, len(data) - 1), (-1, len(data) - 1), 0.25, colors.HexColor("#DDDDDD")))
     if len(data) == 1:

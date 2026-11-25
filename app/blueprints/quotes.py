@@ -38,6 +38,7 @@ from ..models import (
     Quote,
     QuoteLine,
     QuoteLineKind,
+    PdfDetail,
     QuoteStatus,
     ServiceType,
 )
@@ -226,7 +227,7 @@ def copy(quote_id: int):
                   created_by_id=current_user.id)
     for line in source.lines:
         quote.lines.append(QuoteLine(position=line.position, kind=line.kind, article_id=line.article_id,
-                                     service_type_id=line.service_type_id,
+                                     service_type_id=line.service_type_id, pdf_detail=line.pdf_detail,
                                      description=line.description, quantity=line.quantity, unit=line.unit,
                                      unit_price=line.unit_price, cost_price=line.cost_price, note=line.note))
     insert_with_unique_number(quote, lambda: _assign_number(quote))
@@ -273,6 +274,7 @@ def _line_form(line: QuoteLine | None, kind: QuoteLineKind) -> QuoteLineForm:
     if not form.is_submitted():
         form.kind.data = kind.value
         if line is not None:
+            form.pdf_detail.data = line.pdf_detail.value if line.pdf_detail else PdfDetail.FULL.value
             form.service_type_id.data = line.service_type_id or 0
             form.markup.data = line.markup
         elif kind == QuoteLineKind.LABOUR:
@@ -315,6 +317,10 @@ def _fill_line(line: QuoteLine, form: QuoteLineForm, kind: QuoteLineKind) -> Non
     line.note = (form.note.data or "").strip() or None
     if kind == QuoteLineKind.SECTION:
         line.article_id = line.quantity = line.unit = line.unit_price = line.cost_price = line.service_type_id = None
+        try:
+            line.pdf_detail = PdfDetail(form.pdf_detail.data)
+        except ValueError:
+            line.pdf_detail = PdfDetail.FULL
         return
     line.quantity = form.quantity.data
     line.unit = (form.unit.data or "").strip() or None
