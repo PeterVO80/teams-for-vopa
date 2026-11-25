@@ -26,6 +26,8 @@ class Company(TimestampMixin, db.Model):
     is_supplier: Mapped[bool] = mapped_column(default=False, server_default=sa.false())
     vat_number: Mapped[str | None] = mapped_column(sa.String(30))
     street: Mapped[str | None] = mapped_column(sa.String(200))
+    #: Box number ("bus"), e.g. "3" or "A" - printed as "Kerkstraat 1 bus 3".
+    box: Mapped[str | None] = mapped_column(sa.String(20))
     postal_code: Mapped[str | None] = mapped_column(sa.String(20))
     city: Mapped[str | None] = mapped_column(sa.String(120))
     country: Mapped[str | None] = mapped_column(sa.String(80), default="België")
@@ -54,7 +56,8 @@ class Company(TimestampMixin, db.Model):
     @property
     def address_lines(self) -> list[str]:
         city = " ".join(p for p in (self.postal_code, self.city) if p)
-        return [line for line in (self.street, city, self.country) if line]
+        street = f"{self.street} bus {self.box}" if self.street and self.box else self.street
+        return [line for line in (street, city, self.country) if line]
 
     @classmethod
     def by_name(cls, name: str | None) -> "Company | None":

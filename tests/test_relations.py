@@ -96,3 +96,15 @@ def test_delete_relation_in_use_deactivates(client):
     db.session.commit()
     client.post(f"/relations/{unused.id}/delete")
     assert Company.by_name("Weg ermee") is None
+
+
+def test_relation_address_with_box(client):
+    response = client.post("/relations/new", data={"name": "Klant Met Bus", "is_customer": "y", "active": "y",
+                                                   "street": "Kerkstraat 1", "box": "3", "postal_code": "9000",
+                                                   "city": "Gent", "country": "België"})
+    assert response.status_code == 302
+    company = Company.by_name("Klant Met Bus")
+    assert company.box == "3"
+    assert company.address_lines == ["Kerkstraat 1 bus 3", "9000 Gent", "België"]
+    assert "Kerkstraat 1 bus 3" in client.get(f"/relations/{company.id}").get_data(as_text=True)
+    assert 'name="box"' in client.get(f"/relations/{company.id}/edit").get_data(as_text=True)

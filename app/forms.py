@@ -124,6 +124,7 @@ class CompanyForm(FlaskForm):
     email = StringField("E-mail", validators=[Optional(), Email(), Length(max=120)])
     website = StringField("Website", validators=[Optional(), Length(max=200)])
     street = StringField("Straat en nummer", validators=[Optional(), Length(max=200)])
+    box = StringField("Bus", validators=[Optional(), Length(max=20)])
     postal_code = StringField("Postcode", validators=[Optional(), Length(max=20)])
     city = StringField("Gemeente", validators=[Optional(), Length(max=120)])
     country = StringField("Land", default="België", validators=[Optional(), Length(max=80)])
