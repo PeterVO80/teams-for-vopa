@@ -142,7 +142,8 @@ def settings():
     from ..models import AppSetting
     from ..services import distance
 
-    fields = [("company.name", "Bedrijfsnaam (op de urenstaat)"), ("office.street", "Straat en nummer"),
+    fields = [("company.name", "Bedrijfsnaam (op urenstaat en offerte)"),
+              ("company.vat", "Btw-nummer"), ("company.phone", "Telefoon"), ("company.email", "E-mail"), ("office.street", "Straat en nummer"),
               ("office.box", "Bus"), ("office.postal_code", "Postcode"), ("office.city", "Gemeente"), ("office.country", "Land"),
               ("quote.hourly_rate", "Standaard uurprijs (€, excl. btw)"), ("quote.markup", "Standaard marge op materiaal (%)")]
     if request.method == "POST":

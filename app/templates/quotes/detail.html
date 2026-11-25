@@ -10,6 +10,7 @@
   {{ post_button(url_for('quotes.create_project', quote_id=quote.id), 'Project aanmaken', icon='plus-square', class_='btn btn-outline-success',
                  confirm='Een nieuw project aanmaken uit deze offerte (naam, klant en inleiding) en de offerte eraan koppelen?') }}
   {% endif %}
+  <a class="btn btn-primary" href="{{ url_for('quotes.pdf', quote_id=quote.id) }}"><i class="bi bi-file-earmark-pdf"></i> PDF</a>
   {% if can_write('quotes') %}
   <a class="btn btn-outline-secondary" href="{{ url_for('quotes.edit', quote_id=quote.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>
   {{ post_button(url_for('quotes.copy', quote_id=quote.id), 'Kopiëren', icon='copy', class_='btn btn-outline-secondary',

@@ -224,8 +224,11 @@ Every line can have a note. Lines move up/down; "+ materiaal / + werkuren" on
 a section title adds a line at the end of that section. Totals: material,
 labour (hours), excl. VAT, VAT, incl. VAT. **Project aanmaken** creates a
 project from the quote (name, customer, introduction) and links it; the
-project page has an *Offertes* tab. Default hourly rate and markup: admin menu
-> *Instellingen*. Access: module *Offertes* (not given automatically to
+project page has an *Offertes* tab. **PDF** gives the quote for the customer
+(letter header with logo and addresses, sections, notes, subtotals, totals,
+"voor akkoord" block) - without purchase prices, margins or internal notes.
+Default hourly rate and markup, and our VAT number / phone / e-mail for the
+PDFs: admin menu > *Instellingen*. Access: module *Offertes* (not given automatically to
 existing non-admin users, because quotes show purchase prices and margins).
 
 ### Time registration and distances to customers

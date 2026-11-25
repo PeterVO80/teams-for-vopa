@@ -14,11 +14,13 @@ sales price is purchase price + markup (default markup and hourly rate on the
 
 from __future__ import annotations
 
+import os
 from datetime import date, timedelta
 from decimal import Decimal
+from io import BytesIO
 
 import sqlalchemy as sa
-from flask import abort, flash, jsonify, redirect, render_template, request, url_for
+from flask import abort, current_app, flash, jsonify, redirect, render_template, request, send_file, url_for
 from flask_login import current_user
 
 from ..access import link_user, project_scope, require_project, visible_projects_condition
@@ -34,7 +36,9 @@ from ..models import (
     QuoteLineKind,
     QuoteStatus,
 )
+from ..services import distance
 from ..services.numbering import insert_with_unique_number, next_number
+from ..services.quote_pdf import build_quote_pdf
 from ..utils import int_arg, is_modal_request
 from . import protected_blueprint
 from .relations import add_button as add_relation_button
@@ -158,6 +162,18 @@ def detail(quote_id: int):
     quote = _get_quote(quote_id)
     return render_template("quotes/detail.html", quote=quote, sections=quote.sections(),
                            statuses=QuoteStatus, kinds=QuoteLineKind)
+
+
+@bp.route("/<int:quote_id>/pdf")
+def pdf(quote_id: int):
+    """The quote as a PDF for the customer (without purchase prices and margins)."""
+    quote = _get_quote(quote_id)
+    logo = os.path.join(current_app.static_folder, "img", "vopa-logo-print.png")
+    data = build_quote_pdf(quote, distance.company_name(), distance.office_display_text(), logo=logo,
+                           company_lines=distance.company_lines())
+    name = f"Offerte {quote.number}" + (f" {quote.customer.name}" if quote.customer else "") + ".pdf"
+    return send_file(BytesIO(data), mimetype="application/pdf", as_attachment=True,
+                     download_name=name.replace("/", "-"))
 
 
 @bp.route("/<int:quote_id>/status", methods=["POST"])

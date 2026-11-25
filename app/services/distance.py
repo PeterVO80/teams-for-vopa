@@ -40,6 +40,13 @@ def company_name() -> str:
     return AppSetting.get("company.name") or "VOPA"
 
 
+def company_lines() -> list[str]:
+    """Our VAT number, phone and e-mail (Instellingen) for the PDF letter header."""
+    parts = [("Btw", AppSetting.get("company.vat")), ("Tel.", AppSetting.get("company.phone")),
+             ("", AppSetting.get("company.email"))]
+    return [f"{label} {value}".strip() for label, value in parts if value]
+
+
 def office_address() -> dict[str, str]:
     return {f: AppSetting.get(f"office.{f}") or "" for f in OFFICE_FIELDS}
 

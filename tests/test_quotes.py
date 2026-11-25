@@ -143,3 +143,27 @@ def test_access_to_quotes(app, client):
     assert member.post(f"/quotes/{quote.id}/lines/new?kind=labour", headers=MODAL,
                        data={"description": "x", "quantity": "1", "unit_price": "1"}).status_code == 403
     assert member.get(f"/quotes/{quote.id}/lines/new?kind=labour").status_code == 403
+
+
+def test_quote_pdf_has_no_internal_prices(client):
+    import io
+
+    from pypdf import PdfReader
+
+    AppSetting.put("company.vat", "BE0999.888.777")
+    db.session.commit()
+    quote = new_quote(client, notes="Intern: korting max 5%")
+    section = add(client, quote, "section", description="Schakelkast", note="Volgens schema")
+    add(client, quote, "material", section=section, description="Draadgoot", quantity="4", unit="st",
+        cost_price="12,5", markup="30", unit_price="", note="Inclusief deksels")
+    add(client, quote, "labour", section=section, description="Bekabeling", quantity="8", unit="u", unit_price="65")
+    response = client.get(f"/quotes/{quote.id}/pdf")
+    assert response.status_code == 200 and response.mimetype == "application/pdf"
+    assert f"Offerte {quote.number} Aquafin.pdf" in response.headers["Content-Disposition"]
+    content = "".join(page.extract_text() for page in PdfReader(io.BytesIO(response.data)).pages)
+    for expected in ("Offerte", quote.number, "Retrofit pompstation", "Vervangen van de PLC", "Schakelkast",
+                     "Volgens schema", "Draadgoot", "Inclusief deksels", "Bekabeling", "Subtotaal Schakelkast",
+                     "€ 65,00", "€ 585,00", "€ 707,85", "Voor akkoord", "BE0999.888.777"):
+        assert expected in content, expected
+    for internal in ("12,5", "Inkoop", "30%", "korting", "Marge"):
+        assert internal not in content, internal

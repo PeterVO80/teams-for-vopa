@@ -266,7 +266,8 @@ def _pdf_name(project: Project, start: date, end: date) -> str:
 
 def _pdf(project: Project, start: date, end: date, sheet) -> bytes:
     logo = os.path.join(current_app.static_folder, "img", "vopa-logo-print.png")
-    return build_pdf(project, start, end, sheet, distance.company_name(), distance.office_display_text(), logo=logo)
+    return build_pdf(project, start, end, sheet, distance.company_name(), distance.office_display_text(), logo=logo,
+                     company_lines=distance.company_lines())
 
 
 @bp.route("/report.pdf")
