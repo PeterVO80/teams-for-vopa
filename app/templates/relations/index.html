@@ -3,12 +3,7 @@
 {% block title %}Relaties{% endblock %}
 {% block page_actions %}<a class="btn btn-primary" href="{{ url_for('relations.edit', kind=kind or None) }}"><i class="bi bi-plus-lg"></i> Nieuwe relatie</a>{% endblock %}
 {% block content %}
-<ul class="nav nav-pills mb-3">
-  <li class="nav-item"><a class="nav-link {{ 'active' if not kind }}" href="{{ url_for('relations.index', q=search or None, inactive=request.args.inactive or None, f=1) }}">Alle</a></li>
-  {% for value, label in kinds.items() %}
-  <li class="nav-item"><a class="nav-link {{ 'active' if kind == value }}" href="{{ url_for('relations.index', kind=value, q=search or None, inactive=request.args.inactive or None, f=1) }}">{{ label }}</a></li>
-  {% endfor %}
-</ul>
+{% include "relations/_tabs.html" %}
 <form class="row g-2 mb-3" method="get">
   {{ filter_marker() }}
   {% if kind %}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}

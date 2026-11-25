@@ -208,6 +208,13 @@ catalogi, Stock, Relaties, Notities, Wiki), **Lezen** (view) and/or
 Which projects someone sees is a separate rule (members and the project
 manager, see `app/access.py`). Code: `app/modules.py`, `app/permissions.py`.
 
+### Contact persons
+
+*Relaties > Contactpersonen*: people (name, first name, function, e-mail,
+phone, GSM, notes) linked to a customer or supplier. The relation page lists
+its contact persons and adds / edits them in a popup. Inactive contact persons
+(no longer working there) stay for the history.
+
 ### Quotes (offertes)
 
 Menu **Offertes**: a quote (number OFF-2026-0001, automatic) for a customer,

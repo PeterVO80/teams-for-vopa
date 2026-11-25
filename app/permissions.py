@@ -26,7 +26,7 @@ from .modules import BLUEPRINT_MODULE, MODULE_KEYS
 WRITE_VIEWS = {"create", "delete", "move", "week", "add_article", "add_line", "import_view", "import_supplier_order"}
 #: Form pages that also show an existing record: read-only users may open them
 #: for an existing record (URL with an id), not for a new one.
-RECORD_FORMS = {"edit", "edit_assignment", "edit_line"}
+RECORD_FORMS = {"edit", "edit_assignment", "edit_line", "edit_contact"}
 
 #: Helpers other modules' forms use (article search in an order, distance in
 #: the relation form): available to every logged-in user.

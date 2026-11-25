@@ -1,0 +1,13 @@
+{% from "_macros.html" import render_field %}
+{{ form.hidden_tag() }}
+<div class="row">
+  {{ render_field(form.company_id, class_="col-12") }}
+  {{ render_field(form.last_name, class_="col-md-6") }}
+  {{ render_field(form.first_name, class_="col-md-6") }}
+  {{ render_field(form.function, class_="col-12") }}
+  {{ render_field(form.email, class_="col-md-6") }}
+  {{ render_field(form.phone, class_="col-md-3") }}
+  {{ render_field(form.mobile, class_="col-md-3") }}
+  {{ render_field(form.notes, class_="col-12") }}
+  {{ render_field(form.active, class_="col-12") }}
+</div>

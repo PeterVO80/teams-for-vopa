@@ -4,6 +4,9 @@ Projects, articles, purchase orders and supplier price lists refer to a
 :class:`Company` instead of storing a typed name. That rules out spelling
 variants ("Rexel", "REXEL", "Rexel nv") that would otherwise split reports
 and searches. One company can be both a customer and a supplier.
+
+A company has any number of :class:`Contact` persons (name, first name,
+function, e-mail, phone).
 """
 
 from __future__ import annotations
@@ -11,7 +14,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensions import db
 from .base import TimestampMixin
@@ -78,5 +81,42 @@ class Company(TimestampMixin, db.Model):
         options = [(c.id, c.name) for c in db.session.scalars(query.order_by(cls.name))]
         return ([(0, empty)] if empty else []) + options
 
+    contacts: Mapped[list["Contact"]] = relationship(
+        back_populates="company", cascade="all, delete-orphan",
+        order_by="(Contact.active.desc(), Contact.last_name, Contact.first_name)")
+
     def __repr__(self) -> str:
         return f"<Company {self.name}>"
+
+
+class Contact(TimestampMixin, db.Model):
+    """A contact person at a customer or supplier."""
+
+    __tablename__ = "contacts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(sa.ForeignKey("companies.id", ondelete="CASCADE"), index=True)
+    last_name: Mapped[str] = mapped_column(sa.String(80))
+    first_name: Mapped[str | None] = mapped_column(sa.String(80))
+    function: Mapped[str | None] = mapped_column(sa.String(120))
+    email: Mapped[str | None] = mapped_column(sa.String(120))
+    phone: Mapped[str | None] = mapped_column(sa.String(50))
+    mobile: Mapped[str | None] = mapped_column(sa.String(50))
+    notes: Mapped[str | None] = mapped_column(sa.Text)
+    #: People who left the company stay for the history, but inactive.
+    active: Mapped[bool] = mapped_column(default=True, server_default=sa.true())
+
+    company: Mapped[Company] = relationship(back_populates="contacts")
+
+    @property
+    def full_name(self) -> str:
+        """First name + name: "Jan Peeters"."""
+        return " ".join(p for p in (self.first_name, self.last_name) if p)
+
+    @property
+    def sort_name(self) -> str:
+        """Name, first name: "Peeters, Jan" (lists)."""
+        return ", ".join(p for p in (self.last_name, self.first_name) if p)
+
+    def __repr__(self) -> str:
+        return f"<Contact {self.full_name}>"

@@ -493,3 +493,19 @@ class QuoteLineForm(FlaskForm):
     #: Section titles only (absent on other lines: checked in blueprints/quotes.py).
     pdf_detail = SelectField("Op de offerte-PDF", choices=PdfDetail.choices(), default="full", validate_choice=False,
                              description="Bv. materiaal enkel met aantallen, werkuren met alle details.")
+
+
+class ContactForm(FlaskForm):
+    """A contact person of a customer or supplier (blueprints/relations.py)."""
+
+    company_id = SelectField("Klant / leverancier", coerce=int,
+                             validators=[DataRequired(message="Kies de klant of leverancier.")])
+    last_name = StringField("Naam", validators=[DataRequired(), Length(max=80)])
+    first_name = StringField("Voornaam", validators=[Optional(), Length(max=80)])
+    function = StringField("Functie", validators=[Optional(), Length(max=120)],
+                           description="Bv. projectleider, aankoper, onderhoudsverantwoordelijke.")
+    email = StringField("E-mail", validators=[Optional(), Email(), Length(max=120)])
+    phone = StringField("Telefoon", validators=[Optional(), Length(max=50)])
+    mobile = StringField("GSM", validators=[Optional(), Length(max=50)])
+    notes = TextAreaField("Opmerkingen", validators=[Optional()], render_kw={"rows": 2})
+    active = BooleanField("Actief", default=True, description="Uitvinken als de persoon er niet meer werkt.")

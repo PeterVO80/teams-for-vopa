@@ -4,6 +4,9 @@ Other modules pick a relation from a list instead of typing a name (see
 models/company.py). From those forms a new relation can be created in a
 popup: ``/relations/new?kind=customer&select=customer_id`` answers with the
 new option, which static/js/modal_form.js adds to the select and selects.
+
+Contact persons belong to a relation: ``/relations/contacts`` lists them all,
+the relation page shows its own and adds / edits them in a popup.
 """
 
 import sqlalchemy as sa
@@ -11,10 +14,10 @@ from flask import abort, current_app, flash, jsonify, redirect, render_template,
 
 from ..access import project_scope, visible_projects_condition
 from ..extensions import db
-from ..forms import CompanyForm
-from ..models import Article, Company, Project, PurchaseOrder, SupplierCatalog
+from ..forms import CompanyForm, ContactForm
+from ..models import Article, Company, Contact, Project, PurchaseOrder, SupplierCatalog
 from ..services import distance
-from ..utils import is_modal_request
+from ..utils import int_arg, is_modal_request, next_url
 from . import protected_blueprint
 
 bp = protected_blueprint("relations", __name__)
@@ -174,6 +177,68 @@ def delete(company_id: int):
     db.session.commit()
     flash("Relatie verwijderd.", "success")
     return redirect(url_for("relations.index"))
+
+
+# ------------------------------------------------------------------ contact persons
+@bp.route("/contacts")
+def contacts():
+    """All contact persons, with search (name, first name, relation, function, e-mail, phone)."""
+    search = request.args.get("q", "").strip()
+    query = (sa.select(Contact).join(Company, Contact.company_id == Company.id)
+             .order_by(Contact.last_name, Contact.first_name, Company.name))
+    if not request.args.get("inactive"):
+        query = query.where(Contact.active.is_(True), Company.active.is_(True))
+    for word in search.split():
+        pattern = f"%{word}%"
+        query = query.where(sa.or_(Contact.last_name.ilike(pattern), Contact.first_name.ilike(pattern),
+                                   Company.name.ilike(pattern), Contact.function.ilike(pattern),
+                                   Contact.email.ilike(pattern), Contact.phone.ilike(pattern),
+                                   Contact.mobile.ilike(pattern)))
+    page = db.paginate(query, per_page=current_app.config["ITEMS_PER_PAGE"], error_out=False)
+    return render_template("relations/contacts.html", page=page, search=search, kinds=KINDS)
+
+
+@bp.route("/contacts/new", methods=["GET", "POST"])
+@bp.route("/contacts/<int:contact_id>/edit", methods=["GET", "POST"])
+def edit_contact(contact_id: int | None = None):
+    """Add or edit a contact person (popup on the relation page, or a page)."""
+    contact = db.get_or_404(Contact, contact_id) if contact_id else None
+    form = ContactForm(obj=contact)
+    current = contact.company_id if contact else int_arg("company")
+    form.company_id.choices = [(0, "- kies de klant of leverancier -")] + [
+        (c.id, c.name) for c in db.session.scalars(
+            sa.select(Company).where(sa.or_(Company.active.is_(True), Company.id == (current or 0))).order_by(Company.name))]
+    if not form.is_submitted() and contact is None:
+        form.company_id.data = current or 0
+    if form.validate_on_submit():
+        if contact is None:
+            contact = Contact()
+            db.session.add(contact)
+        form.populate_obj(contact)
+        for field in ("first_name", "function", "email", "phone", "mobile", "notes"):
+            setattr(contact, field, (getattr(contact, field) or "").strip() or None)
+        contact.last_name = contact.last_name.strip()
+        db.session.commit()
+        flash(f"Contactpersoon {contact.full_name} opgeslagen.", "success")
+        if is_modal_request():
+            return jsonify(ok=True)
+        return redirect(next_url(url_for("relations.detail", company_id=contact.company_id)))
+    context = dict(form=form, contact=contact,
+                   action=url_for("relations.edit_contact", contact_id=contact.id) if contact
+                   else url_for("relations.edit_contact", company=current or None))
+    if is_modal_request():
+        return render_template("relations/_contact_modal.html", **context), 422 if form.errors else 200
+    return render_template("relations/contact_edit.html", cancel_url=next_url(url_for("relations.contacts")), **context)
+
+
+@bp.route("/contacts/<int:contact_id>/delete", methods=["POST"])
+def delete_contact(contact_id: int):
+    contact = db.get_or_404(Contact, contact_id)
+    company_id, name = contact.company_id, contact.full_name
+    db.session.delete(contact)
+    db.session.commit()
+    flash(f"Contactpersoon {name} verwijderd.", "success")
+    return redirect(next_url(url_for("relations.detail", company_id=company_id)))
 
 
 def add_button(field, kind: str) -> None:

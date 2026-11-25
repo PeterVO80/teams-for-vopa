@@ -1,0 +1,8 @@
+{# Tabs of the relations module: all / customers / suppliers / contact persons. #}
+<ul class="nav nav-pills mb-3">
+  <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'relations.index' and not kind }}" href="{{ url_for('relations.index', f=1) }}">Alle</a></li>
+  {% for value, label in kinds.items() %}
+  <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'relations.index' and kind == value }}" href="{{ url_for('relations.index', kind=value, f=1) }}">{{ label }}</a></li>
+  {% endfor %}
+  <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'relations.contacts' }}" href="{{ url_for('relations.contacts') }}"><i class="bi bi-person-lines-fill"></i> Contactpersonen</a></li>
+</ul>

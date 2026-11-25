@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination %}
+{% block title %}Contactpersonen{% endblock %}
+{% block page_actions %}<a class="btn btn-primary" href="{{ url_for('relations.edit_contact') }}"><i class="bi bi-plus-lg"></i> Nieuwe contactpersoon</a>{% endblock %}
+{% block content %}
+{% set kind = None %}
+{% include "relations/_tabs.html" %}
+<form class="row g-2 mb-3" method="get">
+  {{ filter_marker() }}
+  <div class="col-md-6"><input class="form-control" type="search" name="q" value="{{ search }}" placeholder="Zoek op naam, voornaam, relatie, functie, e-mail, telefoon..."></div>
+  <div class="col-md-3 d-flex align-items-center">
+    <div class="form-check"><input class="form-check-input" type="checkbox" name="inactive" value="1" id="inactive" {{ 'checked' if request.args.inactive }} data-autosubmit>
+      <label class="form-check-label" for="inactive">Ook inactieve</label></div>
+  </div>
+  <div class="col-md-3"><button class="btn btn-secondary w-100"><i class="bi bi-search"></i> Zoeken</button></div>
+</form>
+<div class="card"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+  <thead><tr><th>Naam</th><th>Voornaam</th><th>Klant / leverancier</th><th>Functie</th><th>E-mail</th><th>Telefoon / GSM</th></tr></thead>
+  <tbody>
+  {% for p in page.items %}
+    <tr class="{{ 'text-body-tertiary' if not p.active }}">
+      <td class="fw-semibold"><a href="{{ url_for('relations.edit_contact', contact_id=p.id, next=request.full_path) }}"
+          data-modal-url="{{ url_for('relations.edit_contact', contact_id=p.id) }}">{{ p.last_name }}</a>{% if not p.active %} <span class="badge text-bg-secondary">inactief</span>{% endif %}</td>
+      <td>{{ p.first_name or '' }}</td>
+      <td><a href="{{ url_for('relations.detail', company_id=p.company_id) }}">{{ p.company.name }}</a>
+        {% if p.company.is_customer %}<span class="badge text-bg-primary">Klant</span>{% endif %}
+        {% if p.company.is_supplier %}<span class="badge text-bg-success">Leverancier</span>{% endif %}</td>
+      <td class="small">{{ p.function or '' }}</td>
+      <td class="small">{% if p.email %}<a href="mailto:{{ p.email }}">{{ p.email }}</a>{% endif %}</td>
+      <td class="small text-nowrap">{% if p.phone %}<a href="tel:{{ p.phone }}">{{ p.phone }}</a>{% endif %}{% if p.phone and p.mobile %}<br>{% endif %}{% if p.mobile %}<a href="tel:{{ p.mobile }}">{{ p.mobile }}</a>{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="text-body-secondary">Geen contactpersonen gevonden.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+<div class="mt-2">{{ pagination(page, 'relations.contacts') }}</div>
+{% endblock %}

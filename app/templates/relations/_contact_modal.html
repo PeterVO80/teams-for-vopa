@@ -1,0 +1,11 @@
+<div class="modal-header">
+  <h1 class="modal-title fs-5">{{ 'Contactpersoon bewerken' if contact else 'Nieuwe contactpersoon' }}</h1>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Sluiten"></button>
+</div>
+<form method="post" action="{{ action }}" data-modal-form novalidate>
+  <div class="modal-body">{% include "relations/_contact_fields.html" %}</div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-link" data-bs-dismiss="modal">Annuleren</button>
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Opslaan</button>
+  </div>
+</form>

@@ -7,7 +7,7 @@ which Flask-Migrate needs to autogenerate migrations.
 from .article import Article
 from .base import LabeledEnum
 from .catalog import CatalogItem, SupplierCatalog
-from .company import Company
+from .company import Company, Contact
 from .outlook import CalendarEvent, OutlookLink
 from .knowledge import Note, Tag, WikiPage, WikiRevision, note_tags
 from .planning import Assignment, AssignmentKind, is_weekend
@@ -29,6 +29,7 @@ __all__ = [
     "CalendarEvent",
     "CatalogItem",
     "Company",
+    "Contact",
     "AssignmentKind",
     "GoodsReceipt",
     "LabeledEnum",

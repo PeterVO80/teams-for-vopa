@@ -108,3 +108,53 @@ def test_relation_address_with_box(client):
     assert company.address_lines == ["Kerkstraat 1 bus 3", "9000 Gent", "België"]
     assert "Kerkstraat 1 bus 3" in client.get(f"/relations/{company.id}").get_data(as_text=True)
     assert 'name="box"' in client.get(f"/relations/{company.id}/edit").get_data(as_text=True)
+
+
+def test_contact_persons(client):
+    from app.models import Contact
+
+    kroon = Company.by_name("Brouwerij De Kroon")
+    rexel = Company.by_name("Rexel")
+    # Add from the relation page (popup), the relation is pre-selected.
+    html = client.get(f"/relations/contacts/new?company={kroon.id}", headers=MODAL).get_data(as_text=True)
+    assert f'<option selected value="{kroon.id}">' in html and "Voornaam" in html
+    response = client.post(f"/relations/contacts/new?company={kroon.id}", headers=MODAL, data={
+        "company_id": kroon.id, "last_name": " Peeters ", "first_name": "Jan", "function": "Projectleider",
+        "email": "jan.peeters@example.be", "phone": "", "mobile": "0470 12 34 56", "active": "y"})
+    assert response.get_json() == {"ok": True}
+    jan = db.session.scalar(sa.select(Contact))
+    assert jan.company == kroon and jan.last_name == "Peeters" and jan.full_name == "Jan Peeters" and jan.phone is None
+    client.post("/relations/contacts/new", data={"company_id": rexel.id, "last_name": "Janssens", "first_name": "Els",
+                                                 "function": "Accountmanager", "active": "y"})
+    # A contact person needs a relation and a name.
+    response = client.post("/relations/contacts/new", headers=MODAL, data={"company_id": 0, "last_name": ""})
+    assert response.status_code == 422 and "Kies de klant of leverancier" in response.get_data(as_text=True)
+
+    html = client.get(f"/relations/{kroon.id}").get_data(as_text=True)
+    assert "Contactpersonen (1)" in html and "Jan Peeters" in html and "0470 12 34 56" in html and "Accountmanager" not in html
+    html = client.get("/relations/contacts").get_data(as_text=True)
+    assert "Peeters" in html and "Janssens" in html and "Brouwerij De Kroon" in html
+    html = client.get("/relations/contacts?q=rexel").get_data(as_text=True)
+    assert "Janssens" in html and "Peeters" not in html
+    assert "Contactpersonen" in client.get("/relations/").get_data(as_text=True)               # tab
+
+    # Edit (inactive: hidden from the list unless asked), delete.
+    client.post(f"/relations/contacts/{jan.id}/edit", data={"company_id": kroon.id, "last_name": "Peeters",
+                                                            "first_name": "Jan", "function": "Directeur"})
+    db.session.refresh(jan)
+    assert jan.function == "Directeur" and not jan.active
+    assert "Peeters" not in client.get("/relations/contacts?q=peeters").get_data(as_text=True).split("<tbody>")[1]
+    assert "Peeters" in client.get("/relations/contacts?q=peeters&inactive=1").get_data(as_text=True)
+    client.post(f"/relations/contacts/{jan.id}/delete")
+    assert db.session.get(Contact, jan.id) is None
+
+
+def test_deleting_a_relation_removes_its_contacts(client):
+    from app.models import Contact
+
+    client.post("/relations/new", data={"name": "Tijdelijk bv", "is_customer": "y", "active": "y"})
+    company = Company.by_name("Tijdelijk bv")
+    client.post("/relations/contacts/new", data={"company_id": company.id, "last_name": "Test", "active": "y"})
+    client.post(f"/relations/{company.id}/delete")
+    assert Company.by_name("Tijdelijk bv") is None
+    assert db.session.scalar(sa.select(sa.func.count(Contact.id))) == 0

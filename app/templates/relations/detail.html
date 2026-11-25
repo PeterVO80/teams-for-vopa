@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import project_status_badge, order_status_badge %}
+{% from "_macros.html" import project_status_badge, order_status_badge, post_button %}
 {% block title %}{{ company.name }}{% endblock %}
 {% block page_header %}
 <nav aria-label="breadcrumb"><ol class="breadcrumb mb-1"><li class="breadcrumb-item"><a href="{{ url_for('relations.index') }}">Relaties</a></li></ol></nav>
@@ -29,6 +29,39 @@
       </dl>
       {% if company.notes %}<hr><div>{{ company.notes }}</div>{% endif %}
     </div></div>
+    <div class="card mt-3">
+      <div class="card-header d-flex align-items-center">
+        <span class="fw-semibold me-auto">Contactpersonen ({{ company.contacts|selectattr('active')|list|length }})</span>
+        {% if can_write('relations') %}
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('relations.edit_contact', company=company.id, next=request.path) }}"
+           data-modal-url="{{ url_for('relations.edit_contact', company=company.id) }}" title="Nieuwe contactpersoon"><i class="bi bi-plus-lg"></i> Nieuw</a>
+        {% endif %}
+      </div>
+      <div class="list-group list-group-flush small">
+        {% for p in company.contacts %}
+        <div class="list-group-item d-flex gap-2 {{ 'text-body-tertiary' if not p.active }}">
+          <div class="me-auto">
+            <div class="fw-semibold">{{ p.full_name }}{% if not p.active %} <span class="badge text-bg-secondary">inactief</span>{% endif %}</div>
+            {% if p.function %}<div class="text-body-secondary">{{ p.function }}</div>{% endif %}
+            {% if p.email %}<div><i class="bi bi-envelope"></i> <a href="mailto:{{ p.email }}">{{ p.email }}</a></div>{% endif %}
+            {% if p.phone %}<div><i class="bi bi-telephone"></i> <a href="tel:{{ p.phone }}">{{ p.phone }}</a></div>{% endif %}
+            {% if p.mobile %}<div><i class="bi bi-phone"></i> <a href="tel:{{ p.mobile }}">{{ p.mobile }}</a></div>{% endif %}
+            {% if p.notes %}<div class="fst-italic text-body-secondary" style="white-space: pre-line">{{ p.notes }}</div>{% endif %}
+          </div>
+          {% if can_write('relations') %}
+          <div class="text-nowrap">
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('relations.edit_contact', contact_id=p.id, next=request.path) }}"
+               data-modal-url="{{ url_for('relations.edit_contact', contact_id=p.id) }}" title="Bewerken"><i class="bi bi-pencil"></i></a>
+            {{ post_button(url_for('relations.delete_contact', contact_id=p.id), '', icon='trash', class_='btn btn-sm btn-outline-danger',
+                           confirm='Contactpersoon ' ~ p.full_name ~ ' verwijderen?', next=request.path) }}
+          </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="list-group-item text-body-secondary">Nog geen contactpersonen.</div>
+        {% endfor %}
+      </div>
+    </div>
   </div>
   <div class="col-lg-8">
     {% if company.is_customer or projects %}

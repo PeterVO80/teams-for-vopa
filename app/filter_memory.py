@@ -36,6 +36,7 @@ REMEMBERED: dict[str, tuple[tuple[str, ...], bool]] = {
     "purchasing.index": (("status", "project"), False),
     "purchasing.material": (("project", "open"), False),
     "relations.index": (("q", "kind", "inactive"), False),
+    "relations.contacts": (("q", "inactive"), False),
     "stock.index": (("q", "location", "category", "below"), False),
     "stock.movements": (("location", "project", "kind"), False),
     "team.overview": (("view", "weeks"), False),
