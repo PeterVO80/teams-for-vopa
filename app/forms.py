@@ -159,7 +159,6 @@ class CompanyForm(FlaskForm):
     is_customer = BooleanField("Klant")
     is_supplier = BooleanField("Leverancier")
     vat_number = StringField("Btw-nummer", validators=[Optional(), Length(max=30)])
-    contact_person = StringField("Contactpersoon", validators=[Optional(), Length(max=120)])
     phone = StringField("Telefoon", validators=[Optional(), Length(max=50)])
     email = StringField("E-mail", validators=[Optional(), Email(), Length(max=120)])
     website = StringField("Website", validators=[Optional(), Length(max=200)])

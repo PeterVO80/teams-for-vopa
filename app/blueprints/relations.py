@@ -52,8 +52,11 @@ def index():
         query = query.where(Company.active.is_(True))
     for word in search.split():
         pattern = f"%{word}%"
+        has_contact = sa.select(Contact.id).where(
+            Contact.company_id == Company.id,
+            sa.or_(Contact.last_name.ilike(pattern), Contact.first_name.ilike(pattern))).exists()
         query = query.where(sa.or_(Company.name.ilike(pattern), Company.city.ilike(pattern),
-                                   Company.contact_person.ilike(pattern), Company.vat_number.ilike(pattern)))
+                                   has_contact, Company.vat_number.ilike(pattern)))
     page = db.paginate(query, per_page=current_app.config["ITEMS_PER_PAGE"], error_out=False)
     return render_template("relations/index.html", page=page, kind=kind, search=search, kinds=KINDS,
                            usage=_usage([c.id for c in page.items]))

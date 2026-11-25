@@ -122,7 +122,7 @@ def test_contact_persons(client):
         "company_id": kroon.id, "last_name": " Peeters ", "first_name": "Jan", "function": "Projectleider",
         "email": "jan.peeters@example.be", "phone": "", "mobile": "0470 12 34 56", "active": "y"})
     assert response.get_json() == {"ok": True}
-    jan = db.session.scalar(sa.select(Contact))
+    jan = db.session.scalar(sa.select(Contact).filter_by(last_name="Peeters"))
     assert jan.company == kroon and jan.last_name == "Peeters" and jan.full_name == "Jan Peeters" and jan.phone is None
     client.post("/relations/contacts/new", data={"company_id": rexel.id, "last_name": "Janssens", "first_name": "Els",
                                                  "function": "Accountmanager", "active": "y"})
@@ -131,7 +131,7 @@ def test_contact_persons(client):
     assert response.status_code == 422 and "Kies de klant of leverancier" in response.get_data(as_text=True)
 
     html = client.get(f"/relations/{kroon.id}").get_data(as_text=True)
-    assert "Contactpersonen (1)" in html and "Jan Peeters" in html and "0470 12 34 56" in html and "Accountmanager" not in html
+    assert "Contactpersonen (2)" in html and "Jan Peeters" in html and "Bart Wouters" in html and "0470 12 34 56" in html and "Accountmanager" not in html
     html = client.get("/relations/contacts").get_data(as_text=True)
     assert "Peeters" in html and "Janssens" in html and "Brouwerij De Kroon" in html
     html = client.get("/relations/contacts?q=rexel").get_data(as_text=True)
@@ -157,4 +157,13 @@ def test_deleting_a_relation_removes_its_contacts(client):
     client.post("/relations/contacts/new", data={"company_id": company.id, "last_name": "Test", "active": "y"})
     client.post(f"/relations/{company.id}/delete")
     assert Company.by_name("Tijdelijk bv") is None
-    assert db.session.scalar(sa.select(sa.func.count(Contact.id))) == 0
+    assert db.session.scalar(sa.select(sa.func.count(Contact.id)).where(Contact.company_id == company.id)) == 0
+
+
+def test_relation_list_shows_and_finds_contact_persons(client):
+    kroon = Company.by_name("Brouwerij De Kroon")
+    assert [c.full_name for c in kroon.contacts] == ["Bart Wouters"]          # demo data
+    html = client.get("/relations/?q=wouters").get_data(as_text=True)
+    assert "Brouwerij De Kroon" in html and "Bart Wouters" in html and "Aquafin" not in html.split("<tbody>")[1]
+    html = client.get(f"/relations/{kroon.id}/edit").get_data(as_text=True)
+    assert 'name="contact_person"' not in html

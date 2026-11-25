@@ -27,7 +27,8 @@
         {% if c.is_supplier %}<span class="badge text-bg-success">Leverancier</span>{% endif %}
       </td>
       <td>{{ c.city or '' }}</td>
-      <td class="small">{{ c.contact_person or '' }}{% if c.phone %}<br>{{ c.phone }}{% endif %}</td>
+      {% set people = c.contacts|selectattr('active')|list %}
+      <td class="small">{% if people %}{{ people[0].full_name }}{% if people|length > 1 %} <span class="text-body-secondary">+{{ people|length - 1 }}</span>{% endif %}{% endif %}{% if c.phone %}<br>{{ c.phone }}{% endif %}</td>
       <td class="text-end">{{ u.projects or '' }}</td>
       <td class="text-end">{{ u.orders or '' }}</td>
       <td class="text-end">{{ u.articles or '' }}</td>

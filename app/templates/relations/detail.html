@@ -22,7 +22,6 @@
       <dl class="mb-0">
         {% if company.address_lines %}<dt>Adres</dt><dd>{{ company.address_lines|join('<br>'|safe) }}</dd>{% endif %}
         {% if company.vat_number %}<dt>Btw-nummer</dt><dd>{{ company.vat_number }}</dd>{% endif %}
-        {% if company.contact_person %}<dt>Contactpersoon</dt><dd>{{ company.contact_person }}</dd>{% endif %}
         {% if company.phone %}<dt>Telefoon</dt><dd><a href="tel:{{ company.phone }}">{{ company.phone }}</a></dd>{% endif %}
         {% if company.email %}<dt>E-mail</dt><dd><a href="mailto:{{ company.email }}">{{ company.email }}</a></dd>{% endif %}
         {% if company.website %}<dt>Website</dt><dd><a href="{{ company.website if '://' in company.website else 'https://' ~ company.website }}" target="_blank" rel="noopener">{{ company.website }}</a></dd>{% endif %}

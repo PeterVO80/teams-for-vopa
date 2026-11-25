@@ -23,6 +23,7 @@ from .models import (
     Article,
     Assignment,
     Company,
+    Contact,
     MovementKind,
     StockLocation,
     StockMovement,
@@ -203,7 +204,8 @@ def _seed_demo_data() -> None:
         team.append(user)
 
     # Relations: customers and suppliers.
-    kroon = Company(name="Brouwerij De Kroon", is_customer=True, city="Leuven", contact_person="Productieleider")
+    kroon = Company(name="Brouwerij De Kroon", is_customer=True, city="Leuven")
+    kroon.contacts.append(Contact(last_name="Wouters", first_name="Bart", function="Productieleider"))
     aquafin = Company(name="Aquafin", is_customer=True, city="Aartselaar")
     rexel = Company(name="Rexel", is_supplier=True, website="www.rexel.be")
     cebeo = Company(name="Cebeo", is_supplier=True)

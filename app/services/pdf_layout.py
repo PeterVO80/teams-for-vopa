@@ -88,8 +88,6 @@ def letter_header(company: str, office: str, customer=None, logo_path: str | Non
     theirs = []
     if customer is not None:
         theirs.append(Paragraph(f"<b>{escape(customer.name)}</b>", st["normal"]))
-        if customer.contact_person:
-            theirs.append(Paragraph(f"t.a.v. {escape(customer.contact_person)}", st["normal"]))
         theirs += [Paragraph(escape(line), st["normal"]) for line in customer.address_lines]
         if customer.vat_number:
             theirs.append(Paragraph(f"Btw {escape(customer.vat_number)}", st["small"]))

@@ -34,7 +34,6 @@ class Company(TimestampMixin, db.Model):
     postal_code: Mapped[str | None] = mapped_column(sa.String(20))
     city: Mapped[str | None] = mapped_column(sa.String(120))
     country: Mapped[str | None] = mapped_column(sa.String(80), default="België")
-    contact_person: Mapped[str | None] = mapped_column(sa.String(120))
     phone: Mapped[str | None] = mapped_column(sa.String(50))
     email: Mapped[str | None] = mapped_column(sa.String(120))
     website: Mapped[str | None] = mapped_column(sa.String(200))
