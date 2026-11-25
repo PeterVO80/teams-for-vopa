@@ -27,7 +27,8 @@
       description: field("description"),
       quantity: field("quantity"),
       unit: field("unit"),
-      price: field("unit_price"),
+      // Quotes keep the article price as purchase price (the sales price follows from the markup).
+      price: field("cost_price") || field("unit_price"),
     };
     const search = picker.querySelector("[data-article-search]");
     const results = picker.querySelector("[data-article-results]");
@@ -52,6 +53,7 @@
       fields.description.value = article.description;
       fields.unit.value = article.unit;
       fields.price.value = article.unit_price ?? "";
+      fields.price.dispatchEvent(new Event("input", { bubbles: true }));   // quote line: recalculate the sales price
       search.value = "";
       hideResults();
       showLinkState(article.label);

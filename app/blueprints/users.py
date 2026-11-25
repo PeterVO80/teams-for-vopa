@@ -143,7 +143,8 @@ def settings():
     from ..services import distance
 
     fields = [("company.name", "Bedrijfsnaam (op de urenstaat)"), ("office.street", "Straat en nummer"),
-              ("office.box", "Bus"), ("office.postal_code", "Postcode"), ("office.city", "Gemeente"), ("office.country", "Land")]
+              ("office.box", "Bus"), ("office.postal_code", "Postcode"), ("office.city", "Gemeente"), ("office.country", "Land"),
+              ("quote.hourly_rate", "Standaard uurprijs (€, excl. btw)"), ("quote.markup", "Standaard marge op materiaal (%)")]
     if request.method == "POST":
         for key, _ in fields:
             AppSetting.put(key, (request.form.get(key) or "").strip()[:200])

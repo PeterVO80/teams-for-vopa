@@ -12,6 +12,7 @@ when copying such a value to a model.
 from __future__ import annotations
 
 from datetime import timedelta
+from decimal import Decimal
 
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
@@ -28,6 +29,7 @@ from wtforms import (
     TextAreaField,
     TimeField,
 )
+from wtforms.widgets import TextInput
 from wtforms.validators import (
     DataRequired,
     Email,
@@ -43,6 +45,7 @@ from .models import (
     AssignmentKind,
     OrderStatus,
     ProjectStatus,
+    QuoteStatus,
     TaskPriority,
     TaskStatus,
     UserRole,
@@ -82,7 +85,21 @@ class HoursField(DecimalField):
             return self.raw_data[0]
         if self.data is None:
             return ""
-        return f"{self.data.normalize():f}".replace(".", ",")
+        return f"{Decimal(str(self.data)).normalize():f}".replace(".", ",")
+
+
+class AmountField(PriceField):
+    """Price with up to 4 decimals that also accepts a decimal comma ("12,50").
+
+    A text input (not type=number, which refuses a comma in many browsers).
+    """
+
+    widget = TextInput()
+
+    def process_formdata(self, valuelist):
+        if valuelist:
+            valuelist = [str(v).strip().replace(" ", "").replace("€", "").replace(",", ".") for v in valuelist]
+        super().process_formdata(valuelist)
 
 
 def none_if_zero(value: int | None) -> int | None:
@@ -428,3 +445,39 @@ class TagForm(FlaskForm):
         default="#6c757d",
         validators=[Regexp(r"^#[0-9a-fA-F]{6}$", message="Gebruik een kleurcode zoals #6c757d.")],
     )
+
+
+# ------------------------------------------------------------------ quotes
+class QuoteForm(FlaskForm):
+    """Header of a quote (blueprints/quotes.py)."""
+
+    title = StringField("Onderwerp", validators=[DataRequired(), Length(max=200)],
+                        description="Bv. \"Retrofit verpakkingslijn L3\" - wordt ook de naam van een project dat je ervan maakt.")
+    customer_id = SelectField("Klant", coerce=int, default=0)
+    project_id = SelectField("Project", coerce=int, default=0,
+                             description="Optioneel: koppel de offerte aan een bestaand project.")
+    status = SelectField("Status", choices=QuoteStatus.choices(), default="draft")
+    quote_date = DateField("Offertedatum", validators=[Optional()])
+    valid_until = DateField("Geldig tot", validators=[Optional()])
+    vat_rate = HoursField("Btw (%)", places=2, default=21, validators=[DataRequired(), NumberRange(min=0, max=100)])
+    introduction = TextAreaField("Inleiding voor de klant", validators=[Optional()], render_kw={"rows": 4},
+                                 description="Omschrijving van de opdracht, voorwaarden ... (bovenaan de offerte).")
+    notes = TextAreaField("Interne notities", validators=[Optional()], render_kw={"rows": 3},
+                          description="Alleen intern, niet voor de klant.")
+
+
+class QuoteLineForm(FlaskForm):
+    """A section title, material line or labour line (blueprints/quotes.py)."""
+
+    kind = HiddenField()
+    article_id = HiddenField()
+    description = StringField("Omschrijving", validators=[DataRequired(), Length(max=300)])
+    quantity = HoursField("Aantal", places=2, validators=[Optional(), NumberRange(min=0)],
+                          render_kw={"inputmode": "decimal"})
+    unit = StringField("Eenheid", validators=[Optional(), Length(max=20)])
+    cost_price = AmountField("Inkoopprijs (€)", render_kw={"inputmode": "decimal"})
+    markup = HoursField("Marge (%)", places=1, validators=[Optional(), NumberRange(min=-100, max=1000)],
+                        render_kw={"inputmode": "decimal"})
+    unit_price = AmountField("Verkoopprijs (€)", render_kw={"inputmode": "decimal"})
+    note = TextAreaField("Notitie / commentaar", validators=[Optional()], render_kw={"rows": 2},
+                         description="Optioneel: extra uitleg onder de lijn.")

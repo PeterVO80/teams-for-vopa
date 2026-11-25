@@ -81,6 +81,11 @@
   <span class="badge text-bg-{{ colors[status.value] }}">{{ status.label }}</span>
 {% endmacro %}
 
+{% macro quote_status_badge(status) %}
+  {% set colors = {'draft': 'secondary', 'sent': 'primary', 'accepted': 'success', 'rejected': 'danger'} %}
+  <span class="badge text-bg-{{ colors[status.value] }}">{{ status.label }}</span>
+{% endmacro %}
+
 {% macro project_status_badge(status) %}
   {% set colors = {'planned': 'info', 'active': 'success', 'on_hold': 'warning', 'closed': 'secondary'} %}
   <span class="badge text-bg-{{ colors[status.value] }}">{{ status.label }}</span>

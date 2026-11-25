@@ -1,0 +1,25 @@
+{# Fields of a quote line; which ones depends on the kind (section / material / labour). #}
+{% from "_macros.html" import render_field %}
+{{ form.hidden_tag() }}
+<div class="row" data-quote-line>
+  {% if kind == kinds.SECTION %}
+    <div class="col-12">{{ render_field(form.description) | replace('>Omschrijving<', '>Titel van de sectie<') }}</div>
+  {% else %}
+    {% if kind == kinds.MATERIAL %}<div class="col-12">{% include "purchasing/_article_picker.html" %}</div>{% endif %}
+    <div class="col-12">{{ render_field(form.description) }}</div>
+    {% if kind == kinds.MATERIAL %}
+      {{ render_field(form.quantity, class_="col-6 col-md-3") }}
+      {{ render_field(form.unit, class_="col-6 col-md-3") }}
+      <div class="col-12"></div>
+      {{ render_field(form.cost_price, class_="col-md-4") }}
+      {{ render_field(form.markup, class_="col-md-3") }}
+      {{ render_field(form.unit_price, class_="col-md-5") }}
+      <div class="col-12 small text-body-secondary mt-n2 mb-3"><i class="bi bi-lock"></i> Inkoopprijs en marge zijn intern. De verkoopprijs = inkoopprijs + marge; je kan hem ook zelf invullen.</div>
+    {% else %}
+      {{ render_field(form.quantity, class_="col-md-4") | replace('>Aantal<', '>Aantal uren<') }}
+      {{ render_field(form.unit, class_="col-md-3") }}
+      {{ render_field(form.unit_price, class_="col-md-5") | replace('>Verkoopprijs (€)<', '>Uurprijs (€)<') }}
+    {% endif %}
+  {% endif %}
+  <div class="col-12">{{ render_field(form.note) }}</div>
+</div>

@@ -8,10 +8,20 @@
     <p class="small text-body-secondary">Het kantooradres is het vertrekpunt voor de afstand naar klanten
       (kilometers bij buitendienst in de urenregistratie). Afstanden worden berekend met {{ provider }}.</p>
     <div class="row">
-      {% for key, label in fields %}
+      {% for key, label in fields if not key.startswith('quote.') %}
       <div class="mb-3 {{ 'col-md-12' if key == 'company.name' else 'col-md-9' if key == 'office.street' else 'col-md-3' if key == 'office.box' else ('col-md-3' if key == 'office.postal_code' else 'col-md-5' if key == 'office.city' else 'col-md-4') }}">
         <label class="form-label" for="{{ key }}">{{ label }}</label>
         <input class="form-control" id="{{ key }}" name="{{ key }}" value="{{ values[key] }}" maxlength="{{ 20 if key == 'office.box' else 200 }}">
+      </div>
+      {% endfor %}
+    </div>
+    <h2 class="h6 mt-2">Offertes</h2>
+    <p class="small text-body-secondary">Voorstellen bij nieuwe offertelijnen; per lijn aan te passen.</p>
+    <div class="row">
+      {% for key, label in fields if key.startswith('quote.') %}
+      <div class="mb-3 col-md-6">
+        <label class="form-label" for="{{ key }}">{{ label }}</label>
+        <input class="form-control" id="{{ key }}" name="{{ key }}" value="{{ values[key] }}" maxlength="20" inputmode="decimal">
       </div>
       {% endfor %}
     </div>

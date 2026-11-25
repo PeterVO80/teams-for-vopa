@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import quote_status_badge %}
+{% block title %}Offertes{% endblock %}
+{% block page_actions %}
+<a class="btn btn-primary" href="{{ url_for('quotes.edit') }}"><i class="bi bi-plus-lg"></i> Nieuwe offerte</a>
+{% endblock %}
+{% block content %}
+<form class="row g-2 mb-3" method="get">
+  {{ filter_marker() }}
+  <div class="col-md-4"><input class="form-control" type="search" name="q" value="{{ search }}" placeholder="Zoek op nummer, onderwerp of klant"></div>
+  <div class="col-md-3">
+    <select class="form-select" name="customer" data-autosubmit>
+      <option value="">Alle klanten</option>
+      {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if customer_id == c.id }}>{{ c.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <select class="form-select" name="status" data-autosubmit>
+      <option value="">Alle statussen</option>
+      <option value="open" {{ 'selected' if status == 'open' }}>Open (concept + verstuurd)</option>
+      {% for value, label in statuses.choices() %}<option value="{{ value }}" {{ 'selected' if status == value }}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto"><button class="btn btn-outline-secondary"><i class="bi bi-search"></i></button>
+    <a class="btn btn-link" href="{{ url_for('quotes.index', reset=1) }}">Filters wissen</a></div>
+</form>
+<div class="card"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+  <thead><tr><th>Nummer</th><th>Onderwerp</th><th>Klant</th><th>Project</th><th>Datum</th><th class="text-end">Totaal excl. btw</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for q in quotes %}
+    <tr class="clickable-row" data-href="{{ url_for('quotes.detail', quote_id=q.id) }}">
+      <td class="fw-semibold text-nowrap"><a href="{{ url_for('quotes.detail', quote_id=q.id) }}">{{ q.number }}</a></td>
+      <td>{{ q.title }}</td>
+      <td>{{ q.customer or '' }}</td>
+      <td class="small">{% if q.project %}<a href="{{ url_for('projects.detail', project_id=q.project_id) }}">{{ q.project.code }}</a>{% endif %}</td>
+      <td class="small text-nowrap">{{ q.quote_date|date }}</td>
+      <td class="text-end text-nowrap">{{ q.total|money }}</td>
+      <td>{{ quote_status_badge(q.status) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="text-body-secondary">Geen offertes gevonden.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}

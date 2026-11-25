@@ -23,7 +23,7 @@ from flask_login import current_user
 from .modules import BLUEPRINT_MODULE, MODULE_KEYS
 
 #: Endpoints (function names) that change data, also on GET (their form page).
-WRITE_VIEWS = {"create", "delete", "move", "week", "add_article", "import_view", "import_supplier_order"}
+WRITE_VIEWS = {"create", "delete", "move", "week", "add_article", "add_line", "import_view", "import_supplier_order"}
 #: Form pages that also show an existing record: read-only users may open them
 #: for an existing record (URL with an id), not for a new one.
 RECORD_FORMS = {"edit", "edit_assignment", "edit_line"}

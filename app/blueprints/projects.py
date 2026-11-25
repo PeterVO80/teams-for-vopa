@@ -16,6 +16,7 @@ from ..models import (
     Note,
     Project,
     ProjectStatus,
+    Quote,
     PurchaseOrder,
     Task,
     TaskStatus,
@@ -158,6 +159,7 @@ def detail(project_id: int):
         wiki_count=wiki_count,
         status_counts=status_counts,
         time_entries=time_entries,
+        quotes=db.session.scalars(sa.select(Quote).filter_by(project_id=project.id).order_by(Quote.number.desc())).all(),
         time_total_hours=sum((e.hours for e in time_entries), Decimal("0")),
         time_total_km=sum((e.km or Decimal("0") for e in time_entries), Decimal("0")),
     )

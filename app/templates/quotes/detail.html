@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% from "_macros.html" import quote_status_badge, post_button %}
+{% block title %}Offerte {{ quote.number }}{% endblock %}
+{% block heading %}{{ quote.number }} <span class="text-body-secondary fw-normal">{{ quote.title }}</span> {{ quote_status_badge(quote.status) }}{% endblock %}
+{% block page_actions %}
+<div class="d-flex flex-wrap gap-2">
+  {% if quote.project %}
+  <a class="btn btn-outline-secondary" href="{{ url_for('projects.detail', project_id=quote.project_id) }}"><i class="bi bi-kanban"></i> Project {{ quote.project.code }}</a>
+  {% elif can_write('projects') %}
+  {{ post_button(url_for('quotes.create_project', quote_id=quote.id), 'Project aanmaken', icon='plus-square', class_='btn btn-outline-success',
+                 confirm='Een nieuw project aanmaken uit deze offerte (naam, klant en inleiding) en de offerte eraan koppelen?') }}
+  {% endif %}
+  {% if can_write('quotes') %}
+  <a class="btn btn-outline-secondary" href="{{ url_for('quotes.edit', quote_id=quote.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>
+  {{ post_button(url_for('quotes.copy', quote_id=quote.id), 'Kopiëren', icon='copy', class_='btn btn-outline-secondary',
+                 confirm='Een nieuwe offerte (concept) maken met dezelfde gegevens en lijnen?') }}
+  {{ post_button(url_for('quotes.delete', quote_id=quote.id), '', icon='trash', class_='btn btn-outline-danger',
+                 confirm='Offerte ' ~ quote.number ~ ' en al haar lijnen definitief verwijderen?') }}
+  {% endif %}
+</div>
+{% endblock %}
+{% block content %}
+<div class="row g-3 mb-3">
+  <div class="col-lg-7">
+    <div class="card h-100"><div class="card-body">
+      <dl class="row mb-0 small">
+        <dt class="col-sm-3">Klant</dt>
+        <dd class="col-sm-9">{% if quote.customer %}<a href="{{ url_for('relations.detail', company_id=quote.customer_id) }}">{{ quote.customer }}</a>
+          {% if quote.customer.address_lines %}<div class="text-body-secondary">{{ quote.customer.address_lines|join(', ') }}</div>{% endif %}{% else %}<span class="text-body-secondary">-</span>{% endif %}</dd>
+        <dt class="col-sm-3">Project</dt>
+        <dd class="col-sm-9">{% if quote.project %}<a href="{{ url_for('projects.detail', project_id=quote.project_id) }}">{{ quote.project.display_name }}</a>{% else %}<span class="text-body-secondary">niet gekoppeld</span>{% endif %}</dd>
+        <dt class="col-sm-3">Datum</dt>
+        <dd class="col-sm-9">{{ quote.quote_date|date or '-' }}{% if quote.valid_until %} · geldig tot {{ quote.valid_until|date }}{% endif %}</dd>
+        <dt class="col-sm-3">Status</dt>
+        <dd class="col-sm-9">
+          <form method="post" action="{{ url_for('quotes.set_status', quote_id=quote.id) }}" class="d-inline-flex gap-1">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <select class="form-select form-select-sm" name="status" data-autosubmit style="width: auto">
+              {% for value, label in statuses.choices() %}<option value="{{ value }}" {{ 'selected' if quote.status.value == value }}>{{ label }}</option>{% endfor %}
+            </select>
+          </form>
+        </dd>
+        {% if quote.created_by %}<dt class="col-sm-3">Opgemaakt door</dt><dd class="col-sm-9">{{ quote.created_by.full_name }}</dd>{% endif %}
+      </dl>
+      {% if quote.introduction %}<hr><div class="small" style="white-space: pre-line">{{ quote.introduction }}</div>{% endif %}
+      {% if quote.notes %}<div class="alert alert-warning small mt-3 mb-0 py-2" style="white-space: pre-line"><i class="bi bi-lock"></i> <strong>Intern:</strong> {{ quote.notes }}</div>{% endif %}
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card h-100"><div class="card-body">
+      <table class="table table-sm mb-0">
+        <tr><td>Materiaal</td><td class="text-end">{{ quote.material_total|money }}</td></tr>
+        <tr><td>Werkuren <span class="text-body-secondary small">({{ quote.labour_hours|qty }} u)</span></td><td class="text-end">{{ quote.labour_total|money }}</td></tr>
+        <tr class="fw-semibold"><td>Totaal excl. btw</td><td class="text-end">{{ quote.total|money }}</td></tr>
+        <tr><td>Btw {{ quote.vat_rate|qty }}%</td><td class="text-end">{{ quote.vat_amount|money }}</td></tr>
+        <tr class="fw-bold fs-5"><td class="border-0">Totaal incl. btw</td><td class="text-end border-0">{{ quote.total_incl_vat|money }}</td></tr>
+      </table>
+      {% if quote.material_cost is not none %}
+      <div class="small text-body-secondary border-top pt-2 mt-1"><i class="bi bi-lock"></i> Intern: inkoop materiaal {{ quote.material_cost|money }}
+        · marge {{ quote.material_margin|money }}</div>
+      {% endif %}
+    </div></div>
+  </div>
+</div>
+
+{% set write = can_write('quotes') %}
+<div class="card">
+  {% if write %}
+  <div class="card-header d-flex flex-wrap gap-2">
+    <span class="fw-semibold me-auto align-self-center">Lijnen</span>
+    {% for k, icon in [(kinds.SECTION, 'type-h2'), (kinds.MATERIAL, 'box-seam'), (kinds.LABOUR, 'person-gear')] %}
+    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('quotes.add_line', quote_id=quote.id, kind=k.value) }}"
+       data-modal-url="{{ url_for('quotes.add_line', quote_id=quote.id, kind=k.value) }}"><i class="bi bi-{{ icon }}"></i> {{ k.label }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="table-responsive">
+  <table class="table table-sm align-middle mb-0 quote-lines">
+    <thead><tr>
+      {% if write %}<th style="width: 3.2rem"></th>{% endif %}
+      <th>Omschrijving</th><th class="text-end" style="width: 6rem">Aantal</th><th style="width: 4rem"></th>
+      <th class="text-end" style="width: 7.5rem">Prijs</th><th class="text-end" style="width: 8rem">Totaal</th>{% if write %}<th style="width: 6rem"></th>{% endif %}
+    </tr></thead>
+    {% macro move_buttons(line) %}
+      <td class="text-nowrap">
+        <form method="post" action="{{ url_for('quotes.move_line', line_id=line.id) }}" class="d-inline-flex flex-column">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-link btn-sm p-0 lh-1" name="direction" value="up" title="Omhoog"><i class="bi bi-caret-up-fill"></i></button>
+          <button class="btn btn-link btn-sm p-0 lh-1" name="direction" value="down" title="Omlaag"><i class="bi bi-caret-down-fill"></i></button>
+        </form>
+      </td>
+    {% endmacro %}
+    {% macro line_actions(line) %}
+      <td class="text-end text-nowrap">
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('quotes.edit_line', line_id=line.id) }}"
+           data-modal-url="{{ url_for('quotes.edit_line', line_id=line.id) }}" title="Bewerken"><i class="bi bi-pencil"></i></a>
+        {{ post_button(url_for('quotes.delete_line', line_id=line.id), '', icon='trash', class_='btn btn-sm btn-outline-danger',
+                       confirm=('Sectie' if line.kind == kinds.SECTION else 'Lijn') ~ ' "' ~ line.description ~ '" verwijderen?') }}
+      </td>
+    {% endmacro %}
+    {% for section in sections %}
+    <tbody class="quote-section">
+      {% if section.title %}
+      {% set s = section.title %}
+      <tr class="table-light quote-section-title" id="line-{{ s.id }}">
+        {% if write %}{{ move_buttons(s) }}{% endif %}
+        <td colspan="5">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="fw-bold fs-6">{{ s.description }}</span>
+            {% if write %}
+            <span class="ms-auto d-flex gap-1">
+              <a class="btn btn-sm btn-link py-0" href="{{ url_for('quotes.add_line', quote_id=quote.id, kind='material', section=s.id) }}"
+                 data-modal-url="{{ url_for('quotes.add_line', quote_id=quote.id, kind='material', section=s.id) }}"><i class="bi bi-plus"></i> materiaal</a>
+              <a class="btn btn-sm btn-link py-0" href="{{ url_for('quotes.add_line', quote_id=quote.id, kind='labour', section=s.id) }}"
+                 data-modal-url="{{ url_for('quotes.add_line', quote_id=quote.id, kind='labour', section=s.id) }}"><i class="bi bi-plus"></i> werkuren</a>
+            </span>
+            {% endif %}
+          </div>
+          {% if s.note %}<div class="small text-body-secondary" style="white-space: pre-line">{{ s.note }}</div>{% endif %}
+        </td>
+        {% if write %}{{ line_actions(s) }}{% endif %}
+      </tr>
+      {% endif %}
+      {% for line in section.lines %}
+      <tr id="line-{{ line.id }}">
+        {% if write %}{{ move_buttons(line) }}{% endif %}
+        <td>
+          <i class="bi bi-{{ 'person-gear' if line.kind == kinds.LABOUR else 'box-seam' }} text-body-secondary me-1" title="{{ line.kind.label }}"></i>
+          {{ line.description }}
+          {% if line.article %}<span class="small text-body-secondary">· {{ line.article.article_number }}</span>{% endif %}
+          {% if line.note %}<div class="small text-body-secondary fst-italic ms-4" style="white-space: pre-line">{{ line.note }}</div>{% endif %}
+        </td>
+        <td class="text-end">{{ line.quantity|qty }}</td>
+        <td class="small text-body-secondary">{{ line.unit or '' }}</td>
+        <td class="text-end text-nowrap">{{ line.unit_price|price }}
+          {% if line.markup is not none %}<div class="small text-body-secondary" title="Marge op de inkoopprijs ({{ line.cost_price|price }})">+{{ line.markup|qty }}%</div>{% endif %}</td>
+        <td class="text-end text-nowrap fw-semibold">{{ line.total|money }}</td>
+        {% if write %}{{ line_actions(line) }}{% endif %}
+      </tr>
+      {% endfor %}
+      {% if section.title and section.lines %}
+      <tr class="quote-subtotal">
+        {% if write %}<td></td>{% endif %}
+        <td colspan="4" class="text-end small text-body-secondary">Subtotaal {{ section.title.description }}</td>
+        <td class="text-end text-nowrap fw-semibold border-top border-dark-subtle">{{ section.total|money }}</td>
+        {% if write %}<td></td>{% endif %}
+      </tr>
+      {% endif %}
+    </tbody>
+    {% else %}
+    <tbody><tr><td colspan="7" class="text-body-secondary">Nog geen lijnen. Begin met een sectie (bv. "Schakelkast"), en voeg er materiaal en werkuren aan toe.</td></tr></tbody>
+    {% endfor %}
+    {% if quote.lines %}
+    <tfoot><tr class="fw-bold">
+      {% if write %}<td></td>{% endif %}
+      <td colspan="4" class="text-end">Totaal excl. btw</td><td class="text-end text-nowrap">{{ quote.total|money }}</td>{% if write %}<td></td>{% endif %}
+    </tr></tfoot>
+    {% endif %}
+  </table>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/article_picker.js') }}"></script>
+<script src="{{ url_for('static', filename='js/quote_line.js') }}"></script>
+{% endblock %}

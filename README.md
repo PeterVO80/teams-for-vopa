@@ -208,6 +208,26 @@ catalogi, Stock, Relaties, Notities, Wiki), **Lezen** (view) and/or
 Which projects someone sees is a separate rule (members and the project
 manager, see `app/access.py`). Code: `app/modules.py`, `app/permissions.py`.
 
+### Quotes (offertes)
+
+Menu **Offertes**: a quote (number OFF-2026-0001, automatic) for a customer,
+optionally linked to a project, with lines in a fixed order:
+
+* **Sectie** - a title; the lines below it form a section with a subtotal;
+* **Materiaal** - an article from the article database (search box) or free
+  text: quantity x sales price. The article's price is the purchase price; the
+  sales price = purchase price + markup (or typed by hand). Purchase price and
+  margin are internal;
+* **Werkuren** - hours x hourly rate.
+
+Every line can have a note. Lines move up/down; "+ materiaal / + werkuren" on
+a section title adds a line at the end of that section. Totals: material,
+labour (hours), excl. VAT, VAT, incl. VAT. **Project aanmaken** creates a
+project from the quote (name, customer, introduction) and links it; the
+project page has an *Offertes* tab. Default hourly rate and markup: admin menu
+> *Instellingen*. Access: module *Offertes* (not given automatically to
+existing non-admin users, because quotes show purchase prices and margins).
+
 ### Time registration and distances to customers
 
 Everybody registers hours under **Uren** (menu) or with *Uren registreren* on a

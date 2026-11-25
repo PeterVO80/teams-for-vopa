@@ -62,6 +62,7 @@ def _register_blueprints(app: Flask) -> None:
         notes,
         projects,
         purchasing,
+        quotes,
         relations,
         stock,
         tasks,
@@ -86,6 +87,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(wiki.bp, url_prefix="/wiki")
     app.register_blueprint(backups.bp, url_prefix="/admin/backups")
     app.register_blueprint(timesheet.bp, url_prefix="/time")
+    app.register_blueprint(quotes.bp, url_prefix="/quotes")
 
 
 def _register_template_helpers(app: Flask) -> None:

@@ -15,6 +15,7 @@ READ, WRITE = "r", "w"
 #: (key, label) in menu order.
 MODULES: list[tuple[str, str]] = [
     ("projects", "Projecten"),
+    ("quotes", "Offertes"),
     ("tasks", "Punchlijst (taken)"),
     ("team", "Team (planning)"),
     ("timesheet", "Uren"),
@@ -31,6 +32,7 @@ MODULE_KEYS = [key for key, _ in MODULES]
 #: management, back-ups) are not part of the per-module access.
 BLUEPRINT_MODULE = {
     "projects": "projects",
+    "quotes": "quotes",
     "tasks": "tasks",
     "team": "team",
     "timesheet": "timesheet",
@@ -59,4 +61,6 @@ def dump_access(levels: dict[str, str]) -> str:
 
 
 #: New users (and all users that existed before access per module): write everywhere.
+#: (Modules added later, such as quotes, were not given to existing users:
+#: see the migration that added them.)
 FULL_ACCESS = dump_access({key: WRITE for key in MODULE_KEYS})

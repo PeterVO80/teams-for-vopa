@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Offerte {{ quote.number }}: {{ 'lijn bewerken' if line else 'lijn toevoegen' }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 760px"><div class="card-body">
+  <form method="post" action="{{ action }}" novalidate>
+    {% include "quotes/_line_fields.html" %}
+    <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Opslaan</button>
+    <a class="btn btn-link" href="{{ cancel_url }}">Annuleren</a>
+  </form>
+</div></div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/article_picker.js') }}"></script>
+<script src="{{ url_for('static', filename='js/quote_line.js') }}"></script>
+{% endblock %}
