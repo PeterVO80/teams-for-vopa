@@ -14,7 +14,7 @@ from decimal import Decimal
 import sqlalchemy as sa
 
 from ..extensions import db
-from ..models import TimeEntry, User
+from ..models import Project, TimeEntry, User
 
 ZERO = Decimal("0")
 
@@ -76,8 +76,30 @@ def entries(project_id: int, start: date, end: date) -> list[TimeEntry]:
 
 
 def build(project_id: int, start: date, end: date) -> Timesheet:
+    return _sheet(entries(project_id, start, end))
+
+
+def build_all(start: date, end: date, project_condition=None) -> list[tuple]:
+    """Timesheets of every project with hours in the period: [(project, Timesheet)].
+
+    ``project_condition`` limits the projects (app/access.py: the projects
+    the user may see). Sorted by project code.
+    """
+    query = (sa.select(TimeEntry).join(User, TimeEntry.user_id == User.id)
+             .join(Project, TimeEntry.project_id == Project.id)
+             .where(TimeEntry.work_date >= start, TimeEntry.work_date <= end)
+             .order_by(Project.code, TimeEntry.work_date, User.full_name, TimeEntry.id))
+    if project_condition is not None:
+        query = query.where(project_condition)
+    per_project: dict[int, list[TimeEntry]] = {}
+    for e in db.session.scalars(query):
+        per_project.setdefault(e.project_id, []).append(e)
+    return [(items[0].project, _sheet(items)) for items in per_project.values()]
+
+
+def _sheet(items: list[TimeEntry]) -> Timesheet:
     grouped: dict[tuple, DayRow] = {}
-    for e in entries(project_id, start, end):
+    for e in items:
         row = grouped.setdefault((e.work_date, e.user_id), DayRow(e.work_date, e.user))
         row.hours += e.hours
         row.km += e.km or ZERO

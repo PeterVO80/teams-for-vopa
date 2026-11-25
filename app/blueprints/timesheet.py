@@ -4,7 +4,9 @@
 * ``/time/new``, ``/<id>/edit`` - popup to register hours (static/js/timesheet.js)
 * ``/time/week``             - popup: one project, several days of a week at once
 * ``/time/report``          - timesheet of a project for a period (default:
-                              the previous month) with a PDF download
+                              the previous month) with a PDF download; without
+                              a project: the hours of all projects, grouped per
+                              project, and ``/time/report.zip`` = one PDF per project
 
 Everybody can register hours on the projects they can see (app/access.py).
 Only the employee themselves and administrators can change an entry.
@@ -12,8 +14,11 @@ Only the employee themselves and administrators can change an entry.
 
 from __future__ import annotations
 
+import os
+import zipfile
 from datetime import date, timedelta
 from decimal import Decimal
+from io import BytesIO
 
 import sqlalchemy as sa
 from flask import abort, current_app, flash, jsonify, redirect, render_template, request, send_file, url_for
@@ -246,11 +251,22 @@ def _report_args():
 
 @bp.route("/report")
 def report():
-    """Timesheet of a project for a period; default the previous month."""
+    """Timesheet of a project for a period (default the previous month);
+    without a project: all projects with hours in the period, per project."""
     project, start, end = _report_args()
     sheet = svc.build(project.id, start, end) if project else None
+    sheets = None if project else svc.build_all(start, end, visible_projects_condition())
     return render_template("timesheet/report.html", project=project, start=start, end=end, sheet=sheet,
-                           projects=[(p.id, p.display_name) for p in _visible_projects(False)])
+                           sheets=sheets, projects=[(p.id, p.display_name) for p in _visible_projects(False)])
+
+
+def _pdf_name(project: Project, start: date, end: date) -> str:
+    return f"Urenstaat {project.code.replace('/', '-')} {start:%Y-%m-%d} tot {end:%Y-%m-%d}.pdf"
+
+
+def _pdf(project: Project, start: date, end: date, sheet) -> bytes:
+    logo = os.path.join(current_app.static_folder, "img", "vopa-logo-print.png")
+    return build_pdf(project, start, end, sheet, distance.company_name(), distance.office_display_text(), logo=logo)
 
 
 @bp.route("/report.pdf")
@@ -258,9 +274,25 @@ def report_pdf():
     project, start, end = _report_args()
     if project is None:
         abort(404)
-    sheet = svc.build(project.id, start, end)
-    pdf = build_pdf(project, start, end, sheet, distance.company_name(), distance.office_display_text())
+    pdf = _pdf(project, start, end, svc.build(project.id, start, end))
     current_app.logger.info("Urenstaat %s %s-%s gedownload door %s", project.code, start, end, current_user.username)
-    name = f"Urenstaat {project.code.replace('/', '-')} {start:%Y-%m-%d} tot {end:%Y-%m-%d}.pdf"
-    from io import BytesIO
-    return send_file(BytesIO(pdf), mimetype="application/pdf", as_attachment=True, download_name=name)
+    return send_file(BytesIO(pdf), mimetype="application/pdf", as_attachment=True,
+                     download_name=_pdf_name(project, start, end))
+
+
+@bp.route("/report.zip")
+def report_zip():
+    """Every project's timesheet of the period as a separate PDF, together in one ZIP."""
+    _, start, end = _report_args()
+    sheets = svc.build_all(start, end, visible_projects_condition())
+    if not sheets:
+        flash("Geen uren geregistreerd in deze periode: er is niets te exporteren.", "warning")
+        return redirect(url_for("timesheet.report", start=start.isoformat(), end=end.isoformat()))
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for project, sheet in sheets:
+            archive.writestr(_pdf_name(project, start, end), _pdf(project, start, end, sheet))
+    buffer.seek(0)
+    current_app.logger.info("%d urenstaten %s-%s gedownload door %s", len(sheets), start, end, current_user.username)
+    return send_file(buffer, mimetype="application/zip", as_attachment=True,
+                     download_name=f"Urenstaten {start:%Y-%m-%d} tot {end:%Y-%m-%d}.zip")

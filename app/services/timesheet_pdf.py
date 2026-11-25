@@ -1,6 +1,6 @@
 """PDF timesheet (urenstaat) of a project, made with ReportLab.
 
-Layout (A4 portrait): company name and office address, the title with the
+Layout (A4 portrait): logo, company name and office address, the title with the
 project and period, a table with the hours per day per employee (date,
 employee, hours, description, field service km), the totals per employee
 and the grand total. Page numbers at the bottom.
@@ -18,7 +18,7 @@ from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .timesheet import Timesheet
 
@@ -35,7 +35,22 @@ def _num(value: Decimal, places: int = 2) -> str:
     return text
 
 
-def build_pdf(project, start: date, end: date, sheet: Timesheet, company: str, office: str) -> bytes:
+def _logo(path: str | None, width: float = 46 * mm):
+    """The logo as a flowable with its own aspect ratio (None when there is no file)."""
+    if not path:
+        return None
+    try:
+        image = Image(path)
+    except OSError:
+        return None
+    image.drawHeight = width * image.imageHeight / image.imageWidth
+    image.drawWidth = width
+    image.hAlign = "LEFT"
+    return image
+
+
+def build_pdf(project, start: date, end: date, sheet: Timesheet, company: str, office: str,
+              logo: str | None = None) -> bytes:
     buffer = BytesIO()
     styles = getSampleStyleSheet()
     normal = ParagraphStyle("n", parent=styles["Normal"], fontName="Helvetica", fontSize=9, leading=11)
@@ -55,9 +70,16 @@ def build_pdf(project, start: date, end: date, sheet: Timesheet, company: str, o
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
                             topMargin=16 * mm, bottomMargin=18 * mm,
                             title=f"Urenstaat {project.code}", author=company)
+    right_small = ParagraphStyle("rs", parent=small, alignment=TA_RIGHT)
+    address = [Paragraph(f"<b>{escape(company)}</b>", ParagraphStyle("rn", parent=normal, alignment=TA_RIGHT))]
+    if office:
+        address.append(Paragraph(escape(office), right_small))
+    image = _logo(logo)
+    header = Table([[image or "", address]], colWidths=[60 * mm, A4[0] - 36 * mm - 60 * mm])
+    header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                                ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
     story = [
-        Paragraph(f"<b>{escape(company)}</b>", normal),
-        Paragraph(escape(office), small) if office else Spacer(1, 0),
+        header,
         Spacer(1, 8 * mm),
         Paragraph("Urenstaat", title),
         Paragraph(f"<b>Project:</b> {escape(project.code)} - {escape(project.name)}", normal),

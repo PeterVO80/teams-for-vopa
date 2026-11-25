@@ -1,41 +1,12 @@
 {% extends "base.html" %}
 {% from "_macros.html" import avatar %}
 {% block title %}Urenstaat{% endblock %}
-{% block content %}
-{% set day_names = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'] %}
-<form class="row g-2 align-items-end mb-3" method="get">
-  <div class="col-md-5">
-    <label class="form-label" for="project">Project</label>
-    <select class="form-select" id="project" name="project">
-      <option value="">- kies een project -</option>
-      {% for id, label in projects %}<option value="{{ id }}" {{ 'selected' if project and project.id == id }}>{{ label }}</option>{% endfor %}
-    </select>
-  </div>
-  <div class="col-6 col-md-2">
-    <label class="form-label" for="start">Van</label>
-    <input class="form-control" type="date" id="start" name="start" value="{{ start.isoformat() }}">
-  </div>
-  <div class="col-6 col-md-2">
-    <label class="form-label" for="end">Tot en met</label>
-    <input class="form-control" type="date" id="end" name="end" value="{{ end.isoformat() }}">
-  </div>
-  <div class="col-auto"><button class="btn btn-outline-primary"><i class="bi bi-eye"></i> Toon</button></div>
-  {% if project %}
-  <div class="col-auto">
-    <a class="btn btn-primary" href="{{ url_for('timesheet.report_pdf', project=project.id, start=start.isoformat(), end=end.isoformat()) }}">
-      <i class="bi bi-file-earmark-pdf"></i> Download PDF</a>
-  </div>
-  {% endif %}
-</form>
-<p class="small text-body-secondary">Standaard toont de urenstaat de vorige maand; pas de periode hierboven aan.
-  {% if current_user.is_admin %}De bedrijfsnaam en het kantooradres in de hoofding stel je in bij <a href="{{ url_for('users.settings') }}">Instellingen</a>.{% endif %}</p>
 
-{% if not project %}
-  <div class="alert alert-info">Kies een project om de urenstaat te tonen.</div>
-{% else %}
-<div class="card mb-3"><div class="table-responsive">
-<table class="table align-middle mb-0">
-  <thead><tr><th>Datum</th><th>Medewerker</th><th class="text-end">Uren</th><th>Omschrijving</th><th class="text-end">Km</th></tr></thead>
+{# Hours per day per employee of one project (table + totals). #}
+{% macro sheet_table(sheet) %}
+{% set day_names = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'] %}
+<table class="table table-sm align-middle mb-0">
+  <thead><tr><th style="width: 9rem">Datum</th><th style="width: 13rem">Medewerker</th><th class="text-end" style="width: 5rem">Uren</th><th>Omschrijving</th><th class="text-end" style="width: 5rem">Km</th></tr></thead>
   <tbody>
   {% for row in sheet.rows %}
     <tr>
@@ -49,15 +20,86 @@
     <tr><td colspan="5" class="text-body-secondary">Geen uren geregistreerd in deze periode.</td></tr>
   {% endfor %}
   </tbody>
-  <tfoot><tr class="fw-bold"><td></td><td>Totaal</td><td class="text-end">{{ sheet.total_hours|qty }}</td><td></td><td class="text-end">{{ sheet.total_km|qty if sheet.total_km else '' }}</td></tr></tfoot>
+  <tfoot><tr class="fw-bold"><td></td><td>Totaal</td><td class="text-end">{{ sheet.total_hours|qty }}</td><td class="small fw-normal text-body-secondary">
+    {% if sheet.per_user|length > 1 %}{% for user, hours, km in sheet.per_user %}{{ user.full_name }}: {{ hours|qty }} u{{ ', ' if not loop.last }}{% endfor %}{% endif %}</td>
+    <td class="text-end">{{ sheet.total_km|qty if sheet.total_km else '' }}</td></tr></tfoot>
 </table>
-</div></div>
-{% if sheet.per_user %}
-<div class="card" style="max-width: 480px"><div class="card-header">Totaal per medewerker</div>
-<table class="table mb-0">
-  <thead><tr><th>Medewerker</th><th class="text-end">Uren</th><th class="text-end">Km</th></tr></thead>
-  <tbody>{% for user, hours, km in sheet.per_user %}<tr><td>{{ user.full_name }}</td><td class="text-end">{{ hours|qty }}</td><td class="text-end">{{ km|qty if km else '' }}</td></tr>{% endfor %}</tbody>
-</table></div>
-{% endif %}
+{% endmacro %}
+
+{% block content %}
+{% set period = dict(start=start.isoformat(), end=end.isoformat()) %}
+<form class="row g-2 align-items-end mb-2" method="get">
+  <div class="col-md-5">
+    <label class="form-label" for="project">Project</label>
+    <select class="form-select" id="project" name="project">
+      <option value="">Alle projecten (overzicht)</option>
+      {% for id, label in projects %}<option value="{{ id }}" {{ 'selected' if project and project.id == id }}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-2">
+    <label class="form-label" for="start">Van</label>
+    <input class="form-control" type="date" id="start" name="start" value="{{ start.isoformat() }}">
+  </div>
+  <div class="col-6 col-md-2">
+    <label class="form-label" for="end">Tot en met</label>
+    <input class="form-control" type="date" id="end" name="end" value="{{ end.isoformat() }}">
+  </div>
+  <div class="col-auto"><button class="btn btn-outline-primary"><i class="bi bi-eye"></i> Toon</button></div>
+  <div class="col-auto">
+    {% if project %}
+    <a class="btn btn-primary" href="{{ url_for('timesheet.report_pdf', project=project.id, **period) }}"><i class="bi bi-file-earmark-pdf"></i> Download PDF</a>
+    {% elif sheets %}
+    <a class="btn btn-primary" href="{{ url_for('timesheet.report_zip', **period) }}"><i class="bi bi-file-earmark-zip"></i> Alle urenstaten exporteren ({{ sheets|length }} PDF's)</a>
+    {% endif %}
+  </div>
+</form>
+<p class="small text-body-secondary">Standaard toont de urenstaat de vorige maand; pas de periode hierboven aan.
+  {% if not project %}"Alle urenstaten exporteren" geeft een ZIP-bestand met een aparte PDF per project.{% endif %}
+  {% if current_user.is_admin %}De bedrijfsnaam en het kantooradres in de hoofding stel je in bij <a href="{{ url_for('users.settings') }}">Instellingen</a>.{% endif %}</p>
+
+{% if project %}
+<div class="card">
+  <div class="card-header"><strong>{{ project.display_name }}</strong>{% if project.customer %} <span class="text-body-secondary">· {{ project.customer }}</span>{% endif %}</div>
+  <div class="table-responsive">{{ sheet_table(sheet) }}</div>
+</div>
+{% else %}
+  {% if sheets %}
+  {# Summary: one line per project. #}
+  <div class="card mb-3"><div class="table-responsive">
+  <table class="table table-sm table-hover align-middle mb-0">
+    <thead><tr><th>Project</th><th>Klant</th><th class="text-end">Uren</th><th class="text-end">Km</th><th class="text-end">Medewerkers</th><th></th></tr></thead>
+    <tbody>
+    {% for p, s in sheets %}
+      <tr>
+        <td><a href="#project-{{ p.id }}">{{ p.display_name }}</a></td>
+        <td>{{ p.customer or '' }}</td>
+        <td class="text-end fw-semibold">{{ s.total_hours|qty }}</td>
+        <td class="text-end">{{ s.total_km|qty if s.total_km else '' }}</td>
+        <td class="text-end">{{ s.per_user|length }}</td>
+        <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('timesheet.report_pdf', project=p.id, **period) }}" title="PDF"><i class="bi bi-file-earmark-pdf"></i> PDF</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr class="fw-bold"><td colspan="2">Totaal</td>
+      <td class="text-end">{{ sheets|sum(attribute='1.total_hours')|qty }}</td>
+      {% set total_km = sheets|sum(attribute='1.total_km') %}
+      <td class="text-end">{{ total_km|qty if total_km else '' }}</td><td colspan="2"></td></tr></tfoot>
+  </table>
+  </div></div>
+
+  {% for p, s in sheets %}
+  <div class="card mb-3" id="project-{{ p.id }}">
+    <div class="card-header d-flex flex-wrap align-items-center gap-2">
+      <strong>{{ p.display_name }}</strong>{% if p.customer %}<span class="text-body-secondary">· {{ p.customer }}</span>{% endif %}
+      <span class="ms-auto"><strong>{{ s.total_hours|qty }}</strong> uur{% if s.total_km %} <span class="text-body-secondary small">· {{ s.total_km|qty }} km</span>{% endif %}</span>
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('timesheet.report', project=p.id, **period) }}" title="Alleen dit project">Openen</a>
+      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('timesheet.report_pdf', project=p.id, **period) }}"><i class="bi bi-file-earmark-pdf"></i> PDF</a>
+    </div>
+    <div class="table-responsive">{{ sheet_table(s) }}</div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="alert alert-info">Geen uren geregistreerd in deze periode.</div>
+  {% endif %}
 {% endif %}
 {% endblock %}

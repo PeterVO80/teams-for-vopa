@@ -274,3 +274,38 @@ def test_office_box_number(client, routes):
     assert 'name="office.box" value="3"' in client.get("/users/settings").get_data(as_text=True).replace('id="office.box" ', "")
     assert distance.office_display_text() == "Industrieweg 1 bus 3, 9000 Gent, België"     # printed on the timesheet
     assert distance.office_text() == "Industrieweg 1, 9000 Gent, België"                   # used for the route
+
+
+def test_report_overview_per_project_and_zip(app, client):
+    import io
+    import zipfile
+
+    kroon, aquafin = project(), project("Waterzuivering SCADA")
+    db.session.add_all([
+        TimeEntry(user=user("lies"), project=kroon, work_date=date(2026, 10, 6), hours=Decimal("7.5"), description="Kast"),
+        TimeEntry(user=user("lies"), project=aquafin, work_date=date(2026, 10, 7), hours=Decimal("4"), description="SCADA"),
+        TimeEntry(user=user("lies"), project=aquafin, work_date=date(2026, 11, 2), hours=Decimal("8")),   # other month
+    ])
+    db.session.commit()
+    period = "start=2026-10-01&end=2026-10-31"
+    html = client.get(f"/time/report?{period}").get_data(as_text=True)
+    assert f'id="project-{kroon.id}"' in html and f'id="project-{aquafin.id}"' in html
+    assert "Kast" in html and "SCADA" in html and "11,5" in html                     # grand total
+    assert "Alle urenstaten exporteren (2 PDF" in html
+
+    response = client.get(f"/time/report.zip?{period}")
+    assert response.status_code == 200 and response.mimetype == "application/zip"
+    names = zipfile.ZipFile(io.BytesIO(response.data)).namelist()
+    assert sorted(names) == sorted(f"Urenstaat {p.code.replace('/', '-')} 2026-10-01 tot 2026-10-31.pdf" for p in (kroon, aquafin))
+    assert all(zipfile.ZipFile(io.BytesIO(response.data)).read(n).startswith(b"%PDF") for n in names)
+
+    # Employees only get the projects they can see.
+    lies = login(app, "lies")
+    html = lies.get(f"/time/report?{period}").get_data(as_text=True)
+    assert f'id="project-{aquafin.id}"' in html and f'id="project-{kroon.id}"' not in html
+    names = zipfile.ZipFile(io.BytesIO(lies.get(f"/time/report.zip?{period}").data)).namelist()
+    assert len(names) == 1
+
+    # Nothing in the period: back to the page with a message.
+    response = client.get("/time/report.zip?start=2020-01-01&end=2020-01-31", follow_redirects=True)
+    assert "niets te exporteren" in response.get_data(as_text=True)
