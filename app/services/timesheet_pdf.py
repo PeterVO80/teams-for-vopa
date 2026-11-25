@@ -1,6 +1,7 @@
 """PDF timesheet (urenstaat) of a project, made with ReportLab.
 
-Layout (A4 portrait): logo, company name and office address, the title with the
+Layout (A4 portrait): logo with our name and address below it, the customer's
+full address on the right, the title with the
 project and period, a table with the hours per day per employee (date,
 employee, hours, description, field service km), the totals per employee
 and the grand total. Page numbers at the bottom.
@@ -70,22 +71,35 @@ def build_pdf(project, start: date, end: date, sheet: Timesheet, company: str, o
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm,
                             topMargin=16 * mm, bottomMargin=18 * mm,
                             title=f"Urenstaat {project.code}", author=company)
-    right_small = ParagraphStyle("rs", parent=small, alignment=TA_RIGHT)
-    address = [Paragraph(f"<b>{escape(company)}</b>", ParagraphStyle("rn", parent=normal, alignment=TA_RIGHT))]
-    if office:
-        address.append(Paragraph(escape(office), right_small))
+    # Header: logo with our name and address below it (left); the customer's
+    # full address on the right, like a letter.
+    ours = []
     image = _logo(logo)
-    header = Table([[image or "", address]], colWidths=[60 * mm, A4[0] - 36 * mm - 60 * mm])
-    header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                                ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
+    if image:
+        ours += [image, Spacer(1, 3 * mm)]
+    ours.append(Paragraph(f"<b>{escape(company)}</b>", normal))
+    if office:
+        ours.append(Paragraph(escape(office), small))
+    customer = project.customer
+    theirs = []
+    if customer:
+        theirs.append(Paragraph(f"<b>{escape(customer.name)}</b>", normal))
+        theirs += [Paragraph(escape(line), normal) for line in customer.address_lines]
+        if customer.vat_number:
+            theirs.append(Paragraph(f"Btw {escape(customer.vat_number)}", small))
+    width = A4[0] - 36 * mm
+    header = Table([[ours, theirs]], colWidths=[width - 75 * mm, 75 * mm])
+    header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                                ("TOPPADDING", (1, 0), (1, 0), 6 * mm)]))   # customer block a bit lower
     story = [
         header,
-        Spacer(1, 8 * mm),
+        Spacer(1, 10 * mm),
         Paragraph("Urenstaat", title),
         Paragraph(f"<b>Project:</b> {escape(project.code)} - {escape(project.name)}", normal),
     ]
-    if project.customer:
-        story.append(Paragraph(f"<b>Klant:</b> {escape(str(project.customer))}", normal))
+    if customer:
+        story.append(Paragraph(f"<b>Klant:</b> {escape(customer.name)}", normal))
     story += [Paragraph(f"<b>Periode:</b> {start:%d/%m/%Y} - {end:%d/%m/%Y}", normal), Spacer(1, 6 * mm)]
 
     data = [["Datum", "Medewerker", "Uren", "Omschrijving", "Km"]]
