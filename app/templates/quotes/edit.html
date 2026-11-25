@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import render_field %}
 {% block title %}{{ 'Offerte ' ~ quote.number ~ ' bewerken' if quote else 'Nieuwe offerte' }}{% endblock %}
+{% block head %}{% include "_editor.html" %}{% endblock %}
 {% block content %}
 <form method="post" novalidate>
   {{ form.hidden_tag() }}
@@ -31,7 +32,11 @@
           {% for t in text_templates %}<option value="{{ t.id }}" data-body="{{ t.body }}">{{ t.name }}</option>{% endfor %}
         </select>
       </div>
-      {{ render_field(form.introduction, class_="col-12") }}
+      <div class="col-12 mb-3">
+        <label class="form-label" for="introduction">{{ form.introduction.label.text }}</label>
+        {{ form.introduction(**{"data-md-editor": "", "data-md-height": "320px", "data-md-toolbar": "simple", "class": "d-none"}) }}
+        <div class="form-text">{{ form.introduction.description }}</div>
+      </div>
       {{ render_field(form.notes, class_="col-12") }}
     </div>
     <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Opslaan</button>

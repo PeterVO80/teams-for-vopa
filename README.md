@@ -237,6 +237,8 @@ printed as "t.a.v." on the PDF.
 
 Template texts for the accompanying text (*Instellingen*): choose one on the
 quote form; it is copied into the quote, where it can be changed or extended.
+Both are written in the WYSIWYG Markdown editor; the PDF shows the formatting
+(bold, italic, headings, lists, tables ...; services/pdf_markdown.py).
 
 Per section you choose what the customer sees on the PDF: all details,
 only quantities (no prices) or only the subtotal.

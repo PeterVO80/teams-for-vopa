@@ -59,7 +59,7 @@
         </dd>
         {% if quote.created_by %}<dt class="col-sm-3">Opgemaakt door</dt><dd class="col-sm-9">{{ quote.created_by.full_name }}</dd>{% endif %}
       </dl>
-      {% if quote.introduction %}<hr><div class="small" style="white-space: pre-line">{{ quote.introduction }}</div>{% endif %}
+      {% if quote.introduction %}<hr><div class="small markdown-body">{{ quote.introduction|markdown }}</div>{% endif %}
       {% if quote.notes %}<div class="alert alert-warning small mt-3 mb-0 py-2" style="white-space: pre-line"><i class="bi bi-lock"></i> <strong>Intern:</strong> {{ quote.notes }}</div>{% endif %}
     </div></div>
   </div>

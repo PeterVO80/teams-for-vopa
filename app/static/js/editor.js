@@ -1,6 +1,8 @@
 /**
  * WYSIWYG Markdown editor (Toast UI Editor) for notes, wiki pages and task
- * descriptions. Optional: data-md-height="360px" on the textarea.
+ * descriptions. Optional: data-md-height="360px" on the textarea, and
+ * data-md-toolbar="simple" for texts without images / code (quote texts).
+ * The editor is available as `textarea.mdEditor` for other scripts.
  *
  * Every <textarea data-md-editor> is replaced by an editor. The textarea
  * stays in the form (hidden) and receives the Markdown right before the
@@ -33,14 +35,17 @@
         height: textarea.dataset.mdHeight || "560px",
         language: "nl-NL",
         usageStatistics: false,  // do not send usage data to the vendor
-        toolbarItems: [
-          ["heading", "bold", "italic", "strike"],
-          ["hr", "quote"],
-          ["ul", "ol", "task", "indent", "outdent"],
-          ["table", "link", "image"],
-          ["code", "codeblock"],
-        ],
+        toolbarItems: textarea.dataset.mdToolbar === "simple"
+          ? [["heading", "bold", "italic", "strike"], ["hr", "quote"], ["ul", "ol", "indent", "outdent"], ["table", "link"]]
+          : [
+            ["heading", "bold", "italic", "strike"],
+            ["hr", "quote"],
+            ["ul", "ol", "task", "indent", "outdent"],
+            ["table", "link", "image"],
+            ["code", "codeblock"],
+          ],
       });
+      textarea.mdEditor = editor;
 
       textarea.form.addEventListener("submit", () => {
         textarea.value = editor.getMarkdown();

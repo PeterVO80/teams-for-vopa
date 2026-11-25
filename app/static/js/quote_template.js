@@ -26,19 +26,29 @@
   const select = document.querySelector("[data-text-template]");
   if (!select) return;
   const field = select.form.elements.introduction;
+  // The text is edited in the WYSIWYG editor (static/js/editor.js) when it loaded.
+  const getText = () => (field.mdEditor ? field.mdEditor.getMarkdown() : field.value);
+  const setText = (value) => {
+    if (field.mdEditor) {
+      field.mdEditor.setMarkdown(value);
+      field.mdEditor.focus();
+    } else {
+      field.value = value;
+      field.focus();
+    }
+  };
   select.addEventListener("change", () => {
     const option = select.options[select.selectedIndex];
     const body = option.dataset.body;
     if (!body) return;
-    const current = field.value.trim();
+    const current = getText().trim();
     if (!current) {
-      field.value = body;
+      setText(body);
     } else if (current !== body.trim()) {
       const replace = window.confirm(
         "Er staat al een begeleidende tekst.\n\nOK = vervangen door het sjabloon\nAnnuleren = het sjabloon onderaan toevoegen");
-      field.value = replace ? body : `${field.value.replace(/\s+$/, "")}\n\n${body}`;
+      setText(replace ? body : `${current}\n\n${body}`);
     }
     select.value = "";
-    field.focus();
   });
 })();

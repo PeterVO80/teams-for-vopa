@@ -21,6 +21,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from ..models import PdfDetail, Quote
+from .pdf_markdown import markdown_flowables
 from .pdf_layout import LIGHT, MARGIN, WIDTH, footer, header_row_style, letter_header, money, num, styles, text
 
 PRICE_PLACES = 4
@@ -68,7 +69,7 @@ def build_quote_pdf(quote: Quote, company: str, office: str, logo: str | None = 
                              ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
     story += [top, Spacer(1, 5 * mm)]
     if quote.introduction:
-        story += [Paragraph(text(quote.introduction), normal), Spacer(1, 5 * mm)]
+        story += markdown_flowables(quote.introduction, normal) + [Spacer(1, 4 * mm)]
 
     # Lines: one table; section titles span the row, notes go under the description.
     data = [["Omschrijving", "Aantal", "Eenh.", "Eenheidsprijs", "Totaal"]]

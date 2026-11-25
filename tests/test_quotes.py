@@ -374,3 +374,27 @@ def test_contact_person_on_quote_and_pdf(client):
     client.post(f"/quotes/{quote.id}/copy")
     copy = db.session.scalars(sa.select(Quote).order_by(Quote.id.desc())).first()
     assert copy.contact == els
+
+
+def test_accompanying_text_in_markdown(client):
+    import io
+
+    from pypdf import PdfReader
+
+    intro = ("Geachte heer Wouters,\n\nOnze **offerte** voor de *retrofit*:\n\n## Inbegrepen\n\n"
+             "- Nieuwe PLC\n- HMI met:\n  1. alarmbeheer\n  2. recepten\n\n| Fase | Duur |\n|---|---|\n"
+             "| Engineering | 3 weken |\n\n<script>alert(1)</script>Met vriendelijke groeten")
+    quote = new_quote(client, introduction=intro)
+    html = client.get(f"/quotes/{quote.id}").get_data(as_text=True)
+    assert "<strong>offerte</strong>" in html and "<li>Nieuwe PLC</li>" in html and "<script>alert" not in html
+
+    html = client.get(f"/quotes/{quote.id}/edit").get_data(as_text=True)
+    assert 'data-md-editor' in html and 'data-md-toolbar="simple"' in html and "toastui-editor" in html
+    assert "toastui-editor" in client.get("/users/settings").get_data(as_text=True)
+
+    content = "".join(p.extract_text() for p in PdfReader(io.BytesIO(client.get(f"/quotes/{quote.id}/pdf").data)).pages)
+    for expected in ("Onze offerte voor de retrofit", "Inbegrepen", "Nieuwe PLC", "alarmbeheer", "recepten",
+                     "Engineering", "3 weken", "Met vriendelijke groeten"):
+        assert expected in content, expected
+    for raw in ("**", "##", "| Fase", "<script>", "alert(1)"):
+        assert raw not in content, raw
