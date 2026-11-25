@@ -220,3 +220,8 @@ body.planning-dragging .tooltip { display: none !important; }
 .ts-day td { border-bottom-width: 0; }
 .ts-day-first td { border-top: 1px solid var(--bs-border-color); }
 .ts-empty td { color: var(--bs-secondary-color); }
+
+/* Quote lines: drag handles (static/js/quote_sort.js). */
+.quote-lines .drag-handle { cursor: grab; color: var(--bs-secondary-color); padding: 0 .15rem; }
+.quote-lines .drag-handle:hover { color: var(--bs-primary); }
+.quote-lines .quote-drag-ghost { opacity: .45; background: var(--bs-primary-bg-subtle); }

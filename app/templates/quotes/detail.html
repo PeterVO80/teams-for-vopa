@@ -92,20 +92,15 @@
   </div>
   {% endif %}
   <div class="table-responsive">
-  <table class="table table-sm align-middle mb-0 quote-lines">
+  <table class="table table-sm align-middle mb-0 quote-lines" {% if write %}data-reorder-url="{{ url_for('quotes.reorder', quote_id=quote.id) }}"{% endif %}>
     <thead><tr>
-      {% if write %}<th style="width: 3.2rem"></th>{% endif %}
+      {% if write %}<th style="width: 2rem"></th>{% endif %}
       <th>Omschrijving</th><th class="text-end" style="width: 6rem">Aantal</th><th style="width: 4rem"></th>
       <th class="text-end" style="width: 7.5rem">Prijs</th><th class="text-end" style="width: 8rem">Totaal</th>{% if write %}<th style="width: 6rem"></th>{% endif %}
     </tr></thead>
-    {% macro move_buttons(line) %}
-      <td class="text-nowrap">
-        <form method="post" action="{{ url_for('quotes.move_line', line_id=line.id) }}" class="d-inline-flex flex-column">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn btn-link btn-sm p-0 lh-1" name="direction" value="up" title="Omhoog"><i class="bi bi-caret-up-fill"></i></button>
-          <button class="btn btn-link btn-sm p-0 lh-1" name="direction" value="down" title="Omlaag"><i class="bi bi-caret-down-fill"></i></button>
-        </form>
-      </td>
+    {# Drag handle (static/js/quote_sort.js): a section title moves the whole section, a line moves itself. #}
+    {% macro handle(kind) %}
+      <td class="text-center align-top"><span class="drag-handle {{ kind }}-handle" title="{{ 'Sectie verslepen' if kind == 'section' else 'Lijn verslepen' }}"><i class="bi bi-grip-vertical"></i></span></td>
     {% endmacro %}
     {% macro line_actions(line) %}
       <td class="text-end text-nowrap">
@@ -116,11 +111,11 @@
       </td>
     {% endmacro %}
     {% for section in sections %}
-    <tbody class="quote-section">
+    <tbody class="quote-section" {% if section.title %}data-section="{{ section.title.id }}"{% endif %}>
       {% if section.title %}
       {% set s = section.title %}
       <tr class="table-light quote-section-title" id="line-{{ s.id }}">
-        {% if write %}{{ move_buttons(s) }}{% endif %}
+        {% if write %}{{ handle('section') }}{% endif %}
         <td colspan="4">
           <div class="d-flex flex-wrap align-items-center gap-2">
             <span class="fw-bold fs-6">{{ s.description }}</span>
@@ -132,6 +127,8 @@
                  data-modal-url="{{ url_for('quotes.add_line', quote_id=quote.id, kind='material', section=s.id) }}"><i class="bi bi-plus"></i> materiaal</a>
               <a class="btn btn-sm btn-link py-0" href="{{ url_for('quotes.add_line', quote_id=quote.id, kind='labour', section=s.id) }}"
                  data-modal-url="{{ url_for('quotes.add_line', quote_id=quote.id, kind='labour', section=s.id) }}"><i class="bi bi-plus"></i> werkuren</a>
+              {{ post_button(url_for('quotes.duplicate_section', line_id=s.id), 'dupliceren', icon='copy', class_='btn btn-sm btn-link py-0',
+                             confirm='Sectie "' ~ s.description ~ '" met al haar lijnen dupliceren?') }}
             </span>
             {% endif %}
           </div>
@@ -142,8 +139,8 @@
       </tr>
       {% endif %}
       {% for line in section.lines %}
-      <tr id="line-{{ line.id }}">
-        {% if write %}{{ move_buttons(line) }}{% endif %}
+      <tr class="quote-line" id="line-{{ line.id }}" data-id="{{ line.id }}">
+        {% if write %}{{ handle('line') }}{% endif %}
         <td>
           <i class="bi bi-{{ 'person-gear' if line.kind == kinds.LABOUR else 'box-seam' }} text-body-secondary me-1" title="{{ line.kind.label }}"></i>
           {{ line.description }}
@@ -175,4 +172,8 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/article_picker.js') }}"></script>
 <script src="{{ url_for('static', filename='js/quote_line.js') }}"></script>
+{% if can_write('quotes') and not quote.locked %}
+<script src="{{ url_for('static', filename='vendor/sortablejs/Sortable.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/quote_sort.js') }}"></script>
+{% endif %}
 {% endblock %}

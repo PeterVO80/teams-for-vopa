@@ -243,7 +243,9 @@ Both are written in the WYSIWYG Markdown editor; the PDF shows the formatting
 Per section you choose what the customer sees on the PDF: all details,
 only quantities (no prices) or only the subtotal.
 
-Every line can have a note. Lines move up/down; "+ materiaal / + werkuren" on
+Every line can have a note. Drag the grip of a section title to move the whole
+section, or the grip of a line to move it (also into another section);
+"dupliceren" on a section title copies the section with all its lines; "+ materiaal / + werkuren" on
 a section title adds a line at the end of that section. Totals: material,
 labour (hours), excl. VAT, VAT, incl. VAT. **Project aanmaken** creates a
 project from the quote (name, customer, introduction) and links it; the

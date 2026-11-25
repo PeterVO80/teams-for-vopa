@@ -79,7 +79,7 @@ def test_line_validation_move_and_delete(client):
     assert response.status_code == 422 and "Vul het aantal in" in response.get_data(as_text=True)
     first = add(client, quote, "material", description="A", quantity="1", unit_price="10")
     second = add(client, quote, "material", description="B", quantity="2", unit_price="5")
-    client.post(f"/quotes/lines/{second.id}/move", data={"direction": "up"})
+    assert client.post(f"/quotes/{quote.id}/reorder", json={"order": [second.id, first.id]}).get_json() == {"ok": True}
     db.session.refresh(quote)
     assert [line.description for line in quote.lines] == ["B", "A"]
     client.post(f"/quotes/lines/{first.id}/edit", headers=MODAL,
@@ -190,7 +190,7 @@ def test_sent_or_accepted_quote_is_locked_except_status(client):
     assert client.post(f"/quotes/lines/{line.id}/edit", headers=MODAL,
                        data={"description": "y", "quantity": "9", "unit_price": "1"}).status_code == 409
     assert client.post(f"/quotes/lines/{line.id}/delete", headers=MODAL).status_code == 409
-    client.post(f"/quotes/lines/{line.id}/move", data={"direction": "up"})
+    assert client.post(f"/quotes/{quote.id}/reorder", json={"order": [line.id]}).status_code == 409
     client.post(f"/quotes/{quote.id}/delete")
     db.session.refresh(quote)
     db.session.refresh(line)
@@ -398,3 +398,43 @@ def test_accompanying_text_in_markdown(client):
         assert expected in content, expected
     for raw in ("**", "##", "| Fase", "<script>", "alert(1)"):
         assert raw not in content, raw
+
+
+def test_drag_order_and_duplicate_section(client):
+    quote = new_quote(client)
+    cabinet = add(client, quote, "section", description="Schakelkast", pdf_detail="quantities", note="Rev. B")
+    plc = add(client, quote, "material", section=cabinet, description="PLC", quantity="1", unit="st", unit_price="1000",
+              cost_price="800")
+    wiring = add(client, quote, "labour", section=cabinet, description="Bekabeling", quantity="8", unit="u",
+                 unit_price="65")
+    labour = add(client, quote, "section", description="Werkuren")
+    programming = add(client, quote, "labour", section=labour, description="Programmatie", quantity="16", unit="u",
+                      unit_price="75")
+
+    html = client.get(f"/quotes/{quote.id}").get_data(as_text=True)
+    assert "bi-grip-vertical" in html and "data-reorder-url" in html and "quote_sort.js" in html
+    assert "caret-up" not in html and "dupliceren" in html
+
+    # Drag: "Werkuren" section first, "Bekabeling" moved into it.
+    order = [labour.id, programming.id, wiring.id, cabinet.id, plc.id]
+    assert client.post(f"/quotes/{quote.id}/reorder", json={"order": order}).get_json() == {"ok": True}
+    db.session.refresh(quote)
+    assert [l.description for l in quote.lines] == ["Werkuren", "Programmatie", "Bekabeling", "Schakelkast", "PLC"]
+    assert [s.total for s in quote.sections()] == [Decimal("1720.00"), Decimal("1000.00")]
+    # The order must contain exactly the quote's lines.
+    assert client.post(f"/quotes/{quote.id}/reorder", json={"order": order[:-1]}).status_code == 400
+    assert client.post(f"/quotes/{quote.id}/reorder", json={"order": order + [99999]}).status_code == 400
+
+    # Duplicate "Werkuren": the copy (title + its 2 lines) comes right below it.
+    client.post(f"/quotes/lines/{labour.id}/duplicate")
+    db.session.refresh(quote)
+    assert [l.description for l in quote.lines] == [
+        "Werkuren", "Programmatie", "Bekabeling", "Werkuren (kopie)", "Programmatie", "Bekabeling", "Schakelkast", "PLC"]
+    assert quote.total == Decimal("4440.00")
+    # A copy keeps every detail (PDF choice, note, purchase price).
+    client.post(f"/quotes/lines/{cabinet.id}/duplicate")
+    db.session.refresh(quote)
+    copy_title, copy_plc = quote.lines[-2], quote.lines[-1]
+    assert copy_title.description == "Schakelkast (kopie)" and copy_title.note == "Rev. B"
+    assert copy_title.pdf_detail == cabinet.pdf_detail and copy_plc.cost_price == Decimal("800")
+    assert client.post(f"/quotes/lines/{plc.id}/duplicate").status_code == 404        # only sections

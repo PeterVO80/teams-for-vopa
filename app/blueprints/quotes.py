@@ -426,18 +426,43 @@ def delete_line(line_id: int):
     return _done(quote, "Lijn verwijderd.")
 
 
-@bp.route("/lines/<int:line_id>/move", methods=["POST"])
-def move_line(line_id: int):
-    """Move a line one place up or down (``direction`` = up / down)."""
-    line = db.get_or_404(QuoteLine, line_id)
-    quote = _get_quote(line.quote_id)
+@bp.route("/<int:quote_id>/reorder", methods=["POST"])
+def reorder(quote_id: int):
+    """New order of all lines after dragging (static/js/quote_sort.js): ``{"order": [line ids]}``."""
+    quote = _get_quote(quote_id)
+    if quote.locked:
+        return jsonify(ok=False, error="Deze offerte is vergrendeld."), 409
+    order = (request.get_json(silent=True) or {}).get("order")
+    lines = {line.id: line for line in quote.lines}
+    if not isinstance(order, list) or sorted(order) != sorted(lines):
+        return jsonify(ok=False, error="De lijnen van de offerte zijn intussen gewijzigd; herlaad de pagina."), 400
+    for index, line_id in enumerate(order, start=1):
+        lines[line_id].position = index * 10
+    db.session.commit()
+    return jsonify(ok=True)
+
+
+@bp.route("/lines/<int:line_id>/duplicate", methods=["POST"])
+def duplicate_section(line_id: int):
+    """Copy a section title and all its lines; the copy comes right below the section."""
+    title = db.get_or_404(QuoteLine, line_id)
+    quote = _get_quote(title.quote_id)
     if blocked := _locked(quote):
         return blocked
-    quote.renumber()
-    lines = sorted(quote.lines, key=lambda l: l.position)
-    index = lines.index(line)
-    other = index - 1 if request.form.get("direction") == "up" else index + 1
-    if 0 <= other < len(lines):
-        line.position, lines[other].position = lines[other].position, line.position
-        db.session.commit()
-    return redirect(url_for("quotes.detail", quote_id=quote.id) + f"#line-{line.id}")
+    if title.kind != QuoteLineKind.SECTION:
+        abort(404)
+    section = next(s for s in quote.sections() if s.title is title)
+    ordered = sorted(quote.lines, key=lambda l: (l.position, l.id))
+    end = ordered.index(section.lines[-1] if section.lines else title)
+    copies = [QuoteLine(kind=line.kind, article_id=line.article_id, service_type_id=line.service_type_id,
+                        description=line.description, quantity=line.quantity, unit=line.unit,
+                        unit_price=line.unit_price, cost_price=line.cost_price, note=line.note,
+                        pdf_detail=line.pdf_detail)
+              for line in [title] + section.lines]
+    copies[0].description = f"{title.description} (kopie)"[:300]
+    for index, line in enumerate(ordered[:end + 1] + copies + ordered[end + 1:], start=1):
+        line.position = index * 10
+    quote.lines.extend(copies)
+    db.session.commit()
+    flash(f"Sectie \"{title.description}\" gedupliceerd ({len(section.lines)} lijnen).", "success")
+    return redirect(url_for("quotes.detail", quote_id=quote.id) + f"#line-{copies[0].id}")
