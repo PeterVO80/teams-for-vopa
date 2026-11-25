@@ -16,7 +16,7 @@
 <a class="btn btn-outline-secondary" href="{{ url_for('wiki.create', parent=page.id) }}"><i class="bi bi-plus-lg"></i> Subpagina</a>
 <a class="btn btn-outline-secondary" href="{{ url_for('wiki.history', slug=page.slug) }}"><i class="bi bi-clock-history"></i> Geschiedenis ({{ page.revisions|length }})</a>
 <a class="btn btn-outline-secondary" href="{{ url_for('wiki.download', slug=page.slug) }}"><i class="bi bi-download"></i> .md</a>
-<a class="btn btn-primary" href="{{ url_for('wiki.edit', slug=page.slug) }}"><i class="bi bi-pencil"></i> Bewerken</a>
+{% if can_write('wiki') %}<a class="btn btn-primary" href="{{ url_for('wiki.edit', slug=page.slug) }}"><i class="bi bi-pencil"></i> Bewerken</a>{% endif %}
 {% endblock %}
 {% block content %}
 <div class="row g-3">

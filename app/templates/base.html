@@ -71,7 +71,7 @@
   <aside class="offcanvas-lg offcanvas-start sidebar bg-body-tertiary border-end" id="sidebar" tabindex="-1">
     <div class="offcanvas-body p-0">
       <ul class="nav flex-column py-2 w-100">
-        {% for endpoint, icon, label, blueprint in nav %}
+        {% for endpoint, icon, label, blueprint in nav if blueprint == 'main' or can_read(blueprint.split()[0]) %}
         <li class="nav-item">
           <a class="nav-link {% if request.blueprint in blueprint.split() %}active{% endif %}" href="{{ url_for(endpoint) }}">
             <i class="bi bi-{{ icon }}"></i> {{ label }}
@@ -118,6 +118,11 @@
 <script src="{{ url_for('static', filename='js/distance.js') }}"></script>
 <script src="{{ url_for('static', filename='js/timesheet.js') }}"></script>
 <script src="{{ url_for('static', filename='js/stock.js') }}"></script>
+{% set ro_rules = read_only_rules() %}
+{% if ro_rules %}
+<script type="application/json" id="read-only-rules">{{ ro_rules|tojson }}</script>
+<script src="{{ url_for('static', filename='js/read_only.js') }}"></script>
+{% endif %}
 {% block scripts %}{% endblock %}
 </body>
 </html>

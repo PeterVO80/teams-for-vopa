@@ -6,6 +6,7 @@ import sqlalchemy as sa
 from flask import abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
+from ..modules import FULL_ACCESS, MODULE_KEYS, MODULES, READ, WRITE, dump_access, parse_access
 from ..extensions import db
 from ..services import microsoft_login
 from ..forms import UserForm
@@ -58,6 +59,7 @@ def edit(user_id: int | None = None):
             user.color = form.color.data
             user.active = form.active.data
             user.outlook_sync = form.outlook_sync.data
+            user.module_access = dump_access(_submitted_levels())
             if user.id and (user.email, user.outlook_sync, user.active) != outlook_before:
                 from ..services import outlook
                 outlook.mark_user_pending(user)   # (re)write their planning to the right mailbox
@@ -70,12 +72,29 @@ def edit(user_id: int | None = None):
             flash(f"Gebruiker {user.full_name} opgeslagen.", "success")
             return redirect(url_for("users.index"))
 
+    if form.is_submitted():
+        levels = _submitted_levels()                  # keep the ticks after a validation error
+    else:
+        levels = parse_access(user.module_access if user else FULL_ACCESS)
     return render_template(
-        "form_page.html",
+        "users/edit.html",
         form=form,
+        modules=MODULES,
+        levels=levels,
         title="Gebruiker bewerken" if user else "Nieuwe gebruiker",
         cancel_url=url_for("users.index"),
     )
+
+
+def _submitted_levels() -> dict[str, str]:
+    """Ticks of the access table: write (includes read), read or nothing per module."""
+    levels = {}
+    for key in MODULE_KEYS:
+        if request.form.get(f"write_{key}"):
+            levels[key] = WRITE
+        elif request.form.get(f"read_{key}"):
+            levels[key] = READ
+    return levels
 
 
 @bp.route("/outlook", methods=["GET", "POST"])

@@ -3,8 +3,10 @@
 {% block title %}Dashboard{% endblock %}
 {% block heading %}Goeiedag, {{ current_user.full_name.split()[0] }}{% endblock %}
 {% block page_actions %}
+{% if can_write('timesheet') %}
 <a class="btn btn-primary" href="{{ url_for('timesheet.edit', next=request.path) }}" data-modal-url="{{ url_for('timesheet.edit') }}">
   <i class="bi bi-clock-history"></i> Uren registreren</a>
+{% endif %}
 {% endblock %}
 {% block content %}
 {% if backup_warning %}
@@ -15,14 +17,14 @@
 </div>
 {% endif %}
 <div class="row g-3 mb-4">
-  {% for label, value, icon, color, link in [
-      ('Actieve projecten', stats.active_projects, 'kanban', 'primary', url_for('projects.index')),
-      ('Open taken', stats.open_tasks, 'list-check', 'secondary', url_for('tasks.board')),
-      ('In uitvoering', stats.in_progress, 'play-circle', 'info', url_for('tasks.board')),
-      ('Taken over deadline', stats.overdue_tasks, 'exclamation-triangle', 'danger', url_for('tasks.board')),
-      ('Openstaande bestellingen', stats.open_orders, 'truck', 'warning', url_for('purchasing.deliveries')),
-      ('Onder minimumstock', stats.below_minimum, 'boxes', 'danger' if stats.below_minimum else 'secondary', url_for('stock.index', below=1)),
-  ] %}
+  {% for label, value, icon, color, link, module in [
+      ('Actieve projecten', stats.active_projects, 'kanban', 'primary', url_for('projects.index'), 'projects'),
+      ('Open taken', stats.open_tasks, 'list-check', 'secondary', url_for('tasks.board'), 'tasks'),
+      ('In uitvoering', stats.in_progress, 'play-circle', 'info', url_for('tasks.board'), 'tasks'),
+      ('Taken over deadline', stats.overdue_tasks, 'exclamation-triangle', 'danger', url_for('tasks.board'), 'tasks'),
+      ('Openstaande bestellingen', stats.open_orders, 'truck', 'warning', url_for('purchasing.deliveries'), 'purchasing'),
+      ('Onder minimumstock', stats.below_minimum, 'boxes', 'danger' if stats.below_minimum else 'secondary', url_for('stock.index', below=1), 'stock'),
+  ] if can_read(module) %}
   <div class="col-6 col-md-4 col-xl">
     <a href="{{ link }}" class="card stat-card text-decoration-none h-100">
       <div class="card-body d-flex align-items-center gap-3">
@@ -35,6 +37,7 @@
 </div>
 
 <div class="row g-3">
+  {% if can_read('tasks') %}
   <div class="col-lg-7">
     <div class="card h-100">
       <div class="card-header d-flex">
@@ -59,7 +62,9 @@
     </div>
   </div>
 
+  {% endif %}
   <div class="col-lg-5">
+    {% if can_read('purchasing') %}
     <div class="card mb-3">
       <div class="card-header d-flex">
         <span class="fw-semibold">Verwachte leveringen</span>
@@ -81,6 +86,8 @@
       </div>
     </div>
 
+    {% endif %}
+    {% if can_read('notes') %}
     <div class="card">
       <div class="card-header d-flex">
         <span class="fw-semibold">Recente notities</span>
@@ -98,6 +105,7 @@
         {% endfor %}
       </div>
     </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

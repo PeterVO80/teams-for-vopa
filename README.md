@@ -189,6 +189,25 @@ Microsoft logins are not remembered beyond the browser session: after
 closing the browser the user clicks the button again (usually without typing
 anything, Microsoft still knows them).
 
+### Access per module
+
+Administrators can do everything. For other users the administrator ticks,
+per module (Projecten, Punchlijst, Team, Uren, Bestellingen, Artikelen &
+catalogi, Stock, Relaties, Notities, Wiki), **Lezen** (view) and/or
+**Schrijven** (also add, change and delete; includes read) on the user form
+(*Gebruikers > Bewerken*).
+
+* No access: the module is not in the menu, its tabs on the project page and
+  its dashboard tiles are hidden, its pages answer 403.
+* Read only: everything can be viewed (a task or article opens read-only);
+  creating, changing, deleting, importing and dragging on the boards is
+  refused by the server and the buttons are hidden (static/js/read_only.js).
+* Users that existed before this feature, and new users, start with write
+  access everywhere.
+
+Which projects someone sees is a separate rule (members and the project
+manager, see `app/access.py`). Code: `app/modules.py`, `app/permissions.py`.
+
 ### Time registration and distances to customers
 
 Everybody registers hours under **Uren** (menu) or with *Uren registreren* on a

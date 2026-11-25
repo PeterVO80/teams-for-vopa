@@ -19,7 +19,7 @@
     {{ post_button(url_for('purchasing.receive_all', order_id=order.id), 'Alles ontvangen', class_='btn btn-success', icon='box-seam', confirm='Alle openstaande aantallen als vandaag ontvangen registreren?') }}
   {% endif %}
   <a class="btn btn-outline-success" href="{{ url_for('purchasing.export', order_id=order.id) }}"><i class="bi bi-file-earmark-excel"></i> Excel</a>
-  <a class="btn btn-outline-secondary" href="{{ url_for('purchasing.edit', order_id=order.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>
+  {% if can_write('purchasing') %}<a class="btn btn-outline-secondary" href="{{ url_for('purchasing.edit', order_id=order.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>{% endif %}
   <div class="dropdown">
     <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-three-dots"></i></button>
     <div class="dropdown-menu dropdown-menu-end p-2">

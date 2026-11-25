@@ -83,7 +83,7 @@
 </table>
 </div></div>
 {% else %}
-<div class="kanban" data-move-url="{{ url_for('tasks.move', task_id=0) }}">
+<div class="kanban" data-move-url="{{ url_for('tasks.move', task_id=0) }}" {% if not can_write('tasks') %}data-read-only{% endif %}>
   {% set header_colors = {'new': 'secondary', 'in_progress': 'primary', 'on_hold': 'warning', 'done': 'success', 'cancelled': 'dark'} %}
   {% for status, tasks in columns.items() %}
   <section class="kanban-column">

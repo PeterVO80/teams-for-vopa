@@ -11,7 +11,7 @@
   "use strict";
 
   const board = document.querySelector(".kanban");
-  if (!board) return;
+  if (!board || board.hasAttribute("data-read-only")) return;   // read-only: cards can't be moved
 
   // URL template rendered with task_id=0, e.g. "/tasks/0/move".
   const moveUrlTemplate = board.dataset.moveUrl;

@@ -4,7 +4,7 @@
 {% block title %}{{ project.code }}{% endblock %}
 {% block heading %}{{ project.code }} <span class="text-body-secondary fw-normal">{{ project.name }}</span> {{ project_status_badge(project.status) }}{% endblock %}
 {% block page_actions %}
-<a class="btn btn-outline-secondary" href="{{ url_for('projects.edit', project_id=project.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>
+{% if can_write('projects') %}<a class="btn btn-outline-secondary" href="{{ url_for('projects.edit', project_id=project.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>{% endif %}
 {% if current_user.is_admin %}
 <a class="btn btn-outline-danger" href="{{ url_for('projects.delete', project_id=project.id) }}"><i class="bi bi-trash"></i> Verwijderen</a>
 {% endif %}
@@ -25,24 +25,24 @@
               {{ avatar(person) }} {{ person.full_name }}
               {% if person == project.manager %}<small class="text-body-secondary">(projectleider)</small>
               {% elif can_manage_team %}
-              <form method="post" action="{{ url_for('projects.remove_member', project_id=project.id, user_id=person.id) }}" class="d-inline"
+              {% if can_write('projects') %}<form method="post" action="{{ url_for('projects.remove_member', project_id=project.id, user_id=person.id) }}" class="d-inline"
                     data-confirm="{{ person.full_name }} loskoppelen? Taken en planning blijven bestaan, maar {{ person.full_name.split()[0] }} ziet het project niet meer.">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="btn btn-link btn-sm p-0 text-danger" title="Loskoppelen"><i class="bi bi-x-lg"></i></button>
-              </form>
+              </form>{% endif %}
               {% endif %}
             </span>
             {% else %}<span class="text-body-secondary">Nog niemand gekoppeld.</span>{% endfor %}
           </div>
           {% if can_manage_team and addable_users %}
-          <form method="post" action="{{ url_for('projects.add_member', project_id=project.id) }}" class="d-flex gap-1 mt-2">
+          {% if can_write('projects') %}<form method="post" action="{{ url_for('projects.add_member', project_id=project.id) }}" class="d-flex gap-1 mt-2">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <select name="user_id" class="form-select form-select-sm" aria-label="Medewerker toevoegen">
               <option value="">+ medewerker toevoegen...</option>
               {% for u in addable_users %}<option value="{{ u.id }}">{{ u.full_name }}</option>{% endfor %}
             </select>
             <button class="btn btn-sm btn-outline-primary">Toevoegen</button>
-          </form>
+          </form>{% endif %}
           {% endif %}
         </dd>
       </dl>
@@ -67,15 +67,30 @@
 </div>
 
 <ul class="nav nav-tabs" role="tablist">
+  {% if can_read('tasks') %}
   <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-tasks">Taken ({{ tasks|length }})</button></li>
+  {% endif %}
+  {% if can_read('purchasing') %}
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-orders">Bestellingen ({{ orders|length }})</button></li>
+  {% endif %}
+  {% if can_read('purchasing') %}
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-material">Materiaal ({{ material.open_rows }} open)</button></li>
+  {% endif %}
+  {% if can_read('notes') %}
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-notes">Notities ({{ notes|length }})</button></li>
+  {% endif %}
+  {% if can_read('team') %}
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-planning">Planning ({{ project_assignments|length }})</button></li>
+  {% endif %}
+  {% if can_read('timesheet') %}
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-hours">Uren ({{ time_total_hours|qty }})</button></li>
+  {% endif %}
+  {% if can_read('wiki') %}
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-wiki">Wiki ({{ wiki_count }})</button></li>
+  {% endif %}
 </ul>
 <div class="tab-content card border-top-0 rounded-top-0">
+  {% if can_read('tasks') %}
   <div class="tab-pane fade show active" id="tab-tasks">
     <div class="p-2 d-flex gap-2">
       <a class="btn btn-sm btn-primary" href="{{ url_for('tasks.edit', project=project.id, next=request.path) }}"><i class="bi bi-plus-lg"></i> Taak</a>
@@ -94,6 +109,8 @@
       </tbody>
     </table>
   </div>
+  {% endif %}
+  {% if can_read('purchasing') %}
   <div class="tab-pane fade" id="tab-orders">
     <div class="p-2"><a class="btn btn-sm btn-primary" href="{{ url_for('purchasing.edit', project=project.id) }}"><i class="bi bi-plus-lg"></i> Bestelling</a></div>
     <table class="table table-sm table-hover align-middle mb-0">
@@ -110,6 +127,8 @@
       </tbody>
     </table>
   </div>
+  {% endif %}
+  {% if can_read('purchasing') %}
   <div class="tab-pane fade p-3" id="tab-material">
     {% with overview = material %}{% include "purchasing/_material_table.html" %}{% endwith %}
     <div class="d-flex align-items-center mt-4 mb-2">
@@ -131,6 +150,8 @@
       </tbody>
     </table>
   </div>
+  {% endif %}
+  {% if can_read('notes') %}
   <div class="tab-pane fade" id="tab-notes">
     <div class="p-2"><a class="btn btn-sm btn-primary" href="{{ url_for('notes.edit', project=project.id) }}"><i class="bi bi-plus-lg"></i> Notitie</a></div>
     <div class="list-group list-group-flush">
@@ -142,6 +163,8 @@
       {% endfor %}
     </div>
   </div>
+  {% endif %}
+  {% if can_read('team') %}
   <div class="tab-pane fade p-3" id="tab-planning">
     {# Same board as the team overview, focused on this project (team/_board.html). #}
     {% with period = planning_period, nav_endpoint = 'projects.detail', nav_args = {'project_id': project.id},
@@ -181,6 +204,8 @@
     </table>
     </div>
   </div>
+  {% endif %}
+  {% if can_read('timesheet') %}
   <div class="tab-pane fade" id="tab-hours">
     <div class="p-2 d-flex gap-2 align-items-center">
       <a class="btn btn-sm btn-primary" href="{{ url_for('timesheet.edit', project=project.id, next=request.path ~ '#hours') }}"
@@ -217,6 +242,8 @@
     <p class="small text-body-secondary px-3 pb-3 mb-0">Nog geen uren geregistreerd op dit project.</p>
     {% endif %}
   </div>
+  {% endif %}
+  {% if can_read('wiki') %}
   <div class="tab-pane fade" id="tab-wiki">
     <div class="p-2 d-flex gap-2">
       <a class="btn btn-sm btn-primary" href="{{ url_for('wiki.create', project=project.id) }}"><i class="bi bi-plus-lg"></i> Wikipagina</a>
@@ -227,6 +254,7 @@
       {% else %}<p class="small text-body-secondary mb-0">Nog geen wikipagina's voor dit project.</p>{% endif %}
     </div>
   </div>
+  {% endif %}
 </div>
 {% endblock %}
 {% block scripts %}
@@ -238,7 +266,9 @@
   (function () {
     const name = window.location.hash.slice(1);
     const button = name && document.querySelector(`[data-bs-target="#tab-${name}"]`);
+    const first = document.querySelector('.nav-tabs [data-bs-toggle="tab"]');
     if (button) bootstrap.Tab.getOrCreateInstance(button).show();
+    else if (first && !document.querySelector(".nav-tabs .nav-link.active")) bootstrap.Tab.getOrCreateInstance(first).show();
     document.querySelectorAll('[data-bs-toggle="tab"]').forEach((b) => b.addEventListener("shown.bs.tab", () => {
       history.replaceState(null, "", `#${b.dataset.bsTarget.replace("#tab-", "")}`);
     }));

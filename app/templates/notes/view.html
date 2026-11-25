@@ -3,7 +3,7 @@
 {% block title %}{{ note.title }}{% endblock %}
 {% block page_actions %}
 <a class="btn btn-outline-secondary" href="{{ url_for('notes.download', note_id=note.id) }}" title="Download als Markdown"><i class="bi bi-download"></i> .md</a>
-<a class="btn btn-primary" href="{{ url_for('notes.edit', note_id=note.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>
+{% if can_write('notes') %}<a class="btn btn-primary" href="{{ url_for('notes.edit', note_id=note.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>{% endif %}
 {{ post_button(url_for('notes.delete', note_id=note.id), 'Verwijderen', class_='btn btn-outline-danger', icon='trash', confirm='Notitie verwijderen?') }}
 {% endblock %}
 {% block content %}

@@ -34,7 +34,7 @@
   {% set ns.min_width = ns.min_width + lo %}
 {% endfor %}
 <div class="card"><div class="planning-scroll">
-<div class="planning-grid {{ 'planning-compact' if compact }}" data-new-url="{{ url_for('team.edit_assignment') }}"
+<div class="planning-grid {{ 'planning-compact' if compact }}" {% if can_write('team') %}data-new-url="{{ url_for('team.edit_assignment') }}"{% endif %}
      style="--planning-columns: {{ columns|join(' ') }}; min-width: {{ ns.min_width|round(1) }}rem"
      {% if focus_project %}data-project="{{ focus_project.id }}"{% endif %}>
   <div class="planning-row planning-head">
@@ -97,7 +97,7 @@
     {# Planning on a project the viewer is not linked to: only "Ingepland",
        no customer/project/note, and it cannot be opened or dragged. #}
     {% set hidden = visible_ids is not none and a.project_id and a.project_id not in visible_ids %}
-    {% set locked = muted or hidden %}
+    {% set locked = muted or hidden or not can_write('team') %}
     {% set label = 'Ingepland' if hidden else a.label %}
     {% set hours = a.hours_per_day|round(1)|string|replace('.0', '')|replace('.', ',') %}
     {# Content of the instant tooltip (static/js/team.js). The values are

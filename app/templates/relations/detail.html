@@ -13,7 +13,7 @@
 {% block page_actions %}
 {% if company.is_customer %}<a class="btn btn-outline-secondary" href="{{ url_for('projects.edit') }}"><i class="bi bi-plus-lg"></i> Project</a>{% endif %}
 {% if company.is_supplier %}<a class="btn btn-outline-secondary" href="{{ url_for('purchasing.edit', supplier=company.id) }}"><i class="bi bi-plus-lg"></i> Bestelling</a>{% endif %}
-<a class="btn btn-primary" href="{{ url_for('relations.edit', company_id=company.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>
+{% if can_write('relations') %}<a class="btn btn-primary" href="{{ url_for('relations.edit', company_id=company.id) }}"><i class="bi bi-pencil"></i> Bewerken</a>{% endif %}
 {% endblock %}
 {% block content %}
 <div class="row g-3">

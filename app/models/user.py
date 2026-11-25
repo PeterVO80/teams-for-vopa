@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
+from ..modules import FULL_ACCESS, WRITE, parse_access
 from .base import LabeledEnum, TimestampMixin, enum_column
 
 
@@ -33,6 +34,9 @@ class User(UserMixin, TimestampMixin, db.Model):
     role: Mapped[UserRole] = mapped_column(
         enum_column(UserRole), default=UserRole.MEMBER
     )
+    #: Access per module, e.g. "projects:w,tasks:w,stock:r" (app/modules.py).
+    #: Not used for administrators: they may do everything.
+    module_access: Mapped[str] = mapped_column(sa.Text, default=FULL_ACCESS, server_default=FULL_ACCESS)
     #: Inactive users cannot log in and are hidden from selection lists, but
     #: their history (tasks, notes, ...) is preserved.
     active: Mapped[bool] = mapped_column(default=True)
@@ -77,6 +81,33 @@ class User(UserMixin, TimestampMixin, db.Model):
     @property
     def is_admin(self) -> bool:
         return self.role == UserRole.ADMIN
+
+    def access_level(self, module: str) -> str | None:
+        """``"w"`` (read + write), ``"r"`` (read only) or None (no access)."""
+        if self.is_admin:
+            return WRITE
+        return parse_access(self.module_access).get(module)
+
+    def can_read(self, module: str) -> bool:
+        return self.access_level(module) is not None
+
+    def can_write(self, module: str) -> bool:
+        return self.access_level(module) == WRITE
+
+    @property
+    def access_summary(self) -> str:
+        """Short text for the user list, e.g. "Alles", "8 schrijven, 1 lezen"."""
+        from ..modules import MODULE_KEYS, READ
+
+        if self.is_admin:
+            return "Alles (beheerder)"
+        levels = parse_access(self.module_access)
+        write = sum(1 for k in MODULE_KEYS if levels.get(k) == WRITE)
+        read = sum(1 for k in MODULE_KEYS if levels.get(k) == READ)
+        if write == len(MODULE_KEYS):
+            return "Alles"
+        parts = [f"{write} schrijven" if write else "", f"{read} lezen" if read else ""]
+        return ", ".join(p for p in parts if p) or "Geen modules"
 
     @property
     def initials(self) -> str:

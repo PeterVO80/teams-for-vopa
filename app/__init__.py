@@ -31,6 +31,10 @@ def create_app(config_class: type[Config] = Config) -> Flask:
 
     init_security(app)
 
+    from .permissions import init_permissions
+
+    init_permissions(app)          # before the filter memory: no redirects to pages one may not open
+
     from .filter_memory import init_filter_memory
 
     init_filter_memory(app)
@@ -157,7 +161,8 @@ def _register_template_helpers(app: Flask) -> None:
 def _register_error_handlers(app: Flask) -> None:
     @app.errorhandler(403)
     def forbidden(_error):
-        return render_template("errors/error.html", code=403, message="Geen toegang."), 403
+        return render_template("errors/error.html", code=403,
+                               message="Geen toegang. Vraag een beheerder om je de nodige rechten te geven."), 403
 
     @app.errorhandler(404)
     def not_found(_error):

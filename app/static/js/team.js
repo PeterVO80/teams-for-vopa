@@ -58,7 +58,7 @@
 
   if (grid) {
     grid.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0) return;                       // left button / touch only
+      if (event.button !== 0 || !grid.dataset.newUrl) return;  // left button / touch only; read-only: no new planning
       const cell = event.target.closest(".planning-cell");
       if (!cell || event.target.closest(".planning-chip")) return;  // chips open their own popup
       clearSelection();

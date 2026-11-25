@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_field %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<form method="post" novalidate>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card h-100"><div class="card-body">
+      {% for field in form %}{{ render_field(field) }}{% endfor %}
+    </div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100" data-module-access>
+      <div class="card-header d-flex align-items-center">
+        <strong class="me-auto">Toegang per module</strong>
+        <div class="btn-group btn-group-sm">
+          <button type="button" class="btn btn-outline-secondary" data-access-all="none">Geen</button>
+          <button type="button" class="btn btn-outline-secondary" data-access-all="read">Alles lezen</button>
+          <button type="button" class="btn btn-outline-secondary" data-access-all="write">Alles schrijven</button>
+        </div>
+      </div>
+      <div class="card-body pb-1">
+        <p class="small text-body-secondary mb-2" data-admin-note>Lezen: de module bekijken. Schrijven: ook toevoegen, wijzigen en verwijderen (schrijven omvat lezen).
+          <strong>Beheerders</strong> hebben altijd overal volledige toegang.</p>
+        <table class="table table-sm align-middle mb-2">
+          <thead><tr><th>Module</th><th class="text-center" style="width: 6rem">Lezen</th><th class="text-center" style="width: 6rem">Schrijven</th></tr></thead>
+          <tbody>
+          {% for key, label in modules %}
+            <tr>
+              <td>{{ label }}</td>
+              <td class="text-center"><input class="form-check-input" type="checkbox" name="read_{{ key }}" id="read_{{ key }}" aria-label="{{ label }} lezen"
+                  data-access-read {{ 'checked' if levels.get(key) }}></td>
+              <td class="text-center"><input class="form-check-input" type="checkbox" name="write_{{ key }}" id="write_{{ key }}" aria-label="{{ label }} schrijven"
+                  data-access-write {{ 'checked' if levels.get(key) == 'w' }}></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="mt-3">
+  <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg"></i> Opslaan</button>
+  <a class="btn btn-link" href="{{ cancel_url }}">Annuleren</a>
+</div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/module_access.js') }}"></script>
+{% endblock %}
