@@ -92,3 +92,72 @@ def build(project_id: int, start: date, end: date) -> Timesheet:
         t[2] += r.km
     per_user = sorted((tuple(t) for t in totals.values()), key=lambda t: t[0].full_name)
     return Timesheet(rows=rows, per_user=per_user)
+
+
+# ------------------------------------------------------------------ overview per week
+@dataclass
+class Day:
+    day: date
+    entries: list[TimeEntry]
+
+    @property
+    def total(self) -> Decimal:
+        return sum((e.hours for e in self.entries), ZERO)
+
+
+@dataclass
+class Week:
+    start: date                      # Monday
+    days: list[Day]
+
+    @property
+    def end(self) -> date:
+        return self.start + timedelta(days=6)
+
+    @property
+    def number(self) -> int:
+        return self.start.isocalendar()[1]
+
+    @property
+    def total(self) -> Decimal:
+        return sum((d.total for d in self.days), ZERO)
+
+    @property
+    def total_km(self) -> Decimal:
+        return sum((e.km or ZERO for d in self.days for e in d.entries), ZERO)
+
+
+def monday(day: date) -> date:
+    return day - timedelta(days=day.weekday())
+
+
+def weeks(items: list[TimeEntry], first: date, last: date, *, empty_workdays_until: date | None = None) -> list[Week]:
+    """Entries of ``first``..``last`` grouped per week (newest week first) and per day.
+
+    With ``empty_workdays_until`` the working days (Mon-Fri) up to that date
+    without any hours are included too, so gaps in someone's hours stand out.
+    """
+    by_day: dict[date, list[TimeEntry]] = {}
+    for e in sorted(items, key=lambda e: (e.work_date, e.id)):
+        by_day.setdefault(e.work_date, []).append(e)
+    if empty_workdays_until:
+        day = first
+        while day <= min(last, empty_workdays_until):
+            if day.weekday() < 5:
+                by_day.setdefault(day, [])
+            day += timedelta(days=1)
+    result: dict[date, Week] = {}
+    for day in sorted(by_day):
+        week = result.setdefault(monday(day), Week(monday(day), []))
+        week.days.append(Day(day, by_day[day]))
+    return sorted(result.values(), key=lambda w: w.start, reverse=True)
+
+
+def hours_per_day(user_id: int, start: date, end: date) -> dict[date, Decimal]:
+    """Hours already registered by an employee per day (all projects)."""
+    rows = db.session.execute(
+        sa.select(TimeEntry.work_date, sa.func.sum(TimeEntry.hours))
+        .where(TimeEntry.user_id == user_id, TimeEntry.work_date >= start, TimeEntry.work_date <= end)
+        .group_by(TimeEntry.work_date)
+    ).all()
+    return {d: Decimal(h) for d, h in rows}

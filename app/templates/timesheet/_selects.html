@@ -1,0 +1,23 @@
+{# Project and customer selects of the time forms. Project options carry the
+   customer, customer options the distance (static/js/timesheet.js). #}
+{% macro project_select(form, projects) %}
+  <label class="form-label" for="project_id">{{ form.project_id.label.text }}</label>
+  <select class="form-select {{ 'is-invalid' if form.project_id.errors }}" id="project_id" name="project_id">
+    <option value="0">- kies een project -</option>
+    {% for p in projects %}
+    <option value="{{ p.id }}" data-customer="{{ p.customer_id or '' }}" {{ 'selected' if form.project_id.data == p.id }}>{{ p.display_name }}</option>
+    {% endfor %}
+  </select>
+  {% for error in form.project_id.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+{% endmacro %}
+
+{% macro customer_select(form, customers) %}
+  <label class="form-label" for="customer_id">{{ form.customer_id.label.text }}</label>
+  <select class="form-select" id="customer_id" name="customer_id">
+    <option value="0" data-distance="">- kies de klant -</option>
+    {% for c in customers %}
+    <option value="{{ c.id }}" data-distance="{{ c.distance_km if c.distance_km is not none else '' }}" {{ 'selected' if form.customer_id.data == c.id }}>{{ c.name }}{% if c.distance_km is not none %} ({{ c.distance_km|string|replace('.', ',') }} km){% endif %}</option>
+    {% endfor %}
+  </select>
+  <div class="form-text" data-distance-note></div>
+{% endmacro %}

@@ -210,3 +210,59 @@ def test_edit_without_customer_stores_no_customer(client):
         assert response.get_json() == {"ok": True}
         db.session.refresh(entry)
         assert entry.hours == Decimal("3") and entry.customer_id is None
+
+
+def test_week_entry_creates_one_entry_per_filled_day(app):
+    aquafin = Company.by_name("Aquafin")
+    aquafin.distance_km = Decimal("20")
+    db.session.commit()
+    lies = login(app, "lies")
+    p = project("Waterzuivering SCADA")
+    html = lies.get(f"/time/week?start=2026-11-18&project={p.id}", headers=MODAL).get_data(as_text=True)
+    assert "Week 47" in html and 'name="week_start" value="2026-11-16"' in html      # Monday of that week
+    assert 'name="hours-6"' in html and "Ma-vr: 8 uur" in html
+    response = lies.post("/time/week", headers=MODAL, data={
+        "week_start": "2026-11-16", "project_id": p.id, "hours-0": "8", "hours-1": "7,5", "hours-2": "",
+        "hours-3": "4", "description": "Programmatie", "field_service": "y", "customer_id": 0})
+    assert response.get_json() == {"ok": True}
+    entries = db.session.scalars(sa.select(TimeEntry).order_by(TimeEntry.work_date)).all()
+    assert [(e.work_date.day, e.hours) for e in entries] == [(16, Decimal("8")), (17, Decimal("7.5")), (19, Decimal("4"))]
+    assert all(e.user == user("lies") and e.description == "Programmatie" for e in entries)
+    assert all(e.customer == aquafin and e.km == Decimal("40") for e in entries)            # per day, there and back
+
+    # Already registered hours are shown per day, and a day can't exceed 24 hours.
+    html = lies.get("/time/week?start=2026-11-16", headers=MODAL).get_data(as_text=True)
+    assert "al 8 u" in html and "al 7,5 u" in html
+    response = lies.post("/time/week", headers=MODAL, data={"week_start": "2026-11-16", "project_id": p.id,
+                                                            "hours-0": "20"})
+    assert response.status_code == 422 and "Meer dan 24 uur op 16/11" in response.get_data(as_text=True)
+    response = lies.post("/time/week", headers=MODAL, data={"week_start": "2026-11-16", "project_id": p.id})
+    assert response.status_code == 422 and "minstens één dag" in response.get_data(as_text=True)
+
+
+def test_overview_grouped_per_week_with_empty_workdays(client):
+    p = project()
+    db.session.add_all([
+        TimeEntry(user=user("admin"), project=p, work_date=date(2026, 10, 6), hours=Decimal("3"), description="A"),
+        TimeEntry(user=user("admin"), project=p, work_date=date(2026, 10, 6), hours=Decimal("5"), description="B"),
+        TimeEntry(user=user("admin"), project=p, work_date=date(2026, 10, 14), hours=Decimal("6")),
+    ])
+    db.session.commit()
+    weeks = svc.weeks(db.session.scalars(sa.select(TimeEntry)).all(), date(2026, 10, 1), date(2026, 10, 31),
+                      empty_workdays_until=date(2026, 10, 16))
+    assert [w.number for w in weeks] == [42, 41, 40]                         # newest week first
+    assert [w.total for w in weeks] == [Decimal("6"), Decimal("8"), Decimal("0")]
+    week41 = weeks[1]
+    assert [d.day.day for d in week41.days] == [5, 6, 7, 8, 9]             # Mon-Fri, gaps included
+    assert week41.days[1].total == Decimal("8") and len(week41.days[1].entries) == 2
+    html = client.get("/time/?month=2026-10").get_data(as_text=True)
+    assert "Week 41" in html and "Week 42" in html and "geen uren" in html
+    assert "Week invullen" in html and "14 u" in html                       # project total for the month
+
+
+def test_hours_accept_decimal_comma(client):
+    p = project()
+    response = client.post("/time/new", headers=MODAL, data={"work_date": "2026-10-05", "project_id": p.id,
+                                                              "hours": "2,25"})
+    assert response.get_json() == {"ok": True}
+    assert db.session.scalar(sa.select(TimeEntry)).hours == Decimal("2.25")

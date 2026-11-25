@@ -210,3 +210,13 @@ body.planning-dragging .tooltip { display: none !important; }
 .markdown-body .task-list-item-checkbox { margin: 0 .4rem 0 -1.3rem; vertical-align: middle; }
 /* Items of "loose" lists are paragraphs: keep them as compact as normal list items. */
 .markdown-body li > p { margin-bottom: .25rem; }
+
+/* Week entry (timesheet/_week_fields.html): Monday..Sunday side by side. */
+.week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .5rem; }
+.week-grid .week-day.weekend .form-control { background-color: var(--bs-tertiary-bg); }
+@media (max-width: 575.98px) { .week-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* Hours overview per week (timesheet/index.html). */
+.ts-day td { border-bottom-width: 0; }
+.ts-day-first td { border-top: 1px solid var(--bs-border-color); }
+.ts-empty td { color: var(--bs-secondary-color); }

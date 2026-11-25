@@ -2,6 +2,7 @@
 
 * ``/time/``                - my hours of a month (administrators: anyone's)
 * ``/time/new``, ``/<id>/edit`` - popup to register hours (static/js/timesheet.js)
+* ``/time/week``             - popup: one project, several days of a week at once
 * ``/time/report``          - timesheet of a project for a period (default:
                               the previous month) with a PDF download
 
@@ -20,7 +21,7 @@ from flask_login import current_user
 
 from ..access import require_project, visible_projects_condition
 from ..extensions import db
-from ..forms import TimeEntryForm, none_if_zero
+from ..forms import TimeEntryForm, WeekEntryForm, none_if_zero
 from ..models import Company, Project, TimeEntry, User
 from ..services import distance
 from ..services import timesheet as svc
@@ -79,16 +80,50 @@ def index():
         query = query.where(TimeEntry.project_id == project_id)
     entries = db.session.scalars(query).all()
 
+    # Grouped per week and per day. Looking at one person's hours (no project
+    # filter), working days without hours are shown too, up to today.
+    show_gaps = user_id is not None and not project_id
+    week_groups = svc.weeks(entries, first, last, empty_workdays_until=date.today() if show_gaps else None)
+    per_project: dict[int, list] = {}
+    for e in entries:
+        per_project.setdefault(e.project_id, [e.project, Decimal("0")])[1] += e.hours
+    project_totals = sorted(per_project.values(), key=lambda t: -t[1])
+
     prev_month = (first.replace(day=1) - timedelta(days=1)).strftime("%Y-%m")
     next_month = (last + timedelta(days=1)).strftime("%Y-%m")
     return render_template(
-        "timesheet/index.html", entries=entries, first=first, last=last,
+        "timesheet/index.html", entries=entries, weeks=week_groups, project_totals=project_totals,
+        first=first, last=last, can_add=user_id == current_user.id,
+        workday_hours=Decimal(str(current_app.config["WORKDAY_HOURS"])),
         prev_month=prev_month, next_month=next_month, month=first.strftime("%Y-%m"),
         user_id=user_id, user_arg=user_arg, users=User.active_choices() if current_user.is_admin else [],
         project_id=project_id, projects=[(p.id, p.display_name) for p in _visible_projects(False)],
         total_hours=sum((e.hours for e in entries), Decimal("0")),
         total_km=sum((e.km or Decimal("0") for e in entries), Decimal("0")),
     )
+
+
+def _choices(form, entry: TimeEntry | None = None):
+    """Projects (open ones; plus the entry's own) and customers for the forms."""
+    projects = _visible_projects(open_only=True)
+    if entry and entry.project not in projects:
+        projects.insert(0, entry.project)          # editing hours of a project that was closed since
+    form.project_id.choices = [(0, "- kies een project -")] + [(p.id, p.display_name) for p in projects]
+    customers = db.session.scalars(sa.select(Company).where(Company.is_customer.is_(True), Company.active.is_(True))
+                                   .order_by(Company.name)).all()
+    form.customer_id.choices = [(0, "- kies de klant -")] + [(c.id, c.name) for c in customers]
+    return projects, customers
+
+
+def _apply_field_service(entry: TimeEntry, project: Project, customer_id: int | None) -> None:
+    """Field service: customer (default the project's) and km (default 2 x distance)."""
+    if entry.field_service:
+        customer = db.session.get(Company, none_if_zero(customer_id) or project.customer_id or 0)
+        entry.customer_id = customer.id if customer else None   # never the "0 = none" choice
+        if entry.km is None and customer and customer.distance_km is not None:
+            entry.km = customer.distance_km * 2                # there and back
+    else:
+        entry.customer_id, entry.km = None, None
 
 
 # ------------------------------------------------------------------ edit
@@ -101,13 +136,7 @@ def edit(entry_id: int | None = None):
     if entry:
         require_project(entry.project)
     form = TimeEntryForm(obj=entry)
-    projects = _visible_projects(open_only=True)
-    if entry and entry.project not in projects:
-        projects.insert(0, entry.project)          # editing hours of a project that was closed since
-    form.project_id.choices = [(0, "- kies een project -")] + [(p.id, p.display_name) for p in projects]
-    customers = db.session.scalars(sa.select(Company).where(Company.is_customer.is_(True), Company.active.is_(True))
-                                   .order_by(Company.name)).all()
-    form.customer_id.choices = [(0, "- kies de klant -")] + [(c.id, c.name) for c in customers]
+    projects, customers = _choices(form, entry)
 
     if not form.is_submitted():
         if entry:
@@ -125,13 +154,7 @@ def edit(entry_id: int | None = None):
                 entry = TimeEntry(user_id=current_user.id)
                 db.session.add(entry)
             form.populate_obj(entry)
-            if entry.field_service:
-                customer = db.session.get(Company, none_if_zero(form.customer_id.data) or project.customer_id or 0)
-                entry.customer_id = customer.id if customer else None   # never the "0 = none" choice
-                if entry.km is None and customer and customer.distance_km is not None:
-                    entry.km = customer.distance_km * 2                # there and back
-            else:
-                entry.customer_id, entry.km = None, None
+            _apply_field_service(entry, project, form.customer_id.data)
             db.session.commit()
             flash(f"{entry.hours.normalize():f}".replace(".", ",") + f" uur op {project.code} geregistreerd.", "success")
             if is_modal_request():
@@ -143,6 +166,57 @@ def edit(entry_id: int | None = None):
     if is_modal_request():
         return render_template("timesheet/_form_modal.html", **context), 422 if form.errors else 200
     return render_template("timesheet/edit.html", cancel_url=next_url(url_for("timesheet.index")), **context)
+
+
+DAY_NAMES = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"]
+
+
+@bp.route("/week", methods=["GET", "POST"])
+def week():
+    """One project, several days of one week at once (one entry per filled-in day)."""
+    form = WeekEntryForm()
+    projects, customers = _choices(form)
+    if not form.is_submitted():
+        form.week_start.data = svc.monday(_parse_date(request.args.get("start")) or date.today())
+        form.project_id.data = int_arg("project") or 0
+    start = svc.monday(form.week_start.data or date.today())
+    days = [start + timedelta(days=i) for i in range(7)]
+    already = svc.hours_per_day(current_user.id, days[0], days[-1])
+    hours_error = None
+
+    if form.validate_on_submit():
+        project = db.session.get(Project, form.project_id.data)
+        filled = [(day, f.data) for day, f in zip(days, form.hours) if f.data]
+        if project is None or project not in projects:
+            form.project_id.errors.append("Kies een project.")
+        elif not filled:
+            hours_error = "Vul voor minstens één dag uren in."
+        else:
+            too_much = [d for d, h in filled if already.get(d, 0) + h > 24]
+            if too_much:
+                hours_error = "Meer dan 24 uur op " + ", ".join(f"{d:%d/%m}" for d in too_much) + "."
+            else:
+                for day, hours in filled:
+                    entry = TimeEntry(user_id=current_user.id, project_id=project.id, work_date=day, hours=hours,
+                                      description=form.description.data or None,
+                                      field_service=form.field_service.data, km=form.km.data)
+                    _apply_field_service(entry, project, form.customer_id.data)
+                    db.session.add(entry)
+                db.session.commit()
+                total = sum((h for _, h in filled), Decimal("0"))
+                flash(f"{total.normalize():f}".replace(".", ",") + f" uur op {project.code} geregistreerd "
+                      f"({len(filled)} {'dag' if len(filled) == 1 else 'dagen'}).", "success")
+                if is_modal_request():
+                    return jsonify(ok=True)
+                return redirect(next_url(url_for("timesheet.index", month=start.strftime("%Y-%m"))))
+
+    context = dict(form=form, projects=projects, customers=customers, days=list(zip(days, DAY_NAMES, form.hours)),
+                   already=already, start=start, hours_error=hours_error, workday_hours=current_app.config["WORKDAY_HOURS"],
+                   prev_week=(start - timedelta(days=7)).isoformat(), next_week=(start + timedelta(days=7)).isoformat(),
+                   action=url_for("timesheet.week"))
+    if is_modal_request():
+        return render_template("timesheet/_week_modal.html", **context), 422 if form.errors or hours_error else 200
+    return render_template("timesheet/week.html", cancel_url=next_url(url_for("timesheet.index")), **context)
 
 
 @bp.route("/<int:entry_id>/delete", methods=["POST"])

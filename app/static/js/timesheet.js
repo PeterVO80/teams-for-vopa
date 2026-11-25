@@ -22,7 +22,7 @@
     if (note) note.textContent = dist ? 'Afstand kantoor - klant: ' + dist.replace('.', ',') + ' km enkel' :
       (customer.value !== '0' ? 'Geen afstand gekend voor deze klant (vul in bij de relatie).' : '');
     if (dist && (source === 'customer' || ((source === 'project' || source === 'field_service') && !km.value))) {
-      km.value = (Math.round(parseFloat(dist) * 20) / 10).toString();
+      km.value = (Math.round(parseFloat(dist) * 20) / 10).toString().replace('.', ',');
     }
   }
   function init(root) {
@@ -37,6 +37,22 @@
     if (name === 'field_service') update(form, 'field_service');
     else if (name === 'project_id') update(form, 'project');
     else if (name === 'customer_id') update(form, 'customer');
+  });
+  // Week entry: previous / next week (keeps the chosen project) and "Ma-vr: 8 uur".
+  document.addEventListener('click', function (e) {
+    var nav = e.target.closest('[data-week-url]');
+    if (nav) {
+      var form = nav.form, url = nav.dataset.weekUrl + '&project=' + (form.elements.project_id.value || 0);
+      if (form.hasAttribute('data-modal-form') && window.ModalForm) window.ModalForm.open(url);
+      else window.location = url;
+      return;
+    }
+    var fill = e.target.closest('[data-fill-workdays]');
+    if (fill) {
+      fill.form.querySelectorAll('input[data-workday]').forEach(function (input) {
+        if (!input.value) input.value = fill.dataset.fillWorkdays;
+      });
+    }
   });
   document.addEventListener('DOMContentLoaded', function () { init(); });
   document.addEventListener('modal:loaded', function (e) { init(e.target); });

@@ -19,6 +19,7 @@ from wtforms import (
     BooleanField,
     DateField,
     DecimalField,
+    FieldList,
     FloatField,
     HiddenField,
     PasswordField,
@@ -66,6 +67,22 @@ class PriceField(DecimalField):
         text = f"{self.data:.4f}".rstrip("0")
         decimals = len(text.split(".")[1])
         return text + "0" * (2 - decimals) if decimals < 2 else text
+
+
+class HoursField(DecimalField):
+    """Hours (or km) that also accept a decimal comma: "7,5" = 7.5."""
+
+    def process_formdata(self, valuelist):
+        if valuelist:
+            valuelist = [str(v).strip().replace(",", ".") for v in valuelist]
+        super().process_formdata(valuelist)
+
+    def _value(self):
+        if self.raw_data:
+            return self.raw_data[0]
+        if self.data is None:
+            return ""
+        return f"{self.data.normalize():f}".replace(".", ",")
 
 
 def none_if_zero(value: int | None) -> int | None:
@@ -144,7 +161,7 @@ class CompanyForm(FlaskForm):
 class ProjectForm(FlaskForm):
     name = StringField("Naam", validators=[DataRequired(), Length(max=200)])
     #: Choices: Company.choices("customer") - 0 = no customer.
-    customer_id = SelectField("Klant", coerce=int)
+    customer_id = SelectField("Klant", coerce=int, default=0)
     status = SelectField("Status", choices=ProjectStatus.choices(), default="active")
     manager_id = SelectField("Projectleider", coerce=int)
     start_date = DateField("Startdatum", validators=[Optional()])
@@ -302,11 +319,28 @@ class TimeEntryForm(FlaskForm):
 
     work_date = DateField("Datum", validators=[DataRequired()])
     project_id = SelectField("Project", coerce=int, validators=[DataRequired(message="Kies een project.")])
-    hours = DecimalField("Uren", places=2, validators=[DataRequired(), NumberRange(min=0.25, max=24)])
+    hours = HoursField("Uren", places=2, validators=[DataRequired(), NumberRange(min=0.25, max=24)],
+                       render_kw={"inputmode": "decimal"})
     description = TextAreaField("Omschrijving / opmerking", validators=[Optional()], render_kw={"rows": 3})
     field_service = BooleanField("Buitendienst (bij de klant)")
-    customer_id = SelectField("Klant", coerce=int)
-    km = DecimalField("Gereden km (heen en terug)", places=1, validators=[Optional(), NumberRange(min=0, max=5000)])
+    customer_id = SelectField("Klant", coerce=int, default=0)
+    km = HoursField("Gereden km (heen en terug)", places=1, validators=[Optional(), NumberRange(min=0, max=5000)],
+                    render_kw={"inputmode": "decimal"})
+
+
+class WeekEntryForm(FlaskForm):
+    """Hours on one project for several days of a week at once (blueprints/timesheet.py)."""
+
+    week_start = DateField("Week", validators=[DataRequired()])
+    project_id = SelectField("Project", coerce=int, validators=[DataRequired(message="Kies een project.")])
+    #: Monday .. Sunday; empty days are skipped.
+    hours = FieldList(HoursField(validators=[Optional(), NumberRange(min=0, max=24)],
+                                 render_kw={"inputmode": "decimal"}), min_entries=7, max_entries=7)
+    description = TextAreaField("Omschrijving / opmerking", validators=[Optional()], render_kw={"rows": 2})
+    field_service = BooleanField("Buitendienst (bij de klant)")
+    customer_id = SelectField("Klant", coerce=int, default=0)
+    km = HoursField("Gereden km per dag (heen en terug)", places=1,
+                    validators=[Optional(), NumberRange(min=0, max=5000)], render_kw={"inputmode": "decimal"})
 
 
 # ------------------------------------------------------------------ tasks

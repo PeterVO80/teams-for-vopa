@@ -1,0 +1,34 @@
+{# One project, several days of a week (blueprints/timesheet.py: week). #}
+{% from "_macros.html" import render_field %}
+{% from "timesheet/_selects.html" import project_select, customer_select %}
+{{ form.csrf_token }}
+<input type="hidden" name="week_start" value="{{ start.isoformat() }}">
+<div class="row" data-time-form>
+  <div class="col-12 mb-3">{{ project_select(form, projects) }}</div>
+  <div class="col-12 mb-1 d-flex align-items-center gap-2">
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-week-url="{{ url_for('timesheet.week', start=prev_week) }}" title="Vorige week"><i class="bi bi-chevron-left"></i></button>
+    <strong>Week {{ start.isocalendar()[1] }}</strong>
+    <span class="text-body-secondary small">{{ start|date }} - {{ (days[-1][0])|date }}</span>
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-week-url="{{ url_for('timesheet.week', start=next_week) }}" title="Volgende week"><i class="bi bi-chevron-right"></i></button>
+    <button type="button" class="btn btn-sm btn-outline-primary ms-auto" data-fill-workdays="{{ workday_hours|qty }}">Ma-vr: {{ workday_hours|qty }} uur</button>
+  </div>
+  <div class="col-12 mb-3">
+    <div class="week-grid {{ 'is-invalid' if hours_error }}">
+      {% for day, name, field in days %}
+      <div class="week-day {{ 'weekend' if day.weekday() >= 5 }}">
+        <label class="form-label small mb-1" for="{{ field.id }}"><strong>{{ name }}</strong> {{ day.strftime('%d/%m') }}</label>
+        <input class="form-control text-end {{ 'is-invalid' if field.errors }}" id="{{ field.id }}" name="{{ field.name }}"
+               value="{{ field._value() }}" inputmode="decimal" placeholder="0" {% if day.weekday() < 5 %}data-workday{% endif %}>
+        <div class="form-text small text-nowrap">{% if already.get(day) %}al {{ already[day]|qty }} u{% else %}&nbsp;{% endif %}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% if hours_error %}<div class="invalid-feedback d-block">{{ hours_error }}</div>{% endif %}
+    {% for field in form.hours %}{% for error in field.errors %}<div class="invalid-feedback d-block">{{ field.label.text }} {{ error }}</div>{% endfor %}{% endfor %}
+    <div class="form-text">Per ingevulde dag wordt een registratie gemaakt. "al … u" = wat je die dag al geregistreerd hebt (alle projecten).</div>
+  </div>
+  <div class="col-12">{{ render_field(form.description) }}</div>
+  <div class="col-12">{{ render_field(form.field_service) }}</div>
+  <div class="col-md-8 mb-3" data-field-service>{{ customer_select(form, customers) }}</div>
+  <div class="col-md-4" data-field-service>{{ render_field(form.km) }}</div>
+</div>
