@@ -40,6 +40,7 @@ from ..models import (
     QuoteLineKind,
     PdfDetail,
     QuoteStatus,
+    QuoteTextTemplate,
     ServiceType,
 )
 from ..services import distance
@@ -173,7 +174,7 @@ def edit(quote_id: int | None = None):
         flash(f"Offerte {quote.number} {'aangemaakt' if is_new else 'opgeslagen'}.", "success")
         return redirect(url_for("quotes.detail", quote_id=quote.id))
 
-    return render_template("quotes/edit.html", form=form, quote=quote,
+    return render_template("quotes/edit.html", form=form, quote=quote, text_templates=QuoteTextTemplate.ordered(),
                            cancel_url=url_for("quotes.detail", quote_id=quote.id) if quote else url_for("quotes.index"))
 
 

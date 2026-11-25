@@ -14,6 +14,13 @@
       {{ render_field(form.valid_until, class_="col-md-3") }}
       {{ render_field(form.status, class_="col-md-3") }}
       {{ render_field(form.vat_rate, class_="col-md-3") }}
+      <div class="col-12 mb-2">
+        <label class="form-label" for="text_template">Sjabloon voor de begeleidende tekst</label>
+        <select class="form-select" id="text_template" data-text-template {{ 'disabled' if not text_templates }}>
+          <option value="">{{ '- kies een sjabloon -' if text_templates else '- nog geen sjablonen (een beheerder maakt ze bij Instellingen) -' }}</option>
+          {% for t in text_templates %}<option value="{{ t.id }}" data-body="{{ t.body }}">{{ t.name }}</option>{% endfor %}
+        </select>
+      </div>
       {{ render_field(form.introduction, class_="col-12") }}
       {{ render_field(form.notes, class_="col-12") }}
     </div>
@@ -21,4 +28,7 @@
     <a class="btn btn-link" href="{{ cancel_url }}">Annuleren</a>
   </div></div>
 </form>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/quote_template.js') }}"></script>
 {% endblock %}

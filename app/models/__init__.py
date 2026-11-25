@@ -12,7 +12,7 @@ from .outlook import CalendarEvent, OutlookLink
 from .knowledge import Note, Tag, WikiPage, WikiRevision, note_tags
 from .planning import Assignment, AssignmentKind, is_weekend
 from .setting import AppSetting
-from .quote import PdfDetail, Quote, QuoteLine, QuoteLineKind, QuoteStatus, ServiceType
+from .quote import PdfDetail, Quote, QuoteLine, QuoteLineKind, QuoteStatus, QuoteTextTemplate, ServiceType
 from .timesheet import TimeEntry
 from .login import LoginAttempt
 from .project import Project, ProjectStatus, project_members
@@ -50,6 +50,7 @@ __all__ = [
     "QuoteLine",
     "QuoteLineKind",
     "QuoteStatus",
+    "QuoteTextTemplate",
     "ServiceType",
     "Tag",
     "is_weekend",

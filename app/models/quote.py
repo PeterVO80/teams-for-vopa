@@ -72,6 +72,21 @@ class ServiceType(db.Model):
         return list(db.session.scalars(sa.select(cls).where(cls.active.is_(True)).order_by(cls.position, cls.name)))
 
 
+class QuoteTextTemplate(db.Model):
+    """A ready-made accompanying text (Instellingen), copied into a quote's introduction."""
+
+    __tablename__ = "quote_text_templates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(sa.String(120), unique=True)
+    body: Mapped[str] = mapped_column(sa.Text)
+    position: Mapped[int] = mapped_column(default=0)
+
+    @classmethod
+    def ordered(cls) -> list["QuoteTextTemplate"]:
+        return list(db.session.scalars(sa.select(cls).order_by(cls.position, cls.name)))
+
+
 class Quote(TimestampMixin, db.Model):
     __tablename__ = "quotes"
 

@@ -466,8 +466,8 @@ class QuoteForm(FlaskForm):
     quote_date = DateField("Offertedatum", validators=[Optional()])
     valid_until = DateField("Geldig tot", validators=[Optional()])
     vat_rate = HoursField("Btw (%)", places=2, default=21, validators=[DataRequired(), NumberRange(min=0, max=100)])
-    introduction = TextAreaField("Inleiding voor de klant", validators=[Optional()], render_kw={"rows": 4},
-                                 description="Omschrijving van de opdracht, voorwaarden ... (bovenaan de offerte).")
+    introduction = TextAreaField("Begeleidende tekst voor de klant", validators=[Optional()], render_kw={"rows": 8},
+                                 description="Bovenaan de offerte. Kies hierboven een sjabloon en vul aan waar nodig.")
     notes = TextAreaField("Interne notities", validators=[Optional()], render_kw={"rows": 3},
                           description="Alleen intern, niet voor de klant.")
 

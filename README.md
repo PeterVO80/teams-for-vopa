@@ -225,6 +225,9 @@ optionally linked to a project, with lines in a fixed order:
 A **sent or accepted** quote is locked: only its status can change (back to
 *Concept* unlocks it), or make a copy for a new version.
 
+Template texts for the accompanying text (*Instellingen*): choose one on the
+quote form; it is copied into the quote, where it can be changed or extended.
+
 Per section you choose what the customer sees on the PDF: all details,
 only quantities (no prices) or only the subtotal.
 

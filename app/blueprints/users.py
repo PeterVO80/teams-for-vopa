@@ -149,7 +149,7 @@ def settings():
     if request.method == "POST":
         for key, _ in fields:
             AppSetting.put(key, (request.form.get(key) or "").strip()[:200])
-        errors = _save_service_types()
+        errors = _save_service_types() + _save_text_templates()
         if errors:
             db.session.rollback()
             for error in errors:
@@ -161,10 +161,11 @@ def settings():
     values = {key: AppSetting.get(key) or "" for key, _ in fields}
     if not values["office.country"]:
         values["office.country"] = "België"
-    from ..models import ServiceType
+    from ..models import QuoteTextTemplate, ServiceType
 
     service_types = db.session.scalars(sa.select(ServiceType).order_by(ServiceType.position, ServiceType.name)).all()
     return render_template("users/settings.html", fields=fields, values=values, service_types=service_types,
+                           text_templates=QuoteTextTemplate.ordered(),
                            provider=distance.provider_name())
 
 
@@ -220,4 +221,37 @@ def _save_service_types() -> list[str]:
         names.append(name.lower())
     if len(names) != len(set(names)):
         errors.append("Elke dienst moet een andere naam hebben.")
+    return errors
+
+
+def _save_text_templates() -> list[str]:
+    """Template texts for the accompanying text of quotes: edit, add, remove."""
+    from ..models import QuoteTextTemplate
+
+    errors: list[str] = []
+    templates = db.session.scalars(sa.select(QuoteTextTemplate)).all()
+    for template in templates:
+        prefix = f"template-{template.id}-"
+        if f"{prefix}name" not in request.form:
+            continue
+        if request.form.get(f"{prefix}delete"):
+            db.session.delete(template)    # quotes keep their own copy of the text
+            continue
+        name = " ".join((request.form.get(f"{prefix}name") or "").split())[:120]
+        body = (request.form.get(f"{prefix}body") or "").strip()
+        if not name or not body:
+            errors.append("Een sjabloontekst heeft een naam en een tekst nodig.")
+            continue
+        template.name, template.body = name, body
+    name = " ".join((request.form.get("template-new-name") or "").split())[:120]
+    body = (request.form.get("template-new-body") or "").strip()
+    if name or body:
+        if not (name and body):
+            errors.append("Een nieuwe sjabloontekst heeft een naam en een tekst nodig.")
+        else:
+            position = max((t.position for t in templates), default=0) + 10
+            db.session.add(QuoteTextTemplate(name=name, body=body, position=position))
+    names = [t.name.lower() for t in templates if t not in db.session.deleted] + ([name.lower()] if name and body else [])
+    if len(names) != len(set(names)):
+        errors.append("Elke sjabloontekst moet een andere naam hebben.")
     return errors

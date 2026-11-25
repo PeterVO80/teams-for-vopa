@@ -307,3 +307,33 @@ def test_pdf_detail_per_section(client):
     copy = db.session.scalars(sa.select(Quote).order_by(Quote.id.desc())).first()
     assert [l.pdf_detail for l in copy.lines if l.kind == QuoteLineKind.SECTION] == [
         PdfDetail.QUANTITIES, PdfDetail.TOTAL, PdfDetail.FULL]
+
+
+def test_text_templates_for_the_accompanying_text(client):
+    from app.models import QuoteTextTemplate
+
+    html = client.get("/quotes/new").get_data(as_text=True)
+    assert "nog geen sjablonen" in html
+    client.post("/users/settings", data={"company.name": "VOPA", "template-new-name": "Standaard retrofit",
+                                         "template-new-body": "Geachte,\n\nHierbij onze offerte voor de retrofit."})
+    template = db.session.scalar(sa.select(QuoteTextTemplate))
+    assert template.name == "Standaard retrofit" and template.body.startswith("Geachte,")
+
+    html = client.get("/quotes/new").get_data(as_text=True)
+    assert "data-text-template" in html and 'data-body="Geachte,\n\nHierbij onze offerte voor de retrofit."' in html
+    assert "Begeleidende tekst voor de klant" in html and "quote_template.js" in html
+
+    # The quote keeps its own (adapted) copy: changing the template later doesn't touch it.
+    quote = new_quote(client, introduction=template.body + "\nUitvoering in week 12.")
+    client.post("/users/settings", data={"company.name": "VOPA", f"template-{template.id}-name": "Standaard retrofit",
+                                         f"template-{template.id}-body": "Nieuwe tekst"})
+    db.session.refresh(quote)
+    assert quote.introduction.endswith("Uitvoering in week 12.") and db.session.get(QuoteTextTemplate, template.id).body == "Nieuwe tekst"
+
+    # Name and text are required; delete.
+    response = client.post("/users/settings", follow_redirects=True,
+                           data={"company.name": "VOPA", "template-new-name": "Zonder tekst"})
+    assert "naam en een tekst nodig" in response.get_data(as_text=True)
+    client.post("/users/settings", data={"company.name": "VOPA", f"template-{template.id}-name": "Standaard retrofit",
+                                         f"template-{template.id}-body": "x", f"template-{template.id}-delete": "y"})
+    assert db.session.scalar(sa.select(sa.func.count(QuoteTextTemplate.id))) == 0
