@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Herstelcodes{% endblock %}
+{% block content %}
+<div class="card shadow-sm mx-auto" style="max-width: 640px">
+  <div class="card-body p-4">
+    {% if first %}
+    <div class="alert alert-success"><i class="bi bi-check-circle"></i> Tweestapsverificatie is ingesteld.</div>
+    {% endif %}
+    <h1 class="h5">Je herstelcodes</h1>
+    <p class="small">Met een herstelcode meld je je aan als je je gsm kwijt bent of de app niet werkt. Elke code werkt
+      <strong>één keer</strong>. <strong>Bewaar ze nu</strong> op een veilige plek (afdrukken, of in een wachtwoordkluis):
+      ze worden maar één keer getoond.</p>
+    <div class="row row-cols-2 g-2 mb-3 font-monospace fs-5 text-center">
+      {% for code in codes %}<div class="col"><div class="border rounded py-1 user-select-all">{{ code }}</div></div>{% endfor %}
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-primary" href="{{ target }}"><i class="bi bi-check-lg"></i> Ik heb ze bewaard</a>
+      <button class="btn btn-outline-secondary" type="button" data-print><i class="bi bi-printer"></i> Afdrukken</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce() }}">
+  document.querySelector("[data-print]")?.addEventListener("click", () => window.print());
+</script>
+{% endblock %}

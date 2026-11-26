@@ -59,6 +59,7 @@
     </button>
     <ul class="dropdown-menu dropdown-menu-end">
       <li><a class="dropdown-item" href="{{ url_for('auth.change_password') }}"><i class="bi bi-key"></i> Wachtwoord wijzigen</a></li>
+      <li><a class="dropdown-item" href="{{ url_for('auth.mfa_manage') }}"><i class="bi bi-shield-lock"></i> Tweestapsverificatie</a></li>
       {% if current_user.is_admin %}
       <li><a class="dropdown-item" href="{{ url_for('users.index') }}"><i class="bi bi-person-gear"></i> Gebruikersbeheer</a></li>
       <li><a class="dropdown-item" href="{{ url_for('users.outlook_status') }}"><i class="bi bi-microsoft"></i> Outlook-koppeling</a></li>

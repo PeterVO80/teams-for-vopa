@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import render_field %}
+{% from "_macros.html" import render_field, post_button %}
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
 <form method="post" novalidate>
@@ -45,6 +45,21 @@
   <a class="btn btn-link" href="{{ cancel_url }}">Annuleren</a>
 </div>
 </form>
+{% if user %}
+<div class="card mt-3" style="max-width: 640px"><div class="card-body d-flex flex-wrap align-items-center gap-3">
+  <div class="me-auto">
+    <strong><i class="bi bi-shield-lock"></i> Tweestapsverificatie</strong><br>
+    {% if user.mfa_enabled %}<span class="badge text-bg-success">Actief</span>
+      <span class="small text-body-secondary">sinds {{ user.mfa_enabled_at|datetime }}</span>
+    {% else %}<span class="badge text-bg-secondary">Niet ingesteld</span>
+      <span class="small text-body-secondary">{{ 'wordt bij de volgende aanmelding ingesteld' if mfa_required else '' }}</span>{% endif %}
+  </div>
+  {% if user.mfa_enabled %}
+  {{ post_button(url_for('users.reset_mfa', user_id=user.id), 'Resetten (nieuwe gsm)', icon='arrow-counterclockwise',
+                 class_='btn btn-outline-danger', confirm='Tweestapsverificatie van ' ~ user.full_name ~ ' resetten? De authenticator-app en de herstelcodes werken dan niet meer; bij de volgende aanmelding stelt die persoon ze opnieuw in.') }}
+  {% endif %}
+</div></div>
+{% endif %}
 {% endblock %}
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/module_access.js') }}"></script>

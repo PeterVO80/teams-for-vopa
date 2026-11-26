@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_field %}
+{% block title %}Tweestapsverificatie{% endblock %}
+{% block content %}
+<div class="card" style="max-width: 680px"><div class="card-body">
+  {% if current_user.mfa_enabled %}
+  <p><span class="badge text-bg-success"><i class="bi bi-shield-check"></i> Actief</span>
+    sinds {{ current_user.mfa_enabled_at|datetime }}. Bij het aanmelden met je wachtwoord vraagt VOPA Teams een code
+    uit je authenticator-app.</p>
+  <p class="small text-body-secondary mb-3">Nog <strong>{{ remaining }}</strong> ongebruikte herstelcode{{ 's' if remaining != 1 }}.
+    {% if remaining <= 3 %}<span class="text-warning-emphasis">Maak nieuwe aan.</span>{% endif %}</p>
+
+  <h2 class="h6 mt-4">Nieuwe herstelcodes</h2>
+  <p class="small text-body-secondary">De oude herstelcodes werken daarna niet meer. Bevestig met de huidige code uit je app.</p>
+  <form method="post" class="d-flex gap-2 align-items-start" novalidate style="max-width: 420px">
+    {{ form.hidden_tag() }}
+    <div class="flex-grow-1">{{ render_field(form.code) }}</div>
+    <button class="btn btn-outline-primary mt-4" type="submit">Nieuwe codes</button>
+  </form>
+
+  <h2 class="h6 mt-4">Nieuwe gsm</h2>
+  <p class="small text-body-secondary">Stel de authenticator-app opnieuw in op een ander toestel.</p>
+  <a class="btn btn-outline-secondary" href="{{ url_for('auth.mfa_setup') }}"><i class="bi bi-phone"></i> Opnieuw instellen</a>
+  {% else %}
+  <p><span class="badge text-bg-secondary">Niet ingesteld</span></p>
+  {% if microsoft_only %}
+  <p class="small">Je meldt je aan met Microsoft 365; Microsoft vraagt daar zelf de tweede stap.</p>
+  {% else %}
+  <p class="small">{% if required %}Tweestapsverificatie is verplicht: stel ze nu in.{% else %}Beveilig je account met een code uit je gsm.{% endif %}</p>
+  <a class="btn btn-primary" href="{{ url_for('auth.mfa_setup') }}"><i class="bi bi-shield-lock"></i> Instellen</a>
+  {% endif %}
+  {% endif %}
+</div></div>
+{% endblock %}

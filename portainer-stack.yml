@@ -50,6 +50,7 @@
 #   MS365_CATEGORY_COLOR optional - default colour of the "VOPA Teams" category (default: oranje)
 #   MICROSOFT_LOGIN    optional - off / on / required: log in with Microsoft 365 (see README)
 #   GOOGLE_MAPS_API_KEY optional - distances to customers via Google Maps instead of OpenStreetMap
+#   MFA_REQUIRED       optional - two-step login (authenticator app) for local accounts (default: true)
 #   APP_URL            optional - address of the app (default: https://<DOMAIN>)
 #   BACKUP_KEEP_DAYS   optional - days to keep the automatic daily back-ups (default: 14)
 # ---------------------------------------------------------------------------
@@ -73,6 +74,7 @@ x-app-env: &app-env
   MS365_CATEGORY_COLOR: ${MS365_CATEGORY_COLOR:-oranje}
   MICROSOFT_LOGIN: ${MICROSOFT_LOGIN:-off}
   GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+  MFA_REQUIRED: ${MFA_REQUIRED:-true}
   APP_URL: ${APP_URL:-}
   BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
 

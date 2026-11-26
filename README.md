@@ -288,6 +288,24 @@ customer's distance from the office (there and back); both can be changed.
   shows the hours per day per employee for a period - by default the previous
   month - and downloads as PDF (ReportLab).
 
+### Two-step login (authenticator app)
+
+Local accounts (user name + password) log in with a second step: the 6-digit
+code of an authenticator app (Microsoft Authenticator, Google Authenticator, a
+password manager). With `MFA_REQUIRED=true` (default) every local account sets
+it up at its next login: scan the QR code, confirm with a code, keep the 10
+one-time recovery codes. "Aanmelden met Microsoft" is not affected (Microsoft
+does its own MFA).
+
+* Own settings: user menu > *Tweestapsverificatie* (new recovery codes, new phone).
+* Lost phone: log in with a recovery code, or an administrator resets it
+  (*Gebruikers > Bewerken > Resetten*). Last administrator locked out:
+  `docker exec -it <web container> flask reset-mfa <username>`.
+* Secrets are stored encrypted with a key derived from `SECRET_KEY`: changing
+  `SECRET_KEY` means everybody sets up again (reset them, or `flask reset-mfa`).
+* Wrong codes count as failed logins (blocked after 5 for 15 minutes); each
+  code works only once.
+
 ### Useful commands
 
 ```bash

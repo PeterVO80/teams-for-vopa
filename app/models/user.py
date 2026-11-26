@@ -55,6 +55,15 @@ class User(UserMixin, TimestampMixin, db.Model):
     #: Result of setting the colour of the "VOPA Teams" category in Outlook.
     outlook_category: Mapped[str | None] = mapped_column(sa.String(300))
 
+    # --- Two-step login with an authenticator app, see services/mfa.py -------
+    #: TOTP secret, encrypted with a key derived from SECRET_KEY.
+    mfa_secret: Mapped[str | None] = mapped_column(sa.Text)
+    mfa_enabled_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    #: Last used 30-second time step: every code works only once.
+    mfa_last_step: Mapped[int | None] = mapped_column(sa.BigInteger)
+    #: JSON list of hashed one-time recovery codes.
+    mfa_recovery_codes: Mapped[str | None] = mapped_column(sa.Text)
+
     # ------------------------------------------------------------------ auth
     def set_password(self, password: str) -> None:
         """Hash and store ``password`` (the plain text is never stored)."""
@@ -93,6 +102,10 @@ class User(UserMixin, TimestampMixin, db.Model):
 
     def can_write(self, module: str) -> bool:
         return self.access_level(module) == WRITE
+
+    @property
+    def mfa_enabled(self) -> bool:
+        return bool(self.mfa_secret and self.mfa_enabled_at)
 
     @property
     def access_summary(self) -> str:

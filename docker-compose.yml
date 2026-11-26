@@ -44,6 +44,7 @@ services:
       MS365_CATEGORY_COLOR: ${MS365_CATEGORY_COLOR:-oranje}
       MICROSOFT_LOGIN: ${MICROSOFT_LOGIN:-off}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      MFA_REQUIRED: ${MFA_REQUIRED:-true}
       APP_URL: ${APP_URL:-}
     volumes:
       - app_backups:/app/backups   # Back-ups page in the app
@@ -72,6 +73,7 @@ services:
       MS365_CATEGORY_COLOR: ${MS365_CATEGORY_COLOR:-oranje}
       MICROSOFT_LOGIN: ${MICROSOFT_LOGIN:-off}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      MFA_REQUIRED: ${MFA_REQUIRED:-true}
       APP_URL: ${APP_URL:-}
 
 volumes:

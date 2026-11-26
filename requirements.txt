@@ -20,6 +20,9 @@ markdown-it-py==4.3.0  # Markdown -> HTML (notes & wiki), same dialect as the ed
 mdit-py-plugins==0.7.0 # task lists, heading anchors
 linkify-it-py==2.2.0   # plain web addresses become links
 nh3==0.2.18            # HTML sanitising of rendered Markdown (XSS protection)
+pyotp==2.9.0           # two-step login: authenticator-app codes (TOTP)
+segno==1.6.1           # QR code to set up the authenticator app
+cryptography==44.0.0   # two-step login secrets stored encrypted
 
 # --- Runtime -----------------------------------------------------------------
 gunicorn==23.0.0

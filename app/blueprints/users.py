@@ -3,7 +3,7 @@
 import secrets
 
 import sqlalchemy as sa
-from flask import abort, flash, redirect, render_template, request, url_for
+from flask import abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from ..modules import FULL_ACCESS, MODULE_KEYS, MODULES, READ, WRITE, dump_access, parse_access
@@ -79,6 +79,8 @@ def edit(user_id: int | None = None):
     return render_template(
         "users/edit.html",
         form=form,
+        user=user,
+        mfa_required=current_app.config.get("MFA_REQUIRED"),
         modules=MODULES,
         levels=levels,
         title="Gebruiker bewerken" if user else "Nieuwe gebruiker",
@@ -95,6 +97,21 @@ def _submitted_levels() -> dict[str, str]:
         elif request.form.get(f"read_{key}"):
             levels[key] = READ
     return levels
+
+
+@bp.route("/<int:user_id>/reset-mfa", methods=["POST"])
+@admin_required
+def reset_mfa(user_id: int):
+    """Remove someone's two-step login (new / lost phone): set up again at the next login."""
+    from ..services import mfa
+
+    user = db.get_or_404(User, user_id)
+    mfa.reset(user)
+    db.session.commit()
+    current_app.logger.warning("Tweestapsverificatie van %s gereset door %s", user.username, current_user.username)
+    flash(f"Tweestapsverificatie van {user.full_name} gereset: bij de volgende aanmelding stelt die ze opnieuw in.",
+          "success")
+    return redirect(url_for("users.edit", user_id=user.id))
 
 
 @bp.route("/outlook", methods=["GET", "POST"])

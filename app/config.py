@@ -30,6 +30,9 @@ class Config:
     #: Log in with the Microsoft 365 account: off / on / required
     #: (services/microsoft_login.py). Uses the MS365_* app registration.
     MICROSOFT_LOGIN = os.environ.get("MICROSOFT_LOGIN", "off")
+    #: Two-step login (authenticator app) required for every local account
+    #: (services/mfa.py). On by default; "false" only for a test server.
+    MFA_REQUIRED = os.environ.get("MFA_REQUIRED", "true").lower() not in ("0", "false", "no", "off")
 
     #: Public domain name (e.g. teams.vopa.be) when running on the internet.
     DOMAIN = os.environ.get("DOMAIN", "").strip()
@@ -93,3 +96,5 @@ class TestConfig(Config):
     BACKUP_DIR = os.path.join(tempfile.gettempdir(), "vopa-teams-test-backups")
     SQLALCHEMY_ENGINE_OPTIONS: dict = {}
     WTF_CSRF_ENABLED = False
+    #: Most tests log in with just a password; tests/test_mfa.py switches it on.
+    MFA_REQUIRED = False

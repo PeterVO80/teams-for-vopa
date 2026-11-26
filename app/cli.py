@@ -67,6 +67,23 @@ def register_cli(app: Flask) -> None:
         db.session.commit()
         click.echo(f"Gebruiker '{username}' aangemaakt.")
 
+    @app.cli.command("reset-mfa")
+    @click.argument("username")
+    def reset_mfa(username):
+        """Remove a user's two-step login (lost phone, also the last administrator).
+
+        The user sets up the authenticator app again at the next login.
+        In the container: docker exec -it <web container> flask reset-mfa <username>
+        """
+        from .services import mfa
+
+        user = db.session.scalar(sa.select(User).filter_by(username=username))
+        if user is None:
+            raise click.ClickException(f"Gebruiker '{username}' bestaat niet.")
+        mfa.reset(user)
+        db.session.commit()
+        click.echo(f"Tweestapsverificatie van '{username}' gereset: bij de volgende aanmelding opnieuw instellen.")
+
     @app.cli.command("ensure-admin")
     def ensure_admin():
         """Create the admin from ADMIN_* env vars when no users exist yet.

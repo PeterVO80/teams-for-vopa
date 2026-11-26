@@ -1,5 +1,21 @@
-"""Authentication: log in, log out and change own password."""
+"""Authentication: log in (password + authenticator-app code, or Microsoft),
+log out, change own password and manage the two-step login.
 
+Password login with two-step verification (services/mfa.py):
+
+1. ``/auth/login``: user name + password. When right, the user is *not* logged
+   in yet: the pending login is kept in the session (10 minutes).
+2. ``/auth/mfa``: the 6-digit code (or a recovery code) -> logged in.
+   ``/auth/mfa/setup`` first, when the account has no authenticator app yet
+   and two-step login is required: scan the QR code, confirm with a code,
+   write down the recovery codes.
+
+Wrong codes count as failed logins (blocking after too many). A right
+password alone is not recorded as a successful login, so it can't reset the
+counter of wrong codes.
+"""
+
+import time
 from datetime import timedelta
 
 import sqlalchemy as sa
@@ -7,10 +23,10 @@ from flask import Blueprint, abort, current_app, flash, redirect, render_templat
 from flask_login import current_user, login_required, login_user, logout_user
 
 from ..extensions import db, login_manager
-from ..forms import ChangePasswordForm, LoginForm
+from ..forms import ChangePasswordForm, LoginForm, MfaCodeForm
 from ..models import LoginAttempt, User
 from ..models.base import utcnow
-from ..services import microsoft_login
+from ..services import mfa, microsoft_login
 from ..utils import next_url
 
 bp = Blueprint("auth", __name__)
@@ -50,10 +66,14 @@ def login():
             # keep their password as an emergency entrance.
             flash("Meld je aan met je Microsoft-account.", "warning")
             return render_template("auth/login.html", form=form, microsoft=microsoft_login.mode())
-        db.session.add(LoginAttempt(username=username.lower()[:150], ip=ip[:64], success=ok))
-        # Keep the log small: 90 days is plenty to look back at suspicious attempts.
-        db.session.execute(sa.delete(LoginAttempt).where(LoginAttempt.created_at < utcnow() - timedelta(days=90)))
-        db.session.commit()
+        if ok and mfa.needed_for(user):
+            # Right password: on to the second step (not logged in yet).
+            target = next_url(url_for("main.dashboard"))
+            session.clear()
+            session[PENDING] = {"user": user.id, "remember": bool(form.remember.data), "next": target,
+                                "at": int(time.time())}
+            return redirect(url_for("auth.mfa_verify" if user.mfa_enabled else "auth.mfa_setup"))
+        _record(username, ip, ok)
         if not ok:
             # Same message for unknown user and wrong password: do not reveal
             # which usernames exist.
@@ -99,6 +119,120 @@ def microsoft_callback():
     target = flow.get("next") if flow else None
     return redirect(target if target and target.startswith("/") and not target.startswith("//")
                     else url_for("main.dashboard"))
+
+
+def _record(username: str, ip: str, success: bool) -> None:
+    """Log a login attempt (and keep the log at 90 days)."""
+    db.session.add(LoginAttempt(username=username.lower()[:150], ip=ip[:64], success=success))
+    db.session.execute(sa.delete(LoginAttempt).where(LoginAttempt.created_at < utcnow() - timedelta(days=90)))
+    db.session.commit()
+
+
+# ------------------------------------------------------------------ two-step login
+#: Session key of a login waiting for its second step, and how long it may wait.
+PENDING = "mfa_pending"
+PENDING_SECONDS = 600
+#: Session key of a secret being set up (encrypted: the session cookie is only signed).
+SETUP_SECRET = "mfa_setup_secret"
+
+
+def _pending_user() -> User | None:
+    """The user whose password was right and who still has to give a code."""
+    pending = session.get(PENDING)
+    if not pending or int(time.time()) - pending.get("at", 0) > PENDING_SECONDS:
+        session.pop(PENDING, None)
+        return None
+    user = db.session.get(User, pending.get("user") or 0)
+    return user if user is not None and user.active else None
+
+
+def _finish_login(user: User):
+    pending = session.get(PENDING) or {}
+    session.clear()   # fresh session after login (no session fixation)
+    login_user(user, remember=bool(pending.get("remember")))
+    target = pending.get("next") or ""
+    return target if target.startswith("/") and not target.startswith("//") else url_for("main.dashboard")
+
+
+@bp.route("/mfa", methods=["GET", "POST"])
+def mfa_verify():
+    """Second step of the login: the code from the authenticator app (or a recovery code)."""
+    user = _pending_user()
+    if user is None:
+        flash("Meld je opnieuw aan.", "warning")
+        return redirect(url_for("auth.login"))
+    if not user.mfa_enabled:
+        return redirect(url_for("auth.mfa_setup"))
+    form = MfaCodeForm()
+    ip = request.remote_addr or "?"
+    if form.validate_on_submit():
+        if is_blocked(user.username, ip):
+            flash(f"Te veel mislukte aanmeldpogingen. Probeer het over {LOCK_MINUTES} minuten opnieuw.", "danger")
+            return render_template("auth/mfa_verify.html", form=form), 429
+        used = mfa.verify(user, form.code.data)
+        _record(user.username, ip, used is not None)
+        if used is None:
+            current_app.logger.warning("Foute verificatiecode voor %r vanaf %s", user.username, ip)
+            form.code.errors.append("Ongeldige of al gebruikte code. Probeer de volgende code van de app.")
+        else:
+            target = _finish_login(user)
+            if used == "recovery":
+                left = mfa.remaining_recovery_codes(user)
+                flash(f"Je hebt een herstelcode gebruikt; er blijven er nog {left} over. "
+                      "Maak nieuwe aan via Tweestapsverificatie als je gsm kwijt is.", "warning")
+            return redirect(target)
+    return render_template("auth/mfa_verify.html", form=form)
+
+
+@bp.route("/mfa/setup", methods=["GET", "POST"])
+def mfa_setup():
+    """Set up the authenticator app: during the login (required) or later from the account menu."""
+    pending = None if current_user.is_authenticated else _pending_user()
+    user = current_user if current_user.is_authenticated else pending
+    if user is None:
+        return redirect(url_for("auth.login"))
+    if pending is not None and pending.mfa_enabled:
+        return redirect(url_for("auth.mfa_verify"))       # already set up: just the code
+    secret = mfa.decrypt(session.get(SETUP_SECRET))
+    if not secret:
+        secret = mfa.new_secret()
+        session[SETUP_SECRET] = mfa.encrypt(secret)
+    form = MfaCodeForm()
+    if form.validate_on_submit():
+        step = mfa.check_new_secret(secret, form.code.data)
+        if step is None:
+            form.code.errors.append("Deze code klopt niet. Controleer of je de QR-code van deze pagina hebt gescand "
+                                    "en of de klok van je gsm juist staat.")
+        else:
+            codes = mfa.enable(user, secret, step)
+            db.session.commit()
+            current_app.logger.info("Tweestapsverificatie ingesteld voor %s", user.username)
+            target = url_for("main.dashboard")
+            if pending is not None:
+                _record(user.username, request.remote_addr or "?", True)
+                target = _finish_login(user)
+            session.pop(SETUP_SECRET, None)
+            return render_template("auth/mfa_recovery.html", codes=codes, target=target, first=True)
+    uri = mfa.provisioning_uri(secret, user.username)
+    return render_template("auth/mfa_setup.html", form=form, qr=mfa.qr_data_uri(uri), secret=mfa.grouped(secret),
+                           forced=pending is not None, replacing=current_user.is_authenticated and user.mfa_enabled)
+
+
+@bp.route("/mfa/manage", methods=["GET", "POST"])
+@login_required
+def mfa_manage():
+    """Status of the own two-step login; new recovery codes (with a valid code)."""
+    form = MfaCodeForm()
+    if form.validate_on_submit() and current_user.mfa_enabled:
+        if not mfa.confirm(current_user, form.code.data):
+            form.code.errors.append("Ongeldige code: geef de huidige code uit je authenticator-app.")
+        else:
+            codes = mfa.new_recovery_codes(current_user)
+            db.session.commit()
+            return render_template("auth/mfa_recovery.html", codes=codes, target=url_for("auth.mfa_manage"), first=False)
+    return render_template("auth/mfa_manage.html", form=form, required=mfa.required(),
+                           remaining=mfa.remaining_recovery_codes(current_user),
+                           microsoft_only=bool(current_user.ms_oid) and microsoft_login.required())
 
 
 #: Login protection: after MAX_USER_FAILURES wrong passwords for one user name

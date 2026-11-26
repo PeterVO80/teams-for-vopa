@@ -15,7 +15,8 @@
       <td>{{ user.email or '' }}</td>
       <td>{{ user.role.label }}</td>
       <td class="small" title="Lezen/schrijven per module: zie Bewerken">{{ user.access_summary }}</td>
-      <td>{% if user.active %}<span class="badge text-bg-success">Actief</span>{% else %}<span class="badge text-bg-secondary">Inactief</span>{% endif %}</td>
+      <td>{% if user.active %}<span class="badge text-bg-success">Actief</span>{% else %}<span class="badge text-bg-secondary">Inactief</span>{% endif %}
+        {% if user.mfa_enabled %}<i class="bi bi-shield-check text-success ms-1" title="Tweestapsverificatie actief"></i>{% endif %}</td>
       <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('users.edit', user_id=user.id) }}"><i class="bi bi-pencil"></i></a></td>
     </tr>
   {% endfor %}

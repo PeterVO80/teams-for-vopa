@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_field %}
+{% block title %}Tweestapsverificatie instellen{% endblock %}
+{% block page_header %}{% if not forced %}{{ super() }}{% endif %}{% endblock %}
+{% block content %}
+<div class="card shadow-sm mx-auto {{ 'mt-4' if forced }}" style="max-width: 640px">
+  <div class="card-body p-4">
+    <h1 class="h4 mb-3"><i class="bi bi-shield-lock"></i> Tweestapsverificatie instellen</h1>
+    {% if forced %}
+    <div class="alert alert-info small">Voor je account is tweestapsverificatie verplicht. Stel ze nu één keer in;
+      daarna vraagt VOPA Teams bij het aanmelden naast je wachtwoord een code uit je gsm.</div>
+    {% elif replacing %}
+    <div class="alert alert-warning small">Je stelt een <strong>nieuwe</strong> authenticator-app in (bv. een nieuwe gsm).
+      Zodra je bevestigt, werken de codes van de oude app en je oude herstelcodes niet meer.</div>
+    {% endif %}
+    <ol class="ps-3">
+      <li class="mb-2">Installeer een authenticator-app op je gsm, bv. <strong>Microsoft Authenticator</strong>
+        of Google Authenticator (of gebruik je wachtwoordbeheerder).</li>
+      <li class="mb-2">Kies in de app <em>Account toevoegen</em> en scan deze QR-code:
+        <div class="text-center my-3"><img src="{{ qr }}" alt="QR-code voor de authenticator-app" width="220" height="220" class="border rounded"></div>
+        <div class="small text-body-secondary">Scannen lukt niet? Voer de sleutel handmatig in:
+          <code class="user-select-all fs-6">{{ secret }}</code> (type: op tijd gebaseerd).</div>
+      </li>
+      <li>Vul ter controle de 6-cijferige code in die de app nu toont:</li>
+    </ol>
+    <form method="post" novalidate style="max-width: 280px">
+      {{ form.hidden_tag() }}
+      {{ render_field(form.code) }}
+      <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg"></i> Bevestigen</button>
+      {% if forced %}<a class="btn btn-link" href="{{ url_for('auth.login') }}">Annuleren</a>
+      {% else %}<a class="btn btn-link" href="{{ url_for('auth.mfa_manage') }}">Annuleren</a>{% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}

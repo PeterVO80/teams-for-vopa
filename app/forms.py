@@ -510,3 +510,11 @@ class ContactForm(FlaskForm):
     mobile = StringField("GSM", validators=[Optional(), Length(max=50)])
     notes = TextAreaField("Opmerkingen", validators=[Optional()], render_kw={"rows": 2})
     active = BooleanField("Actief", default=True, description="Uitvinken als de persoon er niet meer werkt.")
+
+
+class MfaCodeForm(FlaskForm):
+    """The 6-digit code of the authenticator app, or a recovery code (blueprints/auth.py)."""
+
+    code = StringField("Code", validators=[DataRequired(message="Vul de code in."), Length(max=20)],
+                       render_kw={"autocomplete": "one-time-code", "autofocus": True, "autocapitalize": "off",
+                                  "spellcheck": "false", "placeholder": "123456"})
