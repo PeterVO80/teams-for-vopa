@@ -208,6 +208,19 @@ catalogi, Stock, Relaties, Notities, Wiki), **Lezen** (view) and/or
 Which projects someone sees is a separate rule (members and the project
 manager, see `app/access.py`). Code: `app/modules.py`, `app/permissions.py`.
 
+### Installing as an app (PWA)
+
+The site is an installable web app: Android (Chrome, Edge, Samsung Internet,
+Firefox) "App installeren", iPhone / iPad (Safari) Share > "Zet op
+beginscherm", Windows / Mac (Chrome, Edge) the install icon in the address
+bar. Firefox on a computer can't install web apps. Requires HTTPS (a
+`DOMAIN`): on a plain-http test server the browser won't offer it.
+
+`blueprints/pwa.py` serves the manifest (`/manifest.webmanifest`: name, icons
+in `static/icons`, colours, shortcuts), the service worker (`/sw.js`) and
+`/offline`. The service worker keeps no business data on the device: pages
+always come from the server; only the offline page and its files are cached.
+
 ### Contact persons
 
 *Relaties > Contactpersonen*: people (name, first name, function, e-mail,
